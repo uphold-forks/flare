@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ava-labs/gecko/sc"
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/utils/codec"
 	"github.com/ava-labs/gecko/utils/formatting"
@@ -21,7 +22,7 @@ import (
 	"github.com/ava-labs/gecko/vms/secp256k1fx"
 	"github.com/ava-labs/gecko/vms/spchainvm"
 	"github.com/ava-labs/gecko/vms/spdagvm"
-	"github.com/ava-labs/gecko/vms/timestampvm"
+	// "github.com/ava-labs/gecko/vms/timestampvm"
 )
 
 // ID of the EVM VM
@@ -127,8 +128,8 @@ func FromConfig(networkID uint32, config *Config) ([]byte, error) {
 	}
 
 	genesisTime := time.Date(
-		/*year=*/ 2019,
-		/*month=*/ time.November,
+		/*year=*/ 2020,
+		/*month=*/ time.September,
 		/*day=*/ 1,
 		/*hour=*/ 0,
 		/*minute=*/ 0,
@@ -136,11 +137,11 @@ func FromConfig(networkID uint32, config *Config) ([]byte, error) {
 		/*nano-second=*/ 0,
 		/*location=*/ time.UTC,
 	)
-	stakingDuration := 365 * 24 * time.Hour // ~ 1 year
+	stakingDuration := 100 * 365 * 24 * time.Hour // ~ 100 years
 	endStakingTime := genesisTime.Add(stakingDuration)
 
 	for i, validatorID := range config.ParsedStakerIDs {
-		weight := json.Uint64(20 * units.KiloAva)
+		weight := json.Uint64(sc.UNL[i])
 		platformvmArgs.Validators = append(platformvmArgs.Validators,
 			platformvm.APIDefaultSubnetValidator{
 				APIValidator: platformvm.APIValidator{
@@ -149,7 +150,7 @@ func FromConfig(networkID uint32, config *Config) ([]byte, error) {
 					Weight:    &weight,
 					ID:        validatorID,
 				},
-				Destination: config.ParsedFundedAddresses[i%len(config.ParsedFundedAddresses)],
+				Destination: validatorID,
 			},
 		)
 	}
@@ -173,24 +174,24 @@ func FromConfig(networkID uint32, config *Config) ([]byte, error) {
 			VMID:        EVMID,
 			Name:        "C-Chain",
 		},
-		{
-			GenesisData: spdagvmReply.Bytes,
-			SubnetID:    platformvm.DefaultSubnetID,
-			VMID:        spdagvm.ID,
-			Name:        "Simple DAG Payments",
-		},
-		{
-			GenesisData: spchainvmReply.Bytes,
-			SubnetID:    platformvm.DefaultSubnetID,
-			VMID:        spchainvm.ID,
-			Name:        "Simple Chain Payments",
-		},
-		{
-			GenesisData: formatting.CB58{Bytes: []byte{}}, // There is no genesis data
-			SubnetID:    platformvm.DefaultSubnetID,
-			VMID:        timestampvm.ID,
-			Name:        "Simple Timestamp Server",
-		},
+		// {
+		// 	GenesisData: spdagvmReply.Bytes,
+		// 	SubnetID:    platformvm.DefaultSubnetID,
+		// 	VMID:        spdagvm.ID,
+		// 	Name:        "Simple DAG Payments",
+		// },
+		// {
+		// 	GenesisData: spchainvmReply.Bytes,
+		// 	SubnetID:    platformvm.DefaultSubnetID,
+		// 	VMID:        spchainvm.ID,
+		// 	Name:        "Simple Chain Payments",
+		// },
+		// {
+		// 	GenesisData: formatting.CB58{Bytes: []byte{}}, // There is no genesis data
+		// 	SubnetID:    platformvm.DefaultSubnetID,
+		// 	VMID:        timestampvm.ID,
+		// 	Name:        "Simple Timestamp Server",
+		// },
 	}
 
 	platformvmArgs.Time = json.Uint64(genesisTime.Unix())
