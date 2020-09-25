@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	coreth "github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/rpc"
 	"github.com/ava-labs/go-ethereum/accounts"
 	"github.com/ava-labs/go-ethereum/accounts/keystore"
@@ -34,7 +35,7 @@ import (
 	"github.com/ava-labs/go-ethereum/common/math"
 	"github.com/ava-labs/go-ethereum/consensus/clique"
 	"github.com/ava-labs/go-ethereum/consensus/ethash"
-	"github.com/ava-labs/go-ethereum/core"
+	// "github.com/ava-labs/go-ethereum/core"
 	"github.com/ava-labs/go-ethereum/core/rawdb"
 	"github.com/ava-labs/go-ethereum/core/types"
 	"github.com/ava-labs/go-ethereum/core/vm"
@@ -856,8 +857,8 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNr rpc.BlockNumb
 
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
-	gp := new(core.GasPool).AddGas(math.MaxUint64)
-	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
+	gp := new(coreth.GasPool).AddGas(math.MaxUint64)
+	res, gas, failed, err := coreth.CoreEthApplyMessage(evm, msg, gp)
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
 	}
