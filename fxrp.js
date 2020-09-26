@@ -263,7 +263,7 @@ async function updateClaimsInProgress(status) {
 }
 
 function claimProcessingCompleted() {
-	console.log('Claim processing completed.');
+	console.log('Claim-period processing complete, waiting for a new claim-period.');
 	xrplAPI.disconnect()
 	.then(() => {
 		return sleep(5000)
