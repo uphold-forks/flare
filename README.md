@@ -1,6 +1,6 @@
 # Flare
 
-Flare is a next-generation blockchain which enables smart contracts with XRP that settle on the XRP ledger.
+Flare is a next-generation blockchain which enables smart contracts with XRP that settle on the XRP Ledger.
 
 ## Features
 
@@ -72,9 +72,9 @@ Launch a 5-node network, with varying definitions of Unique Node List (UNL) acro
 ./network.sh
 ```
 
-When the deployment is complete, this command displays the unique node list definitions of each node, where stakeAmount/(UNL size - 1) is the probability of sampling a node from the perspective of the node executing the sampling. Note: the UNL size is a governance defined parameter.
+When the deployment is complete, this command displays the unique node list definitions of each node, where `stakeAmount`/(UNL size - 1) is the probability of sampling a node from the perspective of the node executing the sampling. Note: the UNL size is a governance defined parameter.
 
-As an example: when Node A independently decides to include Node B its own UNL definition, Node A privately sets the stakeAmount for Node B to a very large number such as 1000000000000000. For nodes that Node A does not wish to include in its UNL, it sets their stakeAmount to 1. 
+As an example: when Node A independently decides to include Node B its own UNL definition, Node A privately sets the `stakeAmount` for Node B to a very large number such as 1000000000000000. For nodes that Node A does not wish to include in its UNL, it sets their stakeAmount to 1.
 
 To become eligible to be included in others' UNL definition, a node registers its Node ID, used to sign network-level sampling, along with some nominal balance of Spark token to the Flare Network. The nominal balance of Spark is exactly like requiring a minimum token balance in order to define an account on the XRP Ledger.
 
@@ -135,7 +135,9 @@ Terminal 5:
 ./bridge.sh 4
 ```
 
-The resulting effect on the Flare Network state can be observed by checking the balance of the 
+The resulting effect on the Flare Network state can be observed by checking the balance of the Flare account referenced in the memo field of the 1000 XRP Ledger transactions. At the conclusion of the state-connector system finalising this set of transactions to the Flare Network, the balance of the Flare account should report as `"0x3e8"`, i.e. 1000.
+
+Note that the terminal output of the state-connector reports each nodes independent defininition of the UNL, derived from their local definition of the `block.coinbase` variable which is used to index: `UNLmap[block.coinbase].list` https://gitlab.com/flarenetwork/flare/-/blob/master/solidity/fxrp.sol#L132
 
 ### Node 1's State
 
@@ -167,11 +169,11 @@ curl -sX POST --data '{
 
 ## Future Work
 
-1) Upgrading from Avalanche v0.5.7 to v1.0, released on September 21st in correspondence with the Avalanche mainnet launch.
+1) Upgrading from avalanchego v0.5.7 to v1.0, which was released on September 21st in correspondence with the Avalanche mainnet launch.
 
-2) Getting eligible validators from minimum token balances held on the Flare Network. This is straightforward and just involves a redirect from the Avalanche X-chain to the C-chain to check for the token balance in order to add eligible peers at runtime. To be permitted to be included in others' UNL, a node operator will just have to lock up a nominal balance of Spark tokens for some long duration such as a year. This value is uniform across all nodes and has no bearing on the sampling probability that a node privately defines for another node. 
+2) Getting eligible validators from minimum token balances held on the Flare Network. This is straightforward and just involves a redirect from the avalanchego X-chain to the C-chain to check for the token balance in order to add eligible peers at runtime. To be permitted to be included in others' UNL, a node operator will just have to lock up a nominal balance of Spark tokens for some long duration such as a year. This value is uniform across all nodes and has no bearing on the sampling probability that a node privately defines for another node in FBA Avalanche consensus. Note: Flare and Avalanche are two completely separate networks, and the X-chain token supply is simply set to 0 on the Flare Network.
 
 3) Testing of the system at different network topologies, consensus security parameters such as the virtuous commit threshold, and transaction loads.
 
 
-(c) Flare Networks Ltd. 2020
+© Flare Networks Ltd. 2020
