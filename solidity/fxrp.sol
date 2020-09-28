@@ -116,6 +116,7 @@ contract fxrp {
             UNLmap[msg.sender].ledger = genesisLedger;
             UNLmap[msg.sender].agent = 0;
             UNLmap[msg.sender].payloadSkipIndex = 0;
+            UNLmap[msg.sender].pendingClaimPeriodHash = keccak256(abi.encode(address(this), genesisLedger, claimPeriodLength, UNLsize, finalityThreshold, 'flare'));
         }
     }
 
@@ -202,7 +203,7 @@ contract fxrp {
         UNLmap[msg.sender].payloadSkipIndex = 0;
 
         // Get claimPeriodHash 
-        bytes32 claimPeriodHash = keccak256(abi.encode(currClaimPeriodIndex, 'flare'));
+        bytes32 claimPeriodHash = keccak256(abi.encode(UNLmap[msg.sender].pendingClaimPeriodHash, currClaimPeriodIndex, 'flare'));
         for (uint256 i=ledger-claimPeriodLength; i<ledger; i++) {
         	// If there are any transactions in this ledger, include them in the
         	// claimPeriodHash calculation
@@ -218,36 +219,44 @@ contract fxrp {
         claimPeriodsMap[claimPeriodHash].numRegistrations = claimPeriodsMap[claimPeriodHash].numRegistrations + 1;
         UNLmap[msg.sender].claimPeriodIndex = currClaimPeriodIndex+1;
 
-        if (uint(2)*claimPeriodsMap[claimPeriodHash].numRegistrations > UNLsize) {
-            computeFinality(claimPeriodHash);
+        if (currClaimPeriodIndex > 0) {
+            if (claimPeriodsMap[claimPeriodHash].numRegistrations > UNLsize - finalityThreshold && claimPeriodsMap[UNLmap[msg.sender].pendingClaimPeriodHash].numRegistrations > UNLsize - finalityThreshold) {
+                if (computeFinality(claimPeriodHash) == true) {
+                    if (computeFinality(UNLmap[msg.sender].pendingClaimPeriodHash) == true && claimPeriodsMap[UNLmap[msg.sender].pendingClaimPeriodHash].finalised == false) {
+                        finaliseClaimPeriod(UNLmap[msg.sender].pendingClaimPeriodHash);
+                    }
+                }
+            }
         }
+        UNLmap[msg.sender].pendingClaimPeriodHash = claimPeriodHash;
         return true;
     }
 
-    function computeFinality(bytes32 claimPeriodHash) private returns (bool finality) {
+    function computeFinality(bytes32 claimPeriodHash) private view returns (bool finality) {
         require(claimPeriodsMap[claimPeriodHash].exists == true);
-        if (claimPeriodsMap[claimPeriodHash].finalised == true) {
-            return true;
-        }
         require(UNLmap[block.coinbase].exists == true);
         // Check if a quorum of nodes from your perspective has at least 
         // REGISTERED the claimPeriodHash. If yes -> Then you ACCEPT the 
         // claimPeriodHash. 
-        if (computeQuorum(UNLmap[block.coinbase].list, claimPeriodHash) == true) {
-            return finaliseClaimPeriod(claimPeriodHash);
-        } else {
-            return false;
-        }
+        return computeRegistrations(UNLmap[block.coinbase].list, claimPeriodHash);
     }
 
-    function computeQuorum(address[] memory nodes, bytes32 claimPeriodHash) private view returns (bool quorum) {
-        uint256 registered = 0;
-        for (uint256 i=0; i<nodes.length; i++) {
-            if (claimPeriodsMap[claimPeriodHash].registeredBy[nodes[i]] == true) {
-                registered = registered + 1;
+    function computeRegistrations(address[] memory nodes, bytes32 claimPeriodHash) private view returns (bool quorum) {
+        uint256 outerRegistered = 0;
+        for (uint256 i=0; i<UNLsize; i++) {
+            uint256 innerRegistered = 0;
+            if (UNLmap[nodes[i]].exists == true) {
+                for (uint256 j=0; j<UNLsize; j++) {
+                    if (claimPeriodsMap[claimPeriodHash].registeredBy[UNLmap[nodes[i]].list[j]] == true) {
+                        innerRegistered = innerRegistered + 1;
+                    }
+                }
+                if (uint(2)*innerRegistered > UNLsize) {
+                    outerRegistered = outerRegistered + 1;
+                }
             }
         }
-        if (registered >= finalityThreshold) {
+        if (outerRegistered >= finalityThreshold) {
             return true;
         } else {
             return false;

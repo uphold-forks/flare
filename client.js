@@ -8,7 +8,7 @@ const xrplAPI = new RippleAPI({
 });
 
 var agents;
-const PAYMENTS_PER_AGENT = 100;
+const PAYMENTS_PER_AGENT = 1000;
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
@@ -88,7 +88,7 @@ xrplAPI.on('disconnected', () => {
 })
 
 console.log('\x1b[4m\nFlare Network FXRP State Connector Client\x1b[0m\n');
-let rawConfig = fs.readFileSync('config.json');
+let rawConfig = fs.readFileSync('config/config.json');
 const config = JSON.parse(rawConfig);
 agents = config.contract.agents;
 agents.forEach(function(item, index, array) {

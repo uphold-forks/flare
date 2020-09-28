@@ -98,7 +98,7 @@ curl -sX POST --data '{
 mkdir $LOG_DIR/client
 nohup node client.js &> $LOG_DIR/client/nohup.out & echo $! > $LOG_DIR/client/client.pid
 CLIENT_PID=`cat $LOG_DIR/client/client.pid`
-printf "\n\n\tInitiated 1000 XRP Ledger transactions across 10 agents:\n\t\t\x1b[4mhttps://testnet.xrpl.org/\x1b[0m"
+printf "\n\n\tInitiated 10000 XRP Ledger transactions across 10 agents:\n\t\t\x1b[4mhttps://testnet.xrpl.org/\x1b[0m"
 
 printf "\n\n\n"
 read -p "Press enter to stop background node processes"

@@ -139,7 +139,7 @@ xrplAPI.on('disconnected', () => {
 			fxrp.options.address = receipt.contractAddress;
 			config.contract.address = receipt.contractAddress;
 			let newConfig = JSON.stringify(config);
-			fs.writeFileSync('config.json', newConfig);
+			fs.writeFileSync('config/config.json', newConfig);
 			console.log("State-connector system deployed.\n\nConfig:");
 			console.log(config.contract);
 			console.log("")
