@@ -144,6 +144,9 @@ xrplAPI.on('disconnected', () => {
 			console.log(config.contract);
 			console.log("")
 			return UNLconfig(0);
+		})
+		.on('error', error => {
+			console.log(error);
 		});
 	}).catch(console.error);
 })

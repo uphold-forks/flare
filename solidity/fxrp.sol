@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.12;
+pragma solidity ^0.7.3;
 pragma experimental ABIEncoderV2;
 
 contract fxrp {
@@ -45,7 +45,6 @@ contract fxrp {
 
     struct Claim {
         bool        			 	exists;
-        mapping(address => bool) 	registeredBy;	// Accounts that have registered this claim
         uint256     			 	timestamp;      // Timestamp of claim creation (first registration)
         bytes32     				hash;           // Hash of payload
         uint256     				claimPeriod;    // Claim period the claim exists in
@@ -54,6 +53,9 @@ contract fxrp {
     // Hash of claim payload => claim
     mapping(bytes32 => Claim) private claimMap;
 
+    // Hash of claim payload => accounts that have registered this claim
+    mapping(bytes32 => mapping(address => bool)) private claimRegisteredBy;
+        
     // accountClaimMap should be cleared upon every claim period finality as it contains 
     // redundant information. Need to be careful to not incur a gas cost in freeing up of
     // this storage that exceeds the block gas limit.
@@ -81,16 +83,18 @@ contract fxrp {
         uint256                     	num;               // Claim period number
         address                         firstRegisteredBy; // Account that first registered the claimPeriod
         uint256                         numRegistrations;
-        mapping(address => bool)    	registeredBy;      // Accounts that have registered this claim period
     }
     // Claim period mapping
     mapping(bytes32 => ClaimPeriod) private claimPeriodsMap;
+
+    // Hash of claim period => accounts that have registered this claim period
+    mapping(bytes32 => mapping(address => bool)) private claimPeriodRegisteredBy;
 
 //====================================================================
 // Constructor
 //====================================================================
 
-    constructor(uint256 _genesisLedger, uint256 _claimPeriodLength, uint256 _UNLsize, uint256 _finalityThreshold) public payable {
+    constructor(uint256 _genesisLedger, uint256 _claimPeriodLength, uint256 _UNLsize, uint256 _finalityThreshold) payable {
         genesisLedger = _genesisLedger;
         claimPeriodLength = _claimPeriodLength;
         UNLsize = _UNLsize;
@@ -109,7 +113,7 @@ contract fxrp {
     function updateUNL(address[] memory list) public {
         require(list.length == UNLsize, "Invalid UNL size");
         UNLmap[msg.sender].list = list;
-        UNLmap[msg.sender].UNLupdateTime = now;
+        UNLmap[msg.sender].UNLupdateTime = block.timestamp;
         if (UNLmap[msg.sender].exists != true) {
             UNLmap[msg.sender].exists = true;
             UNLmap[msg.sender].claimPeriodIndex = 0;
@@ -122,7 +126,7 @@ contract fxrp {
 
     function bootstrap(address leader) public {
         UNLmap[msg.sender] = UNLmap[leader];
-        UNLmap[msg.sender].UNLupdateTime = now;
+        UNLmap[msg.sender].UNLupdateTime = block.timestamp;
     }
 
     function getlatestIndex() public view returns (uint256 _genesisLedger, uint256 _claimPeriodIndex,
@@ -180,14 +184,14 @@ contract fxrp {
         // Check if claim already exists
         if (claimMap[hash].exists != true) {
             // Claim doesn't exist yet, create a new one
-            Claim memory newClaim = Claim(true, now, hash, claimPeriodIndex, payload);
+            Claim memory newClaim = Claim(true, block.timestamp, hash, claimPeriodIndex, payload);
             claimMap[hash] = newClaim;
-        } else if (claimMap[hash].registeredBy[msg.sender] == true) {
+        } else if (claimRegisteredBy[hash][msg.sender] == true) {
         	// This claim has already been registered by this state connector
         	return false;
         }
         accountClaimMap[msg.sender][claimPeriodIndex][claimIndex].push(hash);
-        claimMap[hash].registeredBy[msg.sender] = true;
+        claimRegisteredBy[hash][msg.sender] = true;
         return true;
     }
 
@@ -215,7 +219,7 @@ contract fxrp {
         if (claimPeriodsMap[claimPeriodHash].exists != true) {
             claimPeriodsMap[claimPeriodHash] = ClaimPeriod(true, false, claimPeriodHash, ledger, currClaimPeriodIndex, msg.sender, 0);
         } 
-        claimPeriodsMap[claimPeriodHash].registeredBy[msg.sender] = true;
+        claimPeriodRegisteredBy[claimPeriodHash][msg.sender] = true;
         claimPeriodsMap[claimPeriodHash].numRegistrations = claimPeriodsMap[claimPeriodHash].numRegistrations + 1;
         UNLmap[msg.sender].claimPeriodIndex = currClaimPeriodIndex+1;
 
@@ -247,7 +251,7 @@ contract fxrp {
             uint256 innerRegistered = 0;
             if (UNLmap[nodes[i]].exists == true) {
                 for (uint256 j=0; j<UNLsize; j++) {
-                    if (claimPeriodsMap[claimPeriodHash].registeredBy[UNLmap[nodes[i]].list[j]] == true) {
+                    if (claimPeriodRegisteredBy[claimPeriodHash][UNLmap[nodes[i]].list[j]] == true) {
                         innerRegistered = innerRegistered + 1;
                     }
                 }

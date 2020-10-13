@@ -73,14 +73,16 @@ async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegis
 				.on('receipt', receipt => {
 					if (receipt.status == false) {
 						return processFailure(receipt.transactionHash);
+					} else {
+						console.log('Payloads registered:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
+						return run();
 					}
-					console.log('Payloads registered:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
-					return run();
 				})
 				.on('error', error => {
-					console.log(error);
-					return claimProcessingCompleted();
+					return processFailure(error);
 				});
+			} else if (nonceOffset > 2) {
+				return processFailure(txHash);
 			} else {
 				return registerPayloads(claimPeriodIndex, ledger, payloads, partialRegistration, agent, payloadSkipIndex, nonceOffset+2);
 			}
