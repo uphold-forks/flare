@@ -8,7 +8,7 @@ const xrplAPI = new RippleAPI({
 });
 
 var agents;
-const PAYMENTS_PER_AGENT = 1000;
+const PAYMENTS_PER_AGENT = 100;
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
