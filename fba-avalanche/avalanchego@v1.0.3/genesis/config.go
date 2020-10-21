@@ -156,18 +156,23 @@ var (
 	// LocalConfig is the config that should be used to generate a local
 	// genesis.
 	LocalConfig Config
+
+	// FlareConfig is the config that should be used for the Flare Network
+	FlareConfig Config
 )
 
 func init() {
 	unparsedMainnetConfig := UnparsedConfig{}
 	unparsedFujiConfig := UnparsedConfig{}
 	unparsedLocalConfig := UnparsedConfig{}
+	unparsedFlareConfig := UnparsedConfig{}
 
 	errs := wrappers.Errs{}
 	errs.Add(
 		json.Unmarshal([]byte(mainnetGenesisConfigJSON), &unparsedMainnetConfig),
 		json.Unmarshal([]byte(fujiGenesisConfigJSON), &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
+		json.Unmarshal([]byte(flareGenesisConfigJSON), &unparsedFlareConfig),
 	)
 	if errs.Errored() {
 		panic(errs.Err)
@@ -185,6 +190,10 @@ func init() {
 	errs.Add(err)
 	LocalConfig = localConfig
 
+	flareConfig, err := unparsedFlareConfig.Parse()
+	errs.Add(err)
+	FlareConfig = flareConfig
+
 	if errs.Errored() {
 		panic(errs.Err)
 	}
@@ -199,6 +208,8 @@ func GetConfig(networkID uint32) *Config {
 		return &FujiConfig
 	case constants.LocalID:
 		return &LocalConfig
+	case constants.FlareID:
+		return &FlareConfig
 	default:
 		tempConfig := LocalConfig
 		tempConfig.NetworkID = networkID

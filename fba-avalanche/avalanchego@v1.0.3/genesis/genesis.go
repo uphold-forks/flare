@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"time"
+	// "time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/codec"
@@ -22,6 +22,8 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/propertyfx"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
+
+	"github.com/ava-labs/avalanchego/flare"
 )
 
 // ID of the EVM VM
@@ -108,96 +110,96 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 		return nil, ids.ID{}, fmt.Errorf("couldn't generate AVAX asset ID: %w", err)
 	}
 
-	genesisTime := time.Unix(int64(config.StartTime), 0)
-	initialSupply, err := config.InitialSupply()
-	if err != nil {
-		return nil, ids.ID{}, fmt.Errorf("couldn't calculate the initial supply: %w", err)
-	}
+	// genesisTime := time.Unix(int64(config.StartTime), 0)
+	// initialSupply, err := config.InitialSupply()
+	// if err != nil {
+	// 	return nil, ids.ID{}, fmt.Errorf("couldn't calculate the initial supply: %w", err)
+	// }
 
-	initiallyStaked := ids.ShortSet{}
-	initiallyStaked.Add(config.InitialStakedFunds...)
-	skippedAllocations := []Allocation(nil)
+	// initiallyStaked := ids.ShortSet{}
+	// initiallyStaked.Add(config.InitialStakedFunds...)
+	// skippedAllocations := []Allocation(nil)
 
 	// Specify the initial state of the Platform Chain
 	platformvmArgs := platformvm.BuildGenesisArgs{
 		AvaxAssetID:   avaxAssetID,
 		NetworkID:     json.Uint32(config.NetworkID),
 		Time:          json.Uint64(config.StartTime),
-		InitialSupply: json.Uint64(initialSupply),
+		InitialSupply: json.Uint64(0),
 		Message:       config.Message,
 	}
-	for _, allocation := range config.Allocations {
-		if initiallyStaked.Contains(allocation.AVAXAddr) {
-			skippedAllocations = append(skippedAllocations, allocation)
-			continue
-		}
-		addr, err := formatting.FormatBech32(hrp, allocation.AVAXAddr.Bytes())
-		if err != nil {
-			return nil, ids.ID{}, err
-		}
-		for _, unlock := range allocation.UnlockSchedule {
-			if unlock.Amount > 0 {
-				platformvmArgs.UTXOs = append(platformvmArgs.UTXOs,
-					platformvm.APIUTXO{
-						Locktime: json.Uint64(unlock.Locktime),
-						Amount:   json.Uint64(unlock.Amount),
-						Address:  addr,
-						Message:  formatting.Hex{Bytes: allocation.ETHAddr.Bytes()}.String(),
-					},
-				)
-				amount += unlock.Amount
-			}
-		}
-	}
+	// for _, allocation := range config.Allocations {
+	// 	if initiallyStaked.Contains(allocation.AVAXAddr) {
+	// 		skippedAllocations = append(skippedAllocations, allocation)
+	// 		continue
+	// 	}
+	// 	addr, err := formatting.FormatBech32(hrp, allocation.AVAXAddr.Bytes())
+	// 	if err != nil {
+	// 		return nil, ids.ID{}, err
+	// 	}
+	// 	for _, unlock := range allocation.UnlockSchedule {
+	// 		if unlock.Amount > 0 {
+	// 			platformvmArgs.UTXOs = append(platformvmArgs.UTXOs,
+	// 				platformvm.APIUTXO{
+	// 					Locktime: json.Uint64(unlock.Locktime),
+	// 					Amount:   json.Uint64(unlock.Amount),
+	// 					Address:  addr,
+	// 					Message:  formatting.Hex{Bytes: allocation.ETHAddr.Bytes()}.String(),
+	// 				},
+	// 			)
+	// 			amount += unlock.Amount
+	// 		}
+	// 	}
+	// }
 
-	allNodeAllocations := splitAllocations(skippedAllocations, len(config.InitialStakers))
-	endStakingTime := genesisTime.Add(time.Duration(config.InitialStakeDuration) * time.Second)
-	stakingOffset := time.Duration(0)
-	for i, staker := range config.InitialStakers {
-		nodeAllocations := allNodeAllocations[i]
-		endStakingTime := endStakingTime.Add(-stakingOffset)
-		stakingOffset += time.Duration(config.InitialStakeDurationOffset) * time.Second
+	// allNodeAllocations := splitAllocations(skippedAllocations, len(config.InitialStakers))
+	// endStakingTime := genesisTime.Add(time.Duration(config.InitialStakeDuration) * time.Second)
+	// stakingOffset := time.Duration(0)
+	// for i, staker := range config.InitialStakers {
+	// 	nodeAllocations := allNodeAllocations[i]
+	// 	endStakingTime := endStakingTime.Add(-stakingOffset)
+	// 	stakingOffset += time.Duration(config.InitialStakeDurationOffset) * time.Second
 
-		destAddrStr, err := formatting.FormatBech32(hrp, staker.RewardAddress.Bytes())
-		if err != nil {
-			return nil, ids.ID{}, err
-		}
+	// 	destAddrStr, err := formatting.FormatBech32(hrp, staker.RewardAddress.Bytes())
+	// 	if err != nil {
+	// 		return nil, ids.ID{}, err
+	// 	}
 
-		utxos := []platformvm.APIUTXO(nil)
-		for _, allocation := range nodeAllocations {
-			addr, err := formatting.FormatBech32(hrp, allocation.AVAXAddr.Bytes())
-			if err != nil {
-				return nil, ids.ID{}, err
-			}
-			for _, unlock := range allocation.UnlockSchedule {
-				utxos = append(utxos, platformvm.APIUTXO{
-					Locktime: json.Uint64(unlock.Locktime),
-					Amount:   json.Uint64(unlock.Amount),
-					Address:  addr,
-					Message:  formatting.Hex{Bytes: allocation.ETHAddr.Bytes()}.String(),
-				})
-				amount += unlock.Amount
-			}
-		}
+	// 	utxos := []platformvm.APIUTXO(nil)
+	// 	for _, allocation := range nodeAllocations {
+	// 		addr, err := formatting.FormatBech32(hrp, allocation.AVAXAddr.Bytes())
+	// 		if err != nil {
+	// 			return nil, ids.ID{}, err
+	// 		}
+	// 		for _, unlock := range allocation.UnlockSchedule {
+	// 			utxos = append(utxos, platformvm.APIUTXO{
+	// 				Locktime: json.Uint64(unlock.Locktime),
+	// 				Amount:   json.Uint64(unlock.Amount),
+	// 				Address:  addr,
+	// 				Message:  formatting.Hex{Bytes: allocation.ETHAddr.Bytes()}.String(),
+	// 			})
+	// 			amount += unlock.Amount
+	// 		}
+	// 	}
 
-		delegationFee := json.Uint32(staker.DelegationFee)
+	// 	delegationFee := json.Uint32(staker.DelegationFee)
 
-		platformvmArgs.Validators = append(platformvmArgs.Validators,
-			platformvm.APIPrimaryValidator{
-				APIStaker: platformvm.APIStaker{
-					StartTime: json.Uint64(genesisTime.Unix()),
-					EndTime:   json.Uint64(endStakingTime.Unix()),
-					NodeID:    staker.NodeID.PrefixedString(constants.NodeIDPrefix),
-				},
-				RewardOwner: &platformvm.APIOwner{
-					Threshold: 1,
-					Addresses: []string{destAddrStr},
-				},
-				Staked:             utxos,
-				ExactDelegationFee: &delegationFee,
-			},
-		)
-	}
+	// 	platformvmArgs.Validators = append(platformvmArgs.Validators,
+	// 		platformvm.APIPrimaryValidator{
+	// 			APIStaker: platformvm.APIStaker{
+	// 				StartTime: json.Uint64(genesisTime.Unix()),
+	// 				EndTime:   json.Uint64(endStakingTime.Unix()),
+	// 				NodeID:    staker.NodeID.PrefixedString(constants.NodeIDPrefix),
+	// 			},
+	// 			RewardOwner: &platformvm.APIOwner{
+	// 				Threshold: 1,
+	// 				Addresses: []string{destAddrStr},
+	// 			},
+	// 			Staked:             utxos,
+	// 			ExactDelegationFee: &delegationFee,
+	// 		},
+	// 	)
+	// }
 
 	// Specify the chains that exist upon this network's creation
 	platformvmArgs.Chains = []platformvm.APIChain{
@@ -213,7 +215,7 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 			Name: "X-Chain",
 		},
 		{
-			GenesisData: formatting.Hex{Bytes: []byte(config.CChainGenesis)}.String(),
+			GenesisData: formatting.Hex{Bytes: []byte(flare.CChainGenesis)}.String(),
 			SubnetID:    constants.PrimaryNetworkID,
 			VMID:        EVMID,
 			Name:        "C-Chain",

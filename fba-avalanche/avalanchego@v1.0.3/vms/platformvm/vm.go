@@ -36,6 +36,8 @@ import (
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 
 	safemath "github.com/ava-labs/avalanchego/utils/math"
+	
+	"github.com/ava-labs/avalanchego/flare"
 )
 
 const (
@@ -282,31 +284,31 @@ func (vm *VM) Initialize(
 			return err
 		}
 
-		// Persist primary network validator set at genesis
-		for _, vdrTx := range genesis.Validators {
-			var (
-				stakeAmount   uint64
-				stakeDuration time.Duration
-			)
-			switch tx := vdrTx.UnsignedTx.(type) {
-			case *UnsignedAddValidatorTx:
-				stakeAmount = tx.Validator.Wght
-				stakeDuration = tx.Validator.Duration()
-			default:
-				return errWrongTxType
-			}
-			reward, err := vm.calculateReward(vm.DB, stakeDuration, stakeAmount)
-			if err != nil {
-				return err
-			}
-			tx := rewardTx{
-				Reward: reward,
-				Tx:     *vdrTx,
-			}
-			if err := vm.addStaker(vm.DB, constants.PrimaryNetworkID, &tx); err != nil {
-				return err
-			}
-		}
+		// // Persist primary network validator set at genesis
+		// for _, vdrTx := range genesis.Validators {
+		// 	var (
+		// 		stakeAmount   uint64
+		// 		stakeDuration time.Duration
+		// 	)
+		// 	switch tx := vdrTx.UnsignedTx.(type) {
+		// 	case *UnsignedAddValidatorTx:
+		// 		stakeAmount = tx.Validator.Wght
+		// 		stakeDuration = tx.Validator.Duration()
+		// 	default:
+		// 		return errWrongTxType
+		// 	}
+		// 	reward, err := vm.calculateReward(vm.DB, stakeDuration, stakeAmount)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	tx := rewardTx{
+		// 		Reward: reward,
+		// 		Tx:     *vdrTx,
+		// 	}
+		// 	if err := vm.addStaker(vm.DB, constants.PrimaryNetworkID, &tx); err != nil {
+		// 		return err
+		// 	}
+		// }
 
 		// Persist the subnets that exist at genesis (none do)
 		if err := vm.putSubnets(vm.DB, []*Tx{}); err != nil {
@@ -980,46 +982,21 @@ func (vm *VM) updateVdrMgr(force bool) error {
 
 func (vm *VM) updateVdrSet(subnetID ids.ID) error {
 	vdrs := validators.NewSet()
-
-	stopPrefix := []byte(fmt.Sprintf("%s%s", subnetID, stopDBPrefix))
-	stopDB := prefixdb.NewNested(stopPrefix, vm.DB)
-	defer stopDB.Close()
-	stopIter := stopDB.NewIterator()
-	defer stopIter.Release()
-
-	for stopIter.Next() { // Iterates in order of increasing start time
-		txBytes := stopIter.Value()
-
-		tx := rewardTx{}
-		if err := vm.codec.Unmarshal(txBytes, &tx); err != nil {
-			return fmt.Errorf("couldn't unmarshal validator tx: %w", err)
-		}
-		if err := tx.Tx.Sign(vm.codec, nil); err != nil {
+	for _, longNodeID := range flare.Validators {
+		nodeID, err := ids.ShortFromPrefixedString(longNodeID, constants.NodeIDPrefix)
+		if err != nil {
 			return err
 		}
-
-		var err error
-		switch staker := tx.Tx.UnsignedTx.(type) {
-		case *UnsignedAddDelegatorTx:
-			err = vdrs.AddWeight(staker.Validator.NodeID, staker.Validator.Weight())
-		case *UnsignedAddValidatorTx:
-			err = vdrs.AddWeight(staker.Validator.NodeID, staker.Validator.Weight())
-		case *UnsignedAddSubnetValidatorTx:
-			err = vdrs.AddWeight(staker.Validator.NodeID, staker.Validator.Weight())
-		default:
-			err = fmt.Errorf("expected validator but got %T", tx.Tx.UnsignedTx)
-		}
+		err = vdrs.AddWeight(nodeID, uint64(1))
 		if err != nil {
 			return err
 		}
 	}
-
-	errs := wrappers.Errs{}
-	errs.Add(
-		vm.vdrMgr.Set(subnetID, vdrs),
-		stopIter.Error(),
-	)
-	return errs.Err
+	err := vm.vdrMgr.Set(constants.PrimaryNetworkID, vdrs)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Codec ...
