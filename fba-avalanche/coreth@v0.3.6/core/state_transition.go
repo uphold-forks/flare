@@ -17,11 +17,12 @@
 package core
 
 import (
-	"math"
+	// "math"
 	"math/big"
 
+	"github.com/ava-labs/avalanchego/flare"
 	"github.com/ava-labs/coreth/core/vm"
-	"github.com/ava-labs/coreth/params"
+	// "github.com/ava-labs/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -104,41 +105,41 @@ func (result *ExecutionResult) Revert() []byte {
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func IntrinsicGas(data []byte, contractCreation, isHomestead bool, isEIP2028 bool) (uint64, error) {
-	// Set the starting gas for the raw transaction
-	var gas uint64
-	if contractCreation && isHomestead {
-		gas = params.TxGasContractCreation
-	} else {
-		gas = params.TxGas
-	}
-	// Bump the required gas by the amount of transactional data
-	if len(data) > 0 {
-		// Zero and non-zero bytes are priced differently
-		var nz uint64
-		for _, byt := range data {
-			if byt != 0 {
-				nz++
-			}
-		}
-		// Make sure we don't exceed uint64 for all data combinations
-		nonZeroGas := params.TxDataNonZeroGasFrontier
-		if isEIP2028 {
-			nonZeroGas = params.TxDataNonZeroGasEIP2028
-		}
-		if (math.MaxUint64-gas)/nonZeroGas < nz {
-			return 0, ErrGasUintOverflow
-		}
-		gas += nz * nonZeroGas
+// func IntrinsicGas(data []byte, contractCreation, isHomestead bool, isEIP2028 bool) (uint64, error) {
+// 	// Set the starting gas for the raw transaction
+// 	var gas uint64
+// 	if contractCreation && isHomestead {
+// 		gas = params.TxGasContractCreation
+// 	} else {
+// 		gas = params.TxGas
+// 	}
+// 	// Bump the required gas by the amount of transactional data
+// 	if len(data) > 0 {
+// 		// Zero and non-zero bytes are priced differently
+// 		var nz uint64
+// 		for _, byt := range data {
+// 			if byt != 0 {
+// 				nz++
+// 			}
+// 		}
+// 		// Make sure we don't exceed uint64 for all data combinations
+// 		nonZeroGas := params.TxDataNonZeroGasFrontier
+// 		if isEIP2028 {
+// 			nonZeroGas = params.TxDataNonZeroGasEIP2028
+// 		}
+// 		if (math.MaxUint64-gas)/nonZeroGas < nz {
+// 			return 0, ErrGasUintOverflow
+// 		}
+// 		gas += nz * nonZeroGas
 
-		z := uint64(len(data)) - nz
-		if (math.MaxUint64-gas)/params.TxDataZeroGas < z {
-			return 0, ErrGasUintOverflow
-		}
-		gas += z * params.TxDataZeroGas
-	}
-	return gas, nil
-}
+// 		z := uint64(len(data)) - nz
+// 		if (math.MaxUint64-gas)/params.TxDataZeroGas < z {
+// 			return 0, ErrGasUintOverflow
+// 		}
+// 		gas += z * params.TxDataZeroGas
+// 	}
+// 	return gas, nil
+// }
 
 // NewStateTransition initialises and returns a new state transition object.
 func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
@@ -172,20 +173,37 @@ func (st *StateTransition) to() common.Address {
 	return *st.msg.To()
 }
 
+// func (st *StateTransition) buyGas() error {
+// 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+// 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
+// 		return ErrInsufficientFunds
+// 	}
+// 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
+// 		return err
+// 	}
+// 	st.gas += st.msg.Gas()
+
+// 	st.initialGas = st.msg.Gas()
+// 	st.state.SubBalance(st.msg.From(), mgval)
+// 	return nil
+// }
+
 func (st *StateTransition) buyGas() error {
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
+	FixedGasMaxTotal := new(big.Int).Mul(new(big.Int).SetUint64(flare.FixedGasMax), new(big.Int).SetUint64(flare.FixedGasPrice))
+	
+	if st.state.GetBalance(st.msg.From()).Cmp(FixedGasMaxTotal) < 0 || flare.FixedGasMax < flare.FixedGas {
 		return ErrInsufficientFunds
 	}
-	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
+	if err := st.gp.SubGas(flare.FixedGas); err != nil {
 		return err
 	}
-	st.gas += st.msg.Gas()
 
-	st.initialGas = st.msg.Gas()
-	st.state.SubBalance(st.msg.From(), mgval)
+	FixedGasTotal := new(big.Int).Mul(new(big.Int).SetUint64(flare.FixedGas), new(big.Int).SetUint64(flare.FixedGasPrice))
+
+	st.state.SubBalance(st.msg.From(), FixedGasTotal)
 	return nil
 }
+
 
 func (st *StateTransition) preCheck() error {
 	// Make sure this transaction's nonce is correct.
@@ -230,19 +248,19 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
-	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
-	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
+	// homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
+	// istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
-	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
-	if err != nil {
-		return nil, err
-	}
-	if st.gas < gas {
-		return nil, ErrIntrinsicGas
-	}
-	st.gas -= gas
+	// gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if st.gas < gas {
+	// 	return nil, ErrIntrinsicGas
+	// }
+	// st.gas -= gas
 
 	// Check clause 6
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
@@ -253,40 +271,52 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
 	if contractCreation {
-		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
+		// ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
+		ret, _, _, vmerr = st.evm.Create(sender, st.data, flare.FixedGasMax, st.value)
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		// ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		if (*msg.To() == flare.StateConnectorContract) {
+			originalCoinbase := st.evm.Context.Coinbase
+			defer func() {
+				st.evm.Context.Coinbase = originalCoinbase
+			}()
+			st.evm.Context.Coinbase = flare.LocalNodeAddr
+		}
+
+		ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.FixedGasMax, st.value)
 	}
-	st.refundGas()
-	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	// st.refundGas()
+	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+
+	st.state.AddBalance(flare.StateConnectorContract, new(big.Int).Mul(new(big.Int).SetUint64(flare.FixedGas), new(big.Int).SetUint64(flare.FixedGasPrice)))
 
 	return &ExecutionResult{
-		UsedGas:    st.gasUsed(),
+		UsedGas:    flare.FixedGas,
 		Err:        vmerr,
 		ReturnData: ret,
 	}, nil
 }
 
-func (st *StateTransition) refundGas() {
-	// Apply refund counter, capped to half of the used gas.
-	refund := st.gasUsed() / 2
-	if refund > st.state.GetRefund() {
-		refund = st.state.GetRefund()
-	}
-	st.gas += refund
+// func (st *StateTransition) refundGas() {
+// 	// Apply refund counter, capped to half of the used gas.
+// 	refund := st.gasUsed() / 2
+// 	if refund > st.state.GetRefund() {
+// 		refund = st.state.GetRefund()
+// 	}
+// 	st.gas += refund
 
-	// Return ETH for remaining gas, exchanged at the original rate.
-	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(st.msg.From(), remaining)
+// 	// Return ETH for remaining gas, exchanged at the original rate.
+// 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+// 	st.state.AddBalance(st.msg.From(), remaining)
 
-	// Also return remaining gas to the block gas counter so it is
-	// available for the next transaction.
-	st.gp.AddGas(st.gas)
-}
+// 	// Also return remaining gas to the block gas counter so it is
+// 	// available for the next transaction.
+// 	st.gp.AddGas(st.gas)
+// }
 
-// gasUsed returns the amount of gas used up by the state transition.
-func (st *StateTransition) gasUsed() uint64 {
-	return st.initialGas - st.gas
-}
+// // gasUsed returns the amount of gas used up by the state transition.
+// func (st *StateTransition) gasUsed() uint64 {
+// 	return st.initialGas - st.gas
+// }
