@@ -28,12 +28,16 @@ Flare runs the [Avalanche consensus protocol](https://github.com/ava-labs/avalan
 
 ### FBA Avalanche Consensus
 
-The SLOC size of the changes made to gecko, the distribution name of the avalanchego repo, includes 202 additions and 557 deletions: https://gitlab.com/flarenetwork/flare/-/commit/92b7224ab9e03af23ca0f9febe567a2e9c839b45. These changes largely represent disabling the staking system of Avalanche, and instead allowing each node to independently define the probability of sampling peer nodes as opposed to globally basing this probability according to token ownership. 
+The changes made to the avalanchego repo to enable FBA can be viewed at: https://gitlab.com/flarenetwork/flare/-/commit/1e7ff5bdbbe6a410a5584167ee777a8753f9d5f6. These changes largely represent disabling the staking system of Avalanche, and instead allowing each node to independently define the probability of sampling peer nodes as opposed to globally basing this probability according to token ownership. 
 
-1) Disabling the staking system, allowing private weighting of the importance of other nodes: https://gitlab.com/flarenetwork/flare/-/blob/92b7224ab9e03af23ca0f9febe567a2e9c839b45/gecko@0.5.7/genesis/genesis.go#L143
+1) Disabling the staking system, allowing private weighting of the importance of other nodes: 
+
+- https://gitlab.com/flarenetwork/flare/-/blob/1e7ff5bdbbe6a410a5584167ee777a8753f9d5f6/fba-avalanche/avalanchego@v1.0.3/vms/platformvm/vm.go#L287
+- https://gitlab.com/flarenetwork/flare/-/blob/1e7ff5bdbbe6a410a5584167ee777a8753f9d5f6/fba-avalanche/avalanchego@v1.0.3/vms/platformvm/vm.go#L983
+- https://gitlab.com/flarenetwork/flare/-/blob/1e7ff5bdbbe6a410a5584167ee777a8753f9d5f6/fba-avalanche/avalanchego@v1.0.3/genesis/genesis.go#L131
 
 2) Private weighting of the probability of sampling other nodes: 
-https://gitlab.com/flarenetwork/flare/-/blob/92b7224ab9e03af23ca0f9febe567a2e9c839b45/gecko@0.5.7/sc/state_connector.go#L16
+- https://gitlab.com/flarenetwork/flare/-/blob/1e7ff5bdbbe6a410a5584167ee777a8753f9d5f6/fba-avalanche/avalanchego@v1.0.3/flare/config_local.go#L9
 
 ### Ethereum Virtual Machine: Fixed Gas Costs and Unique Node List Definition at the Contract Layer
 
@@ -166,14 +170,6 @@ curl -sX POST --data '{
     "id": 1
 }' -H 'content-type:application/json;' 127.0.0.1:9658/ext/bc/C/rpc | jq '.result'
 ```
-
-## Future Work
-
-1) Upgrading from avalanchego v0.5.7 to v1.0, which was released on September 21st with the Avalanche mainnet launch.
-
-2) Getting eligible validators that may be included in a node's private definition of UNL from minimum token balances held on the Flare Network. This is straightforward and just involves a redirect from the avalanchego X-chain to the C-chain to check for the token balance in order to add eligible peers at runtime. To be permitted to be included in others' UNL, a node operator will just have to lock up a nominal balance of Spark tokens for some long duration such as a year. This value is uniform across all nodes and has no bearing on the sampling probability that a node privately defines for another node in FBA Avalanche consensus. Note: Flare and Avalanche are two completely separate networks, and the X-chain token supply is simply set to 0 on the Flare Network.
-
-3) Testing of the system at different network topologies, consensus security parameters such as the virtuous commit threshold (which has a complexity/security tradeoff), and transaction loads.
 
 
 (c) Flare Networks Ltd. 2020
