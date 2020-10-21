@@ -1,0 +1,4 @@
+cron:
+- description: "faucet job"
+  url: /fxrp
+  schedule: every 1 minutes

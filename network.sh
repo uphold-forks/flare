@@ -1,59 +1,67 @@
 #!/bin/bash
 
+NODE_VERSION=avalanchego@v1.0.3
+CORETH_VERSION=coreth@v0.3.6
+
 rm -rf logs
 mkdir logs
 LOG_DIR=$(pwd)/logs
-SC_DIR=$(pwd)/config
-NODE_DIR=$GOPATH/src/github.com/ava-labs/gecko
+CONFIG_DIR=$(pwd)/config
+PKG_DIR=$GOPATH/pkg/mod/github.com/ava-labs
+NODE_DIR=$PKG_DIR/$NODE_VERSION
+CORETH_DIR=$PKG_DIR/$CORETH_VERSION
+
 rm -rf $NODE_DIR
-mkdir -p $GOPATH/src/github.com/ava-labs/
-cp -r fba-avalanche/gecko@v0.5.7/ $NODE_DIR
-rm -rf $GOPATH/pkg/mod/github.com/ava-labs/coreth@v0.2.5/
-mkdir -p $GOPATH/pkg/mod/github.com/ava-labs
-cp -r ./fba-avalanche/coreth@v0.2.5/ $GOPATH/pkg/mod/github.com/ava-labs/coreth@v0.2.5/
+mkdir -p $PKG_DIR
+cp -r fba-avalanche/$NODE_VERSION $NODE_DIR
+
+rm -rf $CORETH_DIR
+cp -r ./fba-avalanche/$CORETH_VERSION $CORETH_DIR
+
 cd $NODE_DIR
+cp -r .pkg/ .git/
 rm -rf $NODE_DIR/db/
 
 printf "\x1b[34mFlare Network 5-Node Local Deployment\x1b[0m\n\n"
 # NODE 1
 printf "Launching Node 1 at 127.0.0.1:9650\n"
-cp $SC_DIR/state_connector_1.go $NODE_DIR/sc/state_connector.go
+cp $CONFIG_DIR/config_local_00.go $NODE_DIR/flare/config_local.go
 ./scripts/build.sh &>/dev/null
-mkdir -p $LOG_DIR/node1
-nohup ./build/ava --public-ip=127.0.0.1 --snow-quorum-size=3 --snow-virtuous-commit-threshold=60 --snow-rogue-commit-threshold=90 --http-port=9650 --staking-port=9651 --db-dir=db/node1 --staking-tls-enabled=true --network-id=local --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/staking/local/staker1.crt --staking-tls-key-file=$(pwd)/staking/local/staker1.key --log-level=debug &> $LOG_DIR/node1/nohup.out & echo $! > $LOG_DIR/node1/ava.pid
-NODE_1_PID=`cat $LOG_DIR/node1/ava.pid`
+mkdir -p $LOG_DIR/node00
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9650 --staking-port=9651 --db-dir=db/node00 --staking-enabled=true --network-id=flare --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/keys/node00/staker.crt --staking-tls-key-file=$(pwd)/keys/node00/staker.key --log-level=info &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
+NODE_00_PID=`cat $LOG_DIR/node00/ava.pid`
 
 # NODE 2
 printf "Launching Node 2 at 127.0.0.1:9652\n"
-cp $SC_DIR/state_connector_2.go $NODE_DIR/sc/state_connector.go
+cp $CONFIG_DIR/config_local_01.go $NODE_DIR/flare/config_local.go
 ./scripts/build.sh &>/dev/null
-mkdir -p $LOG_DIR/node2
-nohup ./build/ava --public-ip=127.0.0.1 --snow-quorum-size=3 --snow-virtuous-commit-threshold=60 --snow-rogue-commit-threshold=90 --http-port=9652 --staking-port=9653 --db-dir=db/node2 --staking-tls-enabled=true --network-id=local --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg --staking-tls-cert-file=$(pwd)/staking/local/staker2.crt --staking-tls-key-file=$(pwd)/staking/local/staker2.key --log-level=debug &> $LOG_DIR/node2/nohup.out & echo $! > $LOG_DIR/node2/ava.pid
-NODE_2_PID=`cat $LOG_DIR/node2/ava.pid`
+mkdir -p $LOG_DIR/node01
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9652 --staking-port=9653 --db-dir=db/node01 --staking-enabled=true --network-id=flare --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/keys/node00/nodeID.txt) --staking-tls-cert-file=$(pwd)/keys/node01/staker.crt --staking-tls-key-file=$(pwd)/keys/node01/staker.key --log-level=info &> $LOG_DIR/node01/nohup.out & echo $! > $LOG_DIR/node01/ava.pid
+NODE_01_PID=`cat $LOG_DIR/node01/ava.pid`
 
 # NODE 3
 printf "Launching Node 3 at 127.0.0.1:9654\n"
-cp $SC_DIR/state_connector_3.go $NODE_DIR/sc/state_connector.go
+cp $CONFIG_DIR/config_local_02.go $NODE_DIR/flare/config_local.go
 ./scripts/build.sh &>/dev/null
-mkdir -p $LOG_DIR/node3
-nohup ./build/ava --public-ip=127.0.0.1 --snow-quorum-size=3 --snow-virtuous-commit-threshold=60 --snow-rogue-commit-threshold=90 --http-port=9654 --staking-port=9655 --db-dir=db/node3 --staking-tls-enabled=true --network-id=local --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg --staking-tls-cert-file=$(pwd)/staking/local/staker3.crt --staking-tls-key-file=$(pwd)/staking/local/staker3.key --log-level=debug &> $LOG_DIR/node3/nohup.out & echo $! > $LOG_DIR/node3/ava.pid
-NODE_3_PID=`cat $LOG_DIR/node3/ava.pid`
+mkdir -p $LOG_DIR/node02
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9654 --staking-port=9655 --db-dir=db/node02 --staking-enabled=true --network-id=flare --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/keys/node00/nodeID.txt) --staking-tls-cert-file=$(pwd)/keys/node02/staker.crt --staking-tls-key-file=$(pwd)/keys/node02/staker.key --log-level=info &> $LOG_DIR/node02/nohup.out & echo $! > $LOG_DIR/node02/ava.pid
+NODE_02_PID=`cat $LOG_DIR/node02/ava.pid`
 
 # NODE 4
 printf "Launching Node 4 at 127.0.0.1:9656\n"
-cp $SC_DIR/state_connector_4.go $NODE_DIR/sc/state_connector.go
+cp $CONFIG_DIR/config_local_03.go $NODE_DIR/flare/config_local.go
 ./scripts/build.sh &>/dev/null
-mkdir -p $LOG_DIR/node4
-nohup ./build/ava --public-ip=127.0.0.1 --snow-quorum-size=3 --snow-virtuous-commit-threshold=60 --snow-rogue-commit-threshold=90 --http-port=9656 --staking-port=9657 --db-dir=db/node4 --staking-tls-enabled=true --network-id=local --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg --staking-tls-cert-file=$(pwd)/staking/local/staker4.crt --staking-tls-key-file=$(pwd)/staking/local/staker4.key --log-level=debug &> $LOG_DIR/node4/nohup.out & echo $! > $LOG_DIR/node4/ava.pid
-NODE_4_PID=`cat $LOG_DIR/node4/ava.pid`
+mkdir -p $LOG_DIR/node03
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9656 --staking-port=9657 --db-dir=db/node03 --staking-enabled=true --network-id=flare --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/keys/node00/nodeID.txt) --staking-tls-cert-file=$(pwd)/keys/node03/staker.crt --staking-tls-key-file=$(pwd)/keys/node03/staker.key --log-level=info &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
+NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
 
 # NODE 5
 printf "Launching Node 5 at 127.0.0.1:9658\n"
-cp $SC_DIR/state_connector_5.go $NODE_DIR/sc/state_connector.go
+cp $CONFIG_DIR/config_local_04.go $NODE_DIR/flare/config_local.go
 ./scripts/build.sh &>/dev/null
-mkdir -p $LOG_DIR/node5
-nohup ./build/ava --public-ip=127.0.0.1 --snow-quorum-size=3 --snow-virtuous-commit-threshold=60 --snow-rogue-commit-threshold=90 --http-port=9658 --staking-port=9659 --db-dir=db/node5 --staking-tls-enabled=true --network-id=local --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg --staking-tls-cert-file=$(pwd)/staking/local/staker5.crt --staking-tls-key-file=$(pwd)/staking/local/staker5.key --log-level=debug &> $LOG_DIR/node5/nohup.out & echo $! > $LOG_DIR/node5/ava.pid
-NODE_5_PID=`cat $LOG_DIR/node5/ava.pid`
+mkdir -p $LOG_DIR/node04
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9658 --staking-port=9659 --db-dir=db/node04 --staking-enabled=true --network-id=flare --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/keys/node00/nodeID.txt) --staking-tls-cert-file=$(pwd)/keys/node04/staker.crt --staking-tls-key-file=$(pwd)/keys/node04/staker.key --log-level=info &> $LOG_DIR/node04/nohup.out & echo $! > $LOG_DIR/node04/ava.pid
+NODE_04_PID=`cat $LOG_DIR/node04/ava.pid`
 
 cd - &>/dev/null
 printf "\nNetwork launched, deploying state-connector system\n"
@@ -64,35 +72,50 @@ printf "\nNode 1 UNL:\n"
 curl -sX POST --data '{
     "jsonrpc":"2.0",
     "id"     :1,
-    "method": "platform.getCurrentValidators"
+    "method": "platform.sampleValidators",
+    "params" :{
+        "size":5
+    }
 }' -H 'content-type:application/json;' 127.0.0.1:9650/ext/P | jq '.result'
 
 printf "\nNode 2 UNL:\n"
 curl -sX POST --data '{
     "jsonrpc":"2.0",
     "id"     :1,
-    "method": "platform.getCurrentValidators"
+    "method": "platform.sampleValidators",
+    "params" :{
+        "size":5
+    }
 }' -H 'content-type:application/json;' 127.0.0.1:9652/ext/P | jq '.result'
 
 printf "\nNode 3 UNL:\n"
 curl -sX POST --data '{
     "jsonrpc":"2.0",
     "id"     :1,
-    "method": "platform.getCurrentValidators"
+    "method": "platform.sampleValidators",
+    "params" :{
+        "size":5
+    }
 }' -H 'content-type:application/json;' 127.0.0.1:9654/ext/P | jq '.result'
 
 printf "\nNode 4 UNL:\n"
 curl -sX POST --data '{
     "jsonrpc":"2.0",
     "id"     :1,
-    "method": "platform.getCurrentValidators"
+    "method": "platform.sampleValidators",
+    "params" :{
+        "size":5
+    }
 }' -H 'content-type:application/json;' 127.0.0.1:9656/ext/P | jq '.result'
 
 printf "\nNode 5 UNL:\n"
 curl -sX POST --data '{
     "jsonrpc":"2.0",
     "id"     :1,
-    "method": "platform.getCurrentValidators"
+    "method": "platform.sampleValidators",
+    "params" :{
+        "size":5
+    }
 }' -H 'content-type:application/json;' 127.0.0.1:9658/ext/P | jq '.result'
 
 mkdir $LOG_DIR/client
@@ -102,9 +125,9 @@ printf "\n\n\tInitiated 1000 XRP Ledger transactions across 10 agents:\n\t\t\x1b
 
 printf "\n\n\n"
 read -p "Press enter to stop background node processes"
-kill $NODE_1_PID
-kill $NODE_2_PID
-kill $NODE_3_PID
-kill $NODE_4_PID
-kill $NODE_5_PID
+kill $NODE_00_PID
+kill $NODE_01_PID
+kill $NODE_02_PID
+kill $NODE_03_PID
+kill $NODE_04_PID
 kill $CLIENT_PID &>/dev/null

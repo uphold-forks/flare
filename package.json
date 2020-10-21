@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "eslint": "*"
+  },
+  "scripts": {
+    "start": "env NODE_PATH=./ node fxrp.js"
   }
 }
