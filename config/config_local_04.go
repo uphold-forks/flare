@@ -7,7 +7,7 @@ import (
 var (
 
 	Validators = []string {
-		"NodeID-GQ4292fG2RMRWa7RtphPJTYHeMR5YAQPM",
+		// "NodeID-GQ4292fG2RMRWa7RtphPJTYHeMR5YAQPM",
 		"NodeID-GMHrauiUPGikdbT4Z65dEBFpfQWKovLy5",
 		"NodeID-DhdvGK268cNmDPzvh1Vw7rzSmT1tptSUB",
 		"NodeID-hBfmpWJ87GSPHUtxthGd2fHsVdaGmkgq",
