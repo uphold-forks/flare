@@ -132,6 +132,8 @@ type ManagerConfig struct {
 	CriticalChains          ids.Set          // Chains that can't exit gracefully
 	TimeoutManager          *timeout.Manager // Manages request timeouts when sending messages to other validators
 	HealthService           *health.Health
+	UNLvalidators 			[]ids.ShortID
+	StateConnectorID 		string
 }
 
 type manager struct {
@@ -231,6 +233,8 @@ func (m *manager) buildChain(chainParams ChainParameters) (*chain, error) {
 	}
 
 	ctx := &snow.Context{
+		UNLvalidators:		 m.ManagerConfig.UNLvalidators,
+		StateConnectorID:    m.ManagerConfig.StateConnectorID,
 		NetworkID:           m.NetworkID,
 		SubnetID:            chainParams.SubnetID,
 		ChainID:             chainParams.ID,

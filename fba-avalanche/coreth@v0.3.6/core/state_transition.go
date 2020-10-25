@@ -18,7 +18,9 @@ package core
 
 import (
 	// "math"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ava-labs/avalanchego/flare"
 	"github.com/ava-labs/coreth/core/vm"
@@ -277,12 +279,25 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		// ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		if (*msg.To() == flare.StateConnectorContract) {
+		
+		stateConnectorContractAddr := flare.GetStateConnectorContractAddr(st.evm.Context.BlockNumber)
+		if (*msg.To() == stateConnectorContractAddr) {
 			originalCoinbase := st.evm.Context.Coinbase
 			defer func() {
 				st.evm.Context.Coinbase = originalCoinbase
 			}()
-			st.evm.Context.Coinbase = flare.LocalNodeAddr
+			chainConfig := st.evm.ChainConfig()
+			s := strings.Split(chainConfig.StateConnectorID, ",")
+			n := new(big.Int)
+		    n, ok := n.SetString(s[0], 10)
+		    if !ok {
+		        return nil, fmt.Errorf("unable to set bootstrapUntil")
+		    }
+		    if (st.evm.Context.BlockNumber.Cmp(n) >= 0) {
+		    	st.evm.Context.Coinbase = common.HexToAddress(s[1])
+		    } else {
+		    	st.evm.Context.Coinbase = common.HexToAddress(s[2])
+		    }
 		}
 
 		ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.FixedGasMax, st.value)
@@ -290,7 +305,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	// st.refundGas()
 	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
-	st.state.AddBalance(flare.StateConnectorContract, new(big.Int).Mul(new(big.Int).SetUint64(flare.FixedGas), new(big.Int).SetUint64(flare.FixedGasPrice)))
+	feePoolContractAddr := flare.GetFeePoolContractAddr(st.evm.Context.BlockNumber)
+	st.state.AddBalance(feePoolContractAddr, new(big.Int).Mul(new(big.Int).SetUint64(flare.FixedGas), new(big.Int).SetUint64(flare.FixedGasPrice)))
 
 	return &ExecutionResult{
 		UsedGas:    flare.FixedGas,

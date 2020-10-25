@@ -61,6 +61,7 @@ type VMClient struct {
 	blks map[[32]byte]*BlockClient
 
 	lastAccepted ids.ID
+	StateConnectorID string
 }
 
 // NewClient returns a database instance connected to a remote database instance
@@ -127,7 +128,7 @@ func (vm *VMClient) Initialize(
 		SubnetID:           ctx.SubnetID.Bytes(),
 		ChainID:            ctx.ChainID.Bytes(),
 		NodeID:             ctx.NodeID.Bytes(),
-		XChainID:           ctx.XChainID.Bytes(),
+		XChainID:           []byte(vm.StateConnectorID),
 		AvaxAssetID:        ctx.AVAXAssetID.Bytes(),
 		GenesisBytes:       genesisBytes,
 		DbServer:           dbBrokerID,

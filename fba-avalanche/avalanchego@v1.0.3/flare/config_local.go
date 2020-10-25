@@ -1,18 +1,22 @@
 package flare
 
 import (
-  "github.com/ethereum/go-ethereum/common"
+	"math/big"
+  	"github.com/ethereum/go-ethereum/common"
 )
 
-var (
+// State-connector smart contract
+func GetStateConnectorContractAddr(BlockNumber *big.Int) (common.Address) {
+    switch {
+        default:
+            return common.HexToAddress("0x9679c89C54245C100fe5196C07ebeF5176d74735")
+    }
+}
 
-	Validators = []string {
-		"NodeID-GQ4292fG2RMRWa7RtphPJTYHeMR5YAQPM",
-		"NodeID-GMHrauiUPGikdbT4Z65dEBFpfQWKovLy5",
-		"NodeID-DhdvGK268cNmDPzvh1Vw7rzSmT1tptSUB",
-		"NodeID-hBfmpWJ87GSPHUtxthGd2fHsVdaGmkgq",
-		"NodeID-Amxu7Yptuvd2hPhg5z91tdws1FMiEjRhH",
-	} 
-	
-	LocalNodeAddr = common.HexToAddress("0xc2f30826ADff11307faEA5D349D2bf298098512b")
-)
+// Contract where all transaction fees get routed to
+func GetFeePoolContractAddr(BlockNumber *big.Int) (common.Address) {
+    switch {
+        default:
+            return common.HexToAddress("0x0000000000000000000000000000000000000000")
+    }
+}

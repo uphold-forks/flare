@@ -1,14 +1,5 @@
 package flare
 
-import (
-  "github.com/ethereum/go-ethereum/common"
-)
-
-var (
-  StateConnectorContract = common.HexToAddress("0x9679c89c54245c100fe5196c07ebef5176d74735")
-)
-
-
 const (
 
 	FixedGas uint64 = 100000

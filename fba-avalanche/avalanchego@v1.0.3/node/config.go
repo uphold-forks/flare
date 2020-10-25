@@ -6,6 +6,7 @@ package node
 import (
 	"time"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/genesis"
 	"github.com/ava-labs/avalanchego/nat"
@@ -56,6 +57,10 @@ type Config struct {
 
 	// Benchlist Configuration
 	BenchlistConfig benchlist.Config
+
+	// UNL configuration
+	UNLvalidators []ids.ShortID
+	StateConnectorID string
 
 	// Bootstrapping configuration
 	BootstrapPeers []*Peer

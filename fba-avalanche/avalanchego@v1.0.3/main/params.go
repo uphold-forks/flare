@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
+	
 	"github.com/ava-labs/avalanchego/database/leveldb"
 	"github.com/ava-labs/avalanchego/database/memdb"
 	"github.com/ava-labs/avalanchego/genesis"
@@ -152,6 +152,12 @@ func init() {
 	// Bootstrapping:
 	bootstrapIPs := fs.String("bootstrap-ips", "default", "Comma separated list of bootstrap peer ips to connect to. Example: 127.0.0.1:9630,127.0.0.1:9631")
 	bootstrapIDs := fs.String("bootstrap-ids", "default", "Comma separated list of bootstrap peer ids to connect to. Example: NodeID-JR4dVmy6ffUGAKCBDkyCbeZbyHQBeDsET,NodeID-8CrVPQZ4VSqgL8zTdvL14G8HqAfrBr4z")
+
+	// Unique Node List:
+	unlIDs := fs.String("unl-ids", "empty", "Comma separated list of peer ids to leverage for network-level consensus. Example: NodeID-JR4dVmy6ffUGAKCBDkyCbeZbyHQBeDsET,NodeID-8CrVPQZ4VSqgL8zTdvL14G8HqAfrBr4z")
+	stateConnectorID := fs.String("state-connector-id", "empty", "The EVM id to leverage for defining changes to this node's state-connector UNL. Example: 0xc2058730Cd09E1CF095ECBe8265Ba29A75004974")
+	bootstrapUntil := fs.String("bootstrap-until", "0", "The block number to bootstrap the state-connector system until. Example: 123456")
+	bootstrapID := fs.String("bootstrap-id", "", "The EVM id to leverage for bootstrapping to the latest state-connector contract state. Example: 0xc2058730Cd09E1CF095ECBe8265Ba29A75004974")
 
 	// Staking:
 	stakingPort := fs.Uint("staking-port", 9651, "Port of the consensus server")
@@ -330,6 +336,29 @@ func init() {
 		ip,
 		uint16(*stakingPort),
 	)
+
+	if *unlIDs == "empty" || *stateConnectorID == "empty"{
+		errs.Add(errInvalidStakerWeights)
+		return
+	}
+
+	for _, id := range strings.Split(*unlIDs, ",") {
+		if id != "" {
+			validatorID, err := ids.ShortFromPrefixedString(id, constants.NodeIDPrefix)
+			if err != nil {
+				errs.Add(fmt.Errorf("couldn't parse UNL validator id: %w", err))
+				return
+			}
+			Config.UNLvalidators = append(Config.UNLvalidators, validatorID)
+		}
+	}
+	if *bootstrapUntil != "0" && *bootstrapID == ""{
+		errs.Add(fmt.Errorf("invalid value for bootstrap-id: %w", err))
+		return
+	}
+	s := []string{*bootstrapUntil, *stateConnectorID, *bootstrapID}
+	joinedStateConnectorID := strings.Join(s, ",")
+	Config.StateConnectorID = joinedStateConnectorID
 
 	defaultBootstrapIPs, defaultBootstrapIDs := genesis.SampleBeacons(networkID, 5)
 

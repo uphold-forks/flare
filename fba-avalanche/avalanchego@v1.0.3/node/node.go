@@ -523,6 +523,8 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 		CriticalChains:          criticalChains,
 		TimeoutManager:          &timeoutManager,
 		HealthService:           n.healthService,
+		UNLvalidators:			 n.Config.UNLvalidators,
+		StateConnectorID:		 n.Config.StateConnectorID,
 	})
 
 	vdrs := n.vdrs
@@ -557,6 +559,7 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 		}),
 		n.vmManager.RegisterVMFactory(genesis.EVMID, &rpcchainvm.Factory{
 			Path: filepath.Join(n.Config.PluginDir, "evm"),
+			StateConnectorID: n.Config.StateConnectorID,
 		}),
 		n.vmManager.RegisterVMFactory(timestampvm.ID, &timestampvm.Factory{}),
 		n.vmManager.RegisterVMFactory(secp256k1fx.ID, &secp256k1fx.Factory{}),

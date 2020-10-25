@@ -36,8 +36,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 
 	safemath "github.com/ava-labs/avalanchego/utils/math"
-	
-	"github.com/ava-labs/avalanchego/flare"
 )
 
 const (
@@ -218,6 +216,8 @@ type VM struct {
 	bootstrappedTime time.Time
 
 	connections map[[20]byte]time.Time
+
+	UNLvalidators []ids.ShortID
 }
 
 // Initialize this blockchain.
@@ -230,6 +230,7 @@ func (vm *VM) Initialize(
 	_ []*common.Fx,
 ) error {
 	ctx.Log.Verbo("initializing platform chain")
+	vm.UNLvalidators = ctx.UNLvalidators
 	// Initialize the inner VM, which has a lot of boiler-plate logic
 	vm.SnowmanVM = &core.SnowmanVM{}
 	if err := vm.SnowmanVM.Initialize(ctx, db, vm.unmarshalBlockFunc, msgs); err != nil {
@@ -982,12 +983,8 @@ func (vm *VM) updateVdrMgr(force bool) error {
 
 func (vm *VM) updateVdrSet(subnetID ids.ID) error {
 	vdrs := validators.NewSet()
-	for _, longNodeID := range flare.Validators {
-		nodeID, err := ids.ShortFromPrefixedString(longNodeID, constants.NodeIDPrefix)
-		if err != nil {
-			return err
-		}
-		err = vdrs.AddWeight(nodeID, uint64(1))
+	for _, nodeID := range vm.UNLvalidators {
+		err := vdrs.AddWeight(nodeID, uint64(1))
 		if err != nil {
 			return err
 		}

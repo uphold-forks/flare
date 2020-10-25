@@ -19,7 +19,10 @@ var (
 )
 
 // Factory ...
-type Factory struct{ Path string }
+type Factory struct{ 
+	Path 				string 
+	StateConnectorID 	string
+}
 
 // New ...
 func (f *Factory) New(ctx *snow.Context) (interface{}, error) {
@@ -70,5 +73,7 @@ func (f *Factory) New(ctx *snow.Context) (interface{}, error) {
 	}
 
 	vm.SetProcess(client)
+	vm.StateConnectorID = f.StateConnectorID
+	
 	return vm, nil
 }

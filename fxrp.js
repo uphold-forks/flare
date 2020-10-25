@@ -68,7 +68,7 @@ async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegis
 						return processFailure(receipt.transactionHash);
 					} else {
 						console.log('Payloads registered:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
-						return sleep(5000)
+						return sleep(10000)
 						.then(() => {
 							return run();
 						})

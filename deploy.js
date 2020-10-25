@@ -143,7 +143,7 @@ xrplAPI.on('disconnected', () => {
 			console.log("State-connector system deployed.\n\nConfig:");
 			console.log(config.contract);
 			console.log("")
-			sleep(5000)
+			sleep(10000)
 			.then(() => {
 				return UNLconfig(0);
 			});

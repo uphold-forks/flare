@@ -55,6 +55,8 @@ type Context struct {
 	SubnetID  ids.ID
 	ChainID   ids.ID
 	NodeID    ids.ShortID
+	UNLvalidators []ids.ShortID
+	StateConnectorID string
 
 	XChainID    ids.ID
 	AVAXAssetID ids.ID

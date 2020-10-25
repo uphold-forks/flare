@@ -249,6 +249,7 @@ func (vm *VM) Initialize(
 	config := eth.DefaultConfig
 	config.ManualCanonical = true
 	config.Genesis = g
+	config.Genesis.Config.StateConnectorID = ctx.StateConnectorID
 	// disable the experimental snapshot feature from geth
 	config.TrieCleanCache += config.SnapshotCache
 	config.SnapshotCache = 0
