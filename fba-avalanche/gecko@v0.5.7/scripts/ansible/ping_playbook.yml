@@ -1,9 +1,0 @@
-
----
-- name: Update the network
-  connection: ssh
-  gather_facts: false
-  hosts: all
-  tasks:
-    - name: Ping node
-      ping:

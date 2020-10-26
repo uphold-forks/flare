@@ -16,18 +16,11 @@ const MAX_PAYLOAD_TX_SIZE = 200;
 var claimsInProgress = false;
 
 var config;
+var customCommon;
 var xrplAPI;
 var agents;
 var fxrp;
 var n;
-
-const customCommon = Common.forCustomChain('ropsten',
-						{
-							name: 'coston',
-							networkId: 14,
-							chainId: 14,
-						},
-        				'petersburg',);
 
 async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegistration, agent, payloadSkipIndex, nonceOffset) {
 	console.log('\n');
@@ -75,16 +68,17 @@ async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegis
 						return processFailure(receipt.transactionHash);
 					} else {
 						console.log('Payloads registered:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
-						return run();
+						return sleep(10000)
+						.then(() => {
+							return run();
+						})
 					}
 				})
 				.on('error', error => {
 					return processFailure(error);
 				});
-			} else if (nonceOffset > 2) {
-				return processFailure(txHash);
 			} else {
-				return registerPayloads(claimPeriodIndex, ledger, payloads, partialRegistration, agent, payloadSkipIndex, nonceOffset+2);
+				return processFailure(txHash);
 			}
 		})
 	})
@@ -220,6 +214,14 @@ async function config(stateConnector) {
 	});
 
 	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[n].F.url));
+
+	customCommon = Common.forCustomChain('ropsten',
+						{
+							name: 'coston',
+							networkId: config.evm.chainId,
+							chainId: config.evm.chainId,
+						},
+        				'petersburg',);
 
 	xrplAPI.on('connected', () => {
 		return run();
