@@ -145,7 +145,7 @@ curl -sX POST --data '{
     "jsonrpc": "2.0",
     "method": "eth_getBalance",
     "params": [
-        "0x7Ff2a962DC2A13114cc7e4b5b18277D43444526C",
+        "0x0000000000000000000000000000000000000002",
         "latest"
     ],
     "id": 1
@@ -159,7 +159,7 @@ curl -sX POST --data '{
     "jsonrpc": "2.0",
     "method": "eth_getBalance",
     "params": [
-        "0x7Ff2a962DC2A13114cc7e4b5b18277D43444526C",
+        "0x0000000000000000000000000000000000000002",
         "latest"
     ],
     "id": 1
