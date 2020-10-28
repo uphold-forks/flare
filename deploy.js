@@ -10,7 +10,6 @@ const fs = require('fs');
 
 var config;
 var xrplAPI;
-var signal;
 var fxrp;
 var customCommon;
 
@@ -21,7 +20,6 @@ async function config() {
 		server: config.stateConnectors[0].X.url,
 		timeout: 60000
 	});
-	signal = RippleKeys.deriveAddress(config.contract.agents[0]);
 	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[0].F.url));
 	// Read the compiled contract code
 	let source = fs.readFileSync("solidity/fxrp.json");

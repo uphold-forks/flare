@@ -1,28 +1,28 @@
 #!/bin/bash
 
-NODE_VERSION=avalanchego@v1.0.3
-CORETH_VERSION=coreth@v0.3.6
+NODE_VERSION=@v1.0.3
+CORETH_VERSION=@v0.3.6
 
 rm -rf logs
 mkdir logs
 LOG_DIR=$(pwd)/logs
 CONFIG_DIR=$(pwd)/config
 PKG_DIR=$GOPATH/pkg/mod/github.com/ava-labs
-NODE_DIR=$PKG_DIR/$NODE_VERSION
-CORETH_DIR=$PKG_DIR/$CORETH_VERSION
+NODE_DIR=$PKG_DIR/avalanchego$NODE_VERSION
+CORETH_DIR=$PKG_DIR/coreth$CORETH_VERSION
 
 rm -rf $NODE_DIR
 mkdir -p $PKG_DIR
-cp -r fba-avalanche/$NODE_VERSION $NODE_DIR
+cp -r fba-avalanche/avalanchego $NODE_DIR
 
 rm -rf $CORETH_DIR
-cp -r ./fba-avalanche/$CORETH_VERSION $CORETH_DIR
+cp -r fba-avalanche/coreth $CORETH_DIR
 
 cd $NODE_DIR
 rm -rf $NODE_DIR/db/
 
 printf "\x1b[34mFlare Network 5-Node Local Deployment\x1b[0m\n\n"
-printf "Building flare core ...\n"
+printf "Building Flare Core...\n\n"
 ./scripts/build.sh
 
 # NODE 1
@@ -87,7 +87,7 @@ sleep 5
 
 cd - &>/dev/null
 printf "\nNetwork launched, deploying state-connector system\n"
-sleep 10
+node stateConnectorConfig.js
 node deploy.js
 
 printf "\nNode 1 UNL:\n"
@@ -143,7 +143,7 @@ curl -sX POST --data '{
 mkdir $LOG_DIR/client
 nohup node client.js &> $LOG_DIR/client/nohup.out & echo $! > $LOG_DIR/client/client.pid
 CLIENT_PID=`cat $LOG_DIR/client/client.pid`
-printf "\n\n\tInitiated 1000 XRP Ledger transactions across 10 agents:\n\t\t\x1b[4mhttps://testnet.xrpl.org/\x1b[0m"
+printf "\n\n\tInitiating 1000 XRP Ledger transactions:\n\t\t\x1b[4mhttps://testnet.xrpl.org/\x1b[0m"
 
 printf "\n\n\n"
 read -p "Press enter to stop background node processes"

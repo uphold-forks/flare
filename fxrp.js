@@ -12,23 +12,30 @@ const express = require('express');
 const app = express();
 
 const xrpAmount = 1;
-const MAX_PAYLOAD_TX_SIZE = 200;
+const MAX_PAYLOAD_TX_SIZE = 100;
 var claimsInProgress = false;
 
 var config;
 var customCommon;
 var xrplAPI;
-var agents;
 var fxrp;
 var n;
+var globalNonce = 0;
+var firstRun = false;
 
-async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegistration, agent, payloadSkipIndex, nonceOffset) {
+async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegistration, agent, payloadSkipIndex) {
 	console.log('\n');
 	if (partialRegistration == false) {
 		console.log('Claim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m');
 	}
 	web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
 	.then(nonce => {
+		if (firstRun == false) {
+			globalNonce = nonce;
+			firstRun = true;
+		} else {
+			nonce = globalNonce;
+		}
 		return [fxrp.methods.registerPayloads(
 					claimPeriodIndex,
 					ledger,
@@ -45,7 +52,7 @@ async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegis
 	})
 	.then(txData => {
 		var rawTx = {
-			nonce: txData[1]+nonceOffset,
+			nonce: txData[1],
 			gasPrice: web3.utils.toHex(config.evm.gasPrice),
 			gas: web3.utils.toHex(config.evm.gas),
 			to: fxrp.options.address,
@@ -68,7 +75,8 @@ async function registerPayloads(claimPeriodIndex, ledger, payloads, partialRegis
 						return processFailure(receipt.transactionHash);
 					} else {
 						console.log('Payloads registered:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
-						return sleep(10000)
+						globalNonce = globalNonce + 1;
+						return sleep(1000)
 						.then(() => {
 							return run();
 						})
@@ -123,7 +131,7 @@ async function run() {
 async function processAgents(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, agent, payloadSkipIndex) {
 	const command = 'account_tx';
 	const params = {
-		'account': agents[agent],
+		'account': config.contract.agents[agent],
 		'ledger_index_min': ledger,
 		'ledger_index_max': genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1,
 		'binary': false,
@@ -139,41 +147,43 @@ async function processAgents(payloads, genesisLedger, claimPeriodIndex, claimPer
 				if (currPayloadIndex < payloadSkipIndex) {
 					continue;
 				} else if (payloads.ledger.length >= MAX_PAYLOAD_TX_SIZE) {
-					return registerPayloads(claimPeriodIndex, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, payloads, true, agent, currPayloadIndex, 0);
-				}
-				if (item.meta.TransactionResult != 'tesSUCCESS') {
+					return registerPayloads(claimPeriodIndex, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, payloads, true, agent, currPayloadIndex);
+				} else if (item.meta.TransactionResult != 'tesSUCCESS') {
 					console.error("ErrorCode001 - Unsuccessful transaction: ", item.tx.hash);
 					continue;
-				}
-				if (item.tx.TransactionType != 'Payment') {
+				} else if (item.tx.TransactionType != 'Payment') {
 					console.error("ErrorCode002 - Invalid transaction type: ", item.tx.hash);
 					continue;
-				}
-				if (item.tx.Amount < xrpAmount) {
+				} else if (item.tx.Amount < xrpAmount) {
 					console.error("ErrorCode003 - Invalid payment amount: ", item.tx.hash);
 					continue;
-				}
-				if (!("Memos" in item.tx)){
+				} else if (!("Memos" in item.tx)){
 					console.error("ErrorCode004 - No memo: ", item.tx.hash);
 					continue;
 				} else if (!("MemoData" in item.tx.Memos[0].Memo)) {
 					console.error("ErrorCode005 - Invalid memo: ", item.tx.hash);
 					continue;
+				} else {
+					const memo = Buffer.from(item.tx.Memos[0].Memo.MemoData, "hex").toString("utf-8");
+					if (web3.utils.isAddress(memo) == true) {
+						console.log('\ntxHash:', item.tx.hash, 
+							'\ninLedger:', item.tx.inLedger, 
+							'\nDate:', item.tx.date, 
+							'\nXRPL Sender:', item.tx.Account, 
+							'\nXRPL Receiver:', item.tx.Destination, 
+							'\nXRP Drops Amount:', item.tx.Amount, 
+							'\nMemo:', memo);
+						payloads.ledger.push(item.tx.inLedger);
+						payloads.txHash.push(item.tx.hash);
+						payloads.sender.push(item.tx.Account);
+						payloads.receiver.push(item.tx.Destination);
+						payloads.amount.push(item.tx.Amount);
+						payloads.memo.push(memo);
+					} else {
+						console.error("ErrorCode006 - Invalid EVM address: ", item.tx.hash);
+						continue;
+					}
 				}
-				const memo = Buffer.from(item.tx.Memos[0].Memo.MemoData, "hex").toString("utf-8");
-				console.log('\ntxHash:', item.tx.hash, 
-					'\ninLedger:', item.tx.inLedger, 
-					'\nDate:', item.tx.date, 
-					'\nXRPL Sender:', item.tx.Account, 
-					'\nXRPL Receiver:', item.tx.Destination, 
-					'\nXRP Drops Amount:', item.tx.Amount, 
-					'\nMemo:', memo);
-				payloads.ledger.push(item.tx.inLedger);
-				payloads.txHash.push(item.tx.hash);
-				payloads.sender.push(item.tx.Account);
-				payloads.receiver.push(item.tx.Destination);
-				payloads.amount.push(item.tx.Amount);
-				payloads.memo.push(memo);
 			}
 			if (xrplAPI.hasNextPage(response) == true) {
 				xrplAPI.requestNextPage(command, params, response)
@@ -181,8 +191,8 @@ async function processAgents(payloads, genesisLedger, claimPeriodIndex, claimPer
 					responseIterate(next_response);
 				})
 			} else {
-				if (agent+1 >= agents.length) {
-					return registerPayloads(claimPeriodIndex, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, payloads, false, 0, 0, 0);
+				if (agent+1 >= config.contract.agents.length) {
+					return registerPayloads(claimPeriodIndex, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, payloads, false, 0, 0);
 				} else {
 					return processAgents(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, agent+1, 0);
 				}
@@ -205,12 +215,6 @@ async function config(stateConnector) {
 	xrplAPI = new RippleAPI({
 	  server: config.stateConnectors[n].X.url,
 	  timeout: 60000
-	});
-
-	agents = config.contract.agents;
-	agents.forEach(function(item, index, array) {
-		const agent = RippleKeys.deriveAddress(item);
-		agents[index] = agent;
 	});
 
 	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[n].F.url));

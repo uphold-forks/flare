@@ -135,6 +135,12 @@ const (
       },
       "c2e7c571B32e3fD05F57e515A047FA3e099afC88": {
         "balance": "0x314dc6448d9338c15B0a00000000"
+      },
+      "22bd5eBDA9845eA6c711cf7aA4853E2f65c04bb3": {
+        "balance": "0x314dc6448d9338c15B0a00000000"
+      },
+      "39Db58932E0E209ba7453dC23FA3Da8463320612": {
+        "balance": "0x314dc6448d9338c15B0a00000000"
       }
     },
     "number": "0x0",

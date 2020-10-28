@@ -7,8 +7,7 @@ const xrplAPI = new RippleAPI({
 	server: 'wss://s.altnet.rippletest.net:51233'
 });
 
-var agents;
-const PAYMENTS_PER_AGENT = 100;
+const PAYMENTS_PER_AGENT = 1000;
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
@@ -40,7 +39,7 @@ async function sendPayment(agentNum, agentX, testAddress, paymentsNum) {
 			}
 	    },
 	    "destination": {
-			"address": agents[agentNum],
+			"address": config.contract.agents[agentNum],
 			"amount": {
 				"value": "0.000001",
 				"currency": "XRP"
@@ -55,7 +54,7 @@ async function sendPayment(agentNum, agentX, testAddress, paymentsNum) {
 		return xrplAPI.sign(preparedPayment['txJSON'], agentX.privateKey)
 	})
 	.then(signedPayment=> {
-		console.log('\nSending payment', parseInt(agentNum)*PAYMENTS_PER_AGENT+(PAYMENTS_PER_AGENT-parseInt(paymentsNum))+1, ' to address: ', agents[agentNum]);
+		console.log('\nSending payment', parseInt(agentNum)*PAYMENTS_PER_AGENT+(PAYMENTS_PER_AGENT-parseInt(paymentsNum))+1, ' to address: ', config.contract.agents[agentNum]);
 		return xrplAPI.submit(signedPayment.signedTransaction)
 	})
 	.then((response)=> {
@@ -67,7 +66,7 @@ async function sendPayment(agentNum, agentX, testAddress, paymentsNum) {
 			if (paymentsNum > 1) {
 				return sendPayment(agentNum, agentX, testAddress, paymentsNum-1);
 			} else {
-				if (parseInt(agentNum) + 1 < agents.length) {
+				if (parseInt(agentNum) + 1 < config.contract.agents.length) {
 					return sendPayment(parseInt(agentNum) + 1, agentX, testAddress, PAYMENTS_PER_AGENT); 
 				} else {
 					return xrplAPI.disconnect().catch(xrplDisconnectRetry);
@@ -90,13 +89,4 @@ xrplAPI.on('disconnected', () => {
 console.log('\x1b[4m\nFlare Network FXRP State Connector Client\x1b[0m\n');
 let rawConfig = fs.readFileSync('config/config.json');
 const config = JSON.parse(rawConfig);
-agents = config.contract.agents;
-agents.forEach(function(item, index, array) {
-	const agent = RippleKeys.deriveAddress(item);
-	agents[index] = agent;
-	if (index + 1 >= agents.length) {
-		xrplAPI.connect().catch(xrplConnectRetry);
-	}
-})
-
-
+xrplAPI.connect().catch(xrplConnectRetry);
