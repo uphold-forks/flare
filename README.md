@@ -103,7 +103,7 @@ curl -sX POST --data '{
 }' -H 'content-type:application/json;' 127.0.0.1:9658/ext/P | jq '.result'
 ```
 
-The above deploy script also initiated 1000 XRP transactions across 10 agents, where an agent is an XRP Ledger account holder that engages with the FXRP system. The state-connector system observes these payments, finalises the state to the Flare Network, and then issues a corresponding Spark payment to a Flare account referenced in the memo field of the XRP Ledger transaction. The XRP Ledger payments can be seen in real-time at https://testnet.xrpl.org/.
+The above deploy script also initiated 1000 XRP payments to a signalling address. The state-connector system observes these payments, finalises the state to the Flare Network, and then issues a corresponding Spark payment to a Flare account referenced in the memo field of the XRP Ledger transaction. The XRP Ledger payments can be seen in real-time at https://testnet.xrpl.org/.
 
 ## State-Connector System Deployment
 
