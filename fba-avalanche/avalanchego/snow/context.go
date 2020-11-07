@@ -55,8 +55,6 @@ type Context struct {
 	SubnetID  ids.ID
 	ChainID   ids.ID
 	NodeID    ids.ShortID
-	UNLvalidators []ids.ShortID
-	StateConnectorID string
 
 	XChainID    ids.ID
 	AVAXAssetID ids.ID
@@ -74,6 +72,7 @@ type Context struct {
 	bootstrapped uint32
 	Namespace    string
 	Metrics      prometheus.Registerer
+	UNLvalidators []ids.ShortID
 }
 
 // IsBootstrapped returns true iff this chain is done bootstrapping

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -60,7 +61,7 @@ var (
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	}
-	x2cRate = big.NewInt(0)
+	x2cRate = big.NewInt(1000000000)
 )
 
 const (
@@ -69,8 +70,8 @@ const (
 )
 
 const (
-	minBlockTime    = 12000 * time.Millisecond
-	maxBlockTime    = 15000 * time.Millisecond
+	minBlockTime    = 250 * time.Millisecond
+	maxBlockTime    = 1000 * time.Millisecond
 	batchSize       = 250
 	maxUTXOsToFetch = 1024
 	blockCacheSize  = 1 << 10 // 1024
@@ -154,6 +155,8 @@ func init() {
 type VM struct {
 	ctx *snow.Context
 
+	CLIConfig CommandLineConfig
+
 	chainID          *big.Int
 	networkID        uint64
 	genesisHash      common.Hash
@@ -229,6 +232,9 @@ func (vm *VM) Initialize(
 	toEngine chan<- commonEng.Message,
 	fxs []*commonEng.Fx,
 ) error {
+	if vm.CLIConfig.ParsingError != nil {
+		return vm.CLIConfig.ParsingError
+	}
 	if len(fxs) > 0 {
 		return errUnsupportedFXs
 	}
@@ -249,7 +255,7 @@ func (vm *VM) Initialize(
 	config := eth.DefaultConfig
 	config.ManualCanonical = true
 	config.Genesis = g
-	config.Genesis.Config.StateConnectorID = ctx.StateConnectorID
+	config.Genesis.Config.StateConnectorConfig = vm.CLIConfig.StateConnectorConfig
 	// disable the experimental snapshot feature from geth
 	config.TrieCleanCache += config.SnapshotCache
 	config.SnapshotCache = 0
@@ -260,8 +266,8 @@ func (vm *VM) Initialize(
 	// Set minimum price for mining and default gas price oracle value to the min
 	// gas price to prevent so transactions and blocks all use the correct fees
 	config.Miner.GasPrice = params.MinGasPrice
-	config.RPCGasCap = 2500000000 // 25000000 x 100
-	config.RPCTxFeeCap = 100      // 100 AVAX
+	config.RPCGasCap = vm.CLIConfig.RPCGasCap
+	config.RPCTxFeeCap = vm.CLIConfig.RPCTxFeeCap
 	config.GPO.Default = params.MinGasPrice
 	config.TxPool.PriceLimit = params.MinGasPrice.Uint64()
 	config.TxPool.NoLocals = true
@@ -513,12 +519,23 @@ func newHandler(name string, service interface{}, lockOption ...commonEng.LockOp
 // CreateHandlers makes new http handlers that can handle API calls
 func (vm *VM) CreateHandlers() map[string]*commonEng.HTTPHandler {
 	handler := vm.chain.NewRPCHandler()
-	vm.chain.AttachEthService(handler, []string{"eth", "personal", "txpool"})
-	handler.RegisterName("net", &NetAPI{vm})
-	handler.RegisterName("snowman", &SnowmanAPI{vm})
-	handler.RegisterName("web3", &Web3API{})
-	handler.RegisterName("debug", &DebugAPI{vm})
-	handler.RegisterName("admin", &admin.Performance{})
+	enabledAPIs := vm.CLIConfig.EthAPIs()
+	vm.chain.AttachEthService(handler, vm.CLIConfig.EthAPIs())
+
+	if vm.CLIConfig.SnowmanAPIEnabled {
+		handler.RegisterName("snowman", &SnowmanAPI{vm})
+		enabledAPIs = append(enabledAPIs, "snowman")
+	}
+	if vm.CLIConfig.CorethAdminAPIEnabled {
+		handler.RegisterName("admin", &admin.Performance{})
+		enabledAPIs = append(enabledAPIs, "coreth-admin")
+	}
+	if vm.CLIConfig.NetAPIEnabled {
+		handler.RegisterName("net", &NetAPI{vm})
+		enabledAPIs = append(enabledAPIs, "net")
+	}
+
+	log.Info(fmt.Sprintf("Enabled APIs: %s", strings.Join(enabledAPIs, ", ")))
 
 	return map[string]*commonEng.HTTPHandler{
 		"/rpc":  {LockOptions: commonEng.NoLock, Handler: handler},
@@ -870,52 +887,51 @@ func (vm *VM) GetAtomicUTXOs(
 // TODO switch to returning a list of private keys
 // since there are no multisig inputs in Ethereum
 func (vm *VM) GetSpendableFunds(keys []*crypto.PrivateKeySECP256K1R, assetID ids.ID, amount uint64) ([]EVMInput, [][]*crypto.PrivateKeySECP256K1R, error) {
-	return nil, nil, errInsufficientFunds
 	// NOTE: should we use HEAD block or lastAccepted?
-	// state, err := vm.chain.BlockState(vm.lastAccepted.ethBlock)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-	// inputs := []EVMInput{}
-	// signers := [][]*crypto.PrivateKeySECP256K1R{}
-	// // NOTE: we assume all keys correspond to distinct accounts here (so the
-	// // nonce handling in export_tx.go is correct)
-	// for _, key := range keys {
-	// 	if amount == 0 {
-	// 		break
-	// 	}
-	// 	addr := GetEthAddress(key)
-	// 	var balance uint64
-	// 	if assetID.Equals(vm.ctx.AVAXAssetID) {
-	// 		balance = new(big.Int).Div(state.GetBalance(addr), x2cRate).Uint64()
-	// 	} else {
-	// 		balance = state.GetBalanceMultiCoin(addr, assetID.Key()).Uint64()
-	// 	}
-	// 	if balance == 0 {
-	// 		continue
-	// 	}
-	// 	if amount < balance {
-	// 		balance = amount
-	// 	}
-	// 	nonce, err := vm.GetAcceptedNonce(addr)
-	// 	if err != nil {
-	// 		return nil, nil, err
-	// 	}
-	// 	inputs = append(inputs, EVMInput{
-	// 		Address: addr,
-	// 		Amount:  balance,
-	// 		AssetID: assetID,
-	// 		Nonce:   nonce,
-	// 	})
-	// 	signers = append(signers, []*crypto.PrivateKeySECP256K1R{key})
-	// 	amount -= balance
-	// }
+	state, err := vm.chain.BlockState(vm.lastAccepted.ethBlock)
+	if err != nil {
+		return nil, nil, err
+	}
+	inputs := []EVMInput{}
+	signers := [][]*crypto.PrivateKeySECP256K1R{}
+	// NOTE: we assume all keys correspond to distinct accounts here (so the
+	// nonce handling in export_tx.go is correct)
+	for _, key := range keys {
+		if amount == 0 {
+			break
+		}
+		addr := GetEthAddress(key)
+		var balance uint64
+		if assetID.Equals(vm.ctx.AVAXAssetID) {
+			balance = new(big.Int).Div(state.GetBalance(addr), x2cRate).Uint64()
+		} else {
+			balance = state.GetBalanceMultiCoin(addr, assetID.Key()).Uint64()
+		}
+		if balance == 0 {
+			continue
+		}
+		if amount < balance {
+			balance = amount
+		}
+		nonce, err := vm.GetAcceptedNonce(addr)
+		if err != nil {
+			return nil, nil, err
+		}
+		inputs = append(inputs, EVMInput{
+			Address: addr,
+			Amount:  balance,
+			AssetID: assetID,
+			Nonce:   nonce,
+		})
+		signers = append(signers, []*crypto.PrivateKeySECP256K1R{key})
+		amount -= balance
+	}
 
-	// if amount > 0 {
-	// 	return nil, nil, errInsufficientFunds
-	// }
+	if amount > 0 {
+		return nil, nil, errInsufficientFunds
+	}
 
-	// return inputs, signers, nil
+	return inputs, signers, nil
 }
 
 // GetAcceptedNonce returns the nonce associated with the address at the last accepted block

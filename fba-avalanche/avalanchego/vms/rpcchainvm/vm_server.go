@@ -69,8 +69,10 @@ func (vm *VMServer) Initialize(_ context.Context, req *vmproto.InitializeRequest
 	if err != nil {
 		return nil, err
 	}
-	stateConnectorID := string(req.XChainID)
-
+	xChainID, err := ids.ToID(req.XChainID)
+	if err != nil {
+		return nil, err
+	}
 	avaxAssetID, err := ids.ToID(req.AvaxAssetID)
 	if err != nil {
 		return nil, err
@@ -137,12 +139,11 @@ func (vm *VMServer) Initialize(_ context.Context, req *vmproto.InitializeRequest
 	}()
 
 	vm.ctx = &snow.Context{
-		StateConnectorID:    stateConnectorID,
 		NetworkID:           req.NetworkID,
 		SubnetID:            subnetID,
 		ChainID:             chainID,
 		NodeID:              nodeID,
-		XChainID:            chainID,
+		XChainID:            xChainID,
 		AVAXAssetID:         avaxAssetID,
 		Log:                 logging.NoLog{},
 		DecisionDispatcher:  nil,

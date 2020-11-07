@@ -157,7 +157,8 @@ var (
 	// genesis.
 	LocalConfig Config
 
-	// FlareConfig is the config that should be used for the Flare Network
+	// FlareConfig is the config that should be used to generate the flare
+	// genesis.
 	FlareConfig Config
 )
 
