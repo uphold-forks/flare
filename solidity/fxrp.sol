@@ -33,8 +33,7 @@ contract fxrp {
 
     // Hash of claim period => accounts that have registered this claim period
     mapping(bytes32 => mapping(address => bool)) private claimPeriodRegisteredBy;
-    mapping(uint256 => bytes32) private finalisedClaimPeriods;
-    uint256 private finalisedClaimPeriodIndex;
+    mapping(bytes32 => bool) private finalisedClaimPeriods;
 
 //====================================================================
 // Constructor
@@ -45,7 +44,6 @@ contract fxrp {
         claimPeriodLength = _claimPeriodLength;
         UNLsize = _UNLsize;
         finalityThreshold = _finalityThreshold;
-        finalisedClaimPeriodIndex = 0;
     }
 
 //====================================================================
@@ -64,34 +62,28 @@ contract fxrp {
     }
 
     function getlatestIndex() public view returns (uint256 _genesisLedger, uint256 _claimPeriodIndex,
-        uint256 _claimPeriodLength, uint256 _ledger, address _coinbase, address[] memory _UNL, uint256 _finalisedClaimPeriodIndex) {
+        uint256 _claimPeriodLength, uint256 _ledger, address _coinbase, address[] memory _UNL) {
         require(UNLmap[msg.sender].exists == true);
 
         return (genesisLedger, UNLmap[msg.sender].claimPeriodIndex, claimPeriodLength,
-            UNLmap[msg.sender].ledger, block.coinbase, UNLmap[block.coinbase].list, finalisedClaimPeriodIndex);
+            UNLmap[msg.sender].ledger, block.coinbase, UNLmap[block.coinbase].list);
     }
 
-    function registerClaimPeriod(uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality) {
+    function registerClaimPeriod(uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool success) {
         require(UNLmap[msg.sender].exists == true, 'msg.sender does not exist in UNLmap[]');
     	require(UNLmap[msg.sender].claimPeriodIndex == claimPeriodIndex, 'claimPeriodIndex incorrect');
         require(claimPeriodRegisteredBy[claimPeriodHash][msg.sender] == false, 'claimPeriodHash already registered');
         claimPeriodRegisteredBy[claimPeriodHash][msg.sender] = true;
         UNLmap[msg.sender].ledger = ledger;
         UNLmap[msg.sender].claimPeriodIndex = claimPeriodIndex+1;
-
-        if (claimPeriodIndex <= finalisedClaimPeriodIndex) {
-            return true;
-        } else {
-            if (computeFinality(claimPeriodHash) == true) {
-                finalisedClaimPeriodIndex = claimPeriodIndex;
-                return true;
-            } else {
-                return false;
-            }
-        }
+        return true;
     }
 
-    function computeFinality(bytes32 claimPeriodHash) private view returns (bool finality) {
+    function getGlobalFinality(bytes32 claimPeriodHash) public view returns (bool finality) {
+        return finalisedClaimPeriods[claimPeriodHash];
+    }
+
+    function getLocalFinality(bytes32 claimPeriodHash) public view returns (bool finality) {
         require(UNLmap[block.coinbase].exists == true, 'UNLmap[block.coinbase].exists != true');
         uint32 outerRegistered = 0;
         uint32 innerRegistered1 = 0;
@@ -149,6 +141,15 @@ contract fxrp {
         }
     }
 
-
+    function registerFinality(bytes32 claimPeriodHash) public returns (bool finality) {
+        require(finalisedClaimPeriods[claimPeriodHash] != true, 'finalisedClaimPeriods[claimPeriodHash] == true');
+        require(UNLmap[block.coinbase].exists == true, 'UNLmap[block.coinbase].exists != true');
+        if (getLocalFinality(claimPeriodHash) == true) {
+            finalisedClaimPeriods[claimPeriodHash] = true;
+            return true;
+        } else {
+            return false;
+        }
+    }
 
 }
