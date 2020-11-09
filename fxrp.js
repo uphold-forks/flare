@@ -66,7 +66,6 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 					return processFailure(error);
 				});
 			} else {
-				console.log(txResult);
 				return processFailure('txResult != null');
 			}
 		})
@@ -87,7 +86,7 @@ async function run() {
 	.then(result => {
 		xrplAPI.getLedgerVersion().catch(processFailure)
 		.then(sampledLedger => {
-			console.log("Local claim period:\t\x1b[33m", result[1], 
+			console.log("Finalised claim period:\t\x1b[33m", result[1], 
 				"\n\x1b[0mLast processed ledger:\t\x1b[33m", result[3], '\n\x1b[0mCurrent sampled ledger:\t\x1b[33m', sampledLedger);
 			console.log("\x1b[0mCoinbase address:\t\x1b[33m", result[4], '\x1b[0m');
 			console.log("\x1b[0mContract-layer UNL:\n", result[5], '\x1b[0m');
@@ -240,7 +239,7 @@ function claimProcessingCompleted(message) {
 	xrplAPI.disconnect()
 	.then(() => {
 		console.log(message);
-		setTimeout(() => {return process.exit()}, getRandomInt(5000,10000));
+		setTimeout(() => {return process.exit()}, getRandomInt(1000,5000));
 	})
 }
 
