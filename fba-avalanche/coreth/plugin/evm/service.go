@@ -5,14 +5,11 @@ package evm
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
 	"strings"
-
-	"github.com/ava-labs/coreth"
 
 	"github.com/ava-labs/avalanchego/api"
 	"github.com/ava-labs/avalanchego/ids"
@@ -20,15 +17,13 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/ava-labs/avalanchego/utils/formatting"
 	"github.com/ava-labs/avalanchego/utils/json"
-	"github.com/ava-labs/coreth/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
-	version = "Athereum 1.0"
+	version = "coreth-v0.3.7"
 )
 
 // test constants
@@ -37,20 +32,14 @@ const (
 	GenesisTestKey  = "0xabd71b35d559563fea757f0f5edbde286fb8c043105b15abb7cd57189306d7d1"
 )
 
-// DebugAPI introduces helper functions for debuging
-type DebugAPI struct{ vm *VM }
-
 // SnowmanAPI introduces snowman specific functionality to the evm
 type SnowmanAPI struct{ vm *VM }
-
-// NetAPI offers network related API methods
-type NetAPI struct{ vm *VM }
 
 // AvaxAPI offers Avalanche network related API methods
 type AvaxAPI struct{ vm *VM }
 
-// NewNetAPI creates a new net API instance.
-func NewNetAPI(vm *VM) *NetAPI { return &NetAPI{vm} }
+// NetAPI offers network related API methods
+type NetAPI struct{ vm *VM }
 
 // Listening returns an indication if the node is listening for network connections.
 func (s *NetAPI) Listening() bool { return true } // always listening
@@ -60,15 +49,6 @@ func (s *NetAPI) PeerCount() hexutil.Uint { return hexutil.Uint(0) } // TODO: re
 
 // Version returns the current ethereum protocol version.
 func (s *NetAPI) Version() string { return fmt.Sprintf("%d", s.vm.networkID) }
-
-// Web3API offers helper API methods
-type Web3API struct{}
-
-// ClientVersion returns the version of the vm running
-func (s *Web3API) ClientVersion() string { return version }
-
-// Sha3 returns the bytes returned by hashing [input] with Keccak256
-func (s *Web3API) Sha3(input hexutil.Bytes) hexutil.Bytes { return ethcrypto.Keccak256(input) }
 
 // GetAcceptedFrontReply defines the reply that will be sent from the
 // GetAcceptedFront API call
@@ -86,53 +66,15 @@ func (api *SnowmanAPI) GetAcceptedFront(ctx context.Context) (*GetAcceptedFrontR
 	}, nil
 }
 
-// GetGenesisBalance returns the current funds in the genesis
-func (api *DebugAPI) GetGenesisBalance(ctx context.Context) (*hexutil.Big, error) {
-	lastAccepted := api.vm.getLastAccepted()
-	log.Trace(fmt.Sprintf("Currently accepted block front: %s", lastAccepted.ethBlock.Hash().Hex()))
-	state, err := api.vm.chain.BlockState(lastAccepted.ethBlock)
-	if err != nil {
-		return nil, err
-	}
-	return (*hexutil.Big)(state.GetBalance(common.HexToAddress(GenesisTestAddr))), nil
-}
-
-// SpendGenesis funds
-func (api *DebugAPI) SpendGenesis(ctx context.Context, nonce uint64) error {
-	log.Info("Spending the genesis")
-
-	value := big.NewInt(1000000000000)
-	gasLimit := 21000
-	gasPrice := big.NewInt(1000000000)
-
-	genPrivateKey, err := ethcrypto.HexToECDSA(GenesisTestKey[2:])
-	if err != nil {
-		return err
-	}
-	bob, err := coreth.NewKey(rand.Reader)
-	if err != nil {
-		return err
-	}
-
-	tx := types.NewTransaction(nonce, bob.Address, value, uint64(gasLimit), gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(api.vm.chainID), genPrivateKey)
-	if err != nil {
-		return err
-	}
-
-	if err := api.vm.issueRemoteTxs([]*types.Transaction{signedTx}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // IssueBlock to the chain
-func (api *DebugAPI) IssueBlock(ctx context.Context) error {
+func (api *SnowmanAPI) IssueBlock(ctx context.Context) error {
 	log.Info("Issuing a new block")
 
 	return api.vm.tryBlockGen()
 }
+
+// ClientVersion returns the version of the vm running
+func (service *AvaxAPI) ClientVersion() string { return version }
 
 // ExportKeyArgs are arguments for ExportKey
 type ExportKeyArgs struct {

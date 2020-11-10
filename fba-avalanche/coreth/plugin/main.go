@@ -12,7 +12,7 @@ func main() {
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: rpcchainvm.Handshake,
 		Plugins: map[string]plugin.Plugin{
-			"vm": rpcchainvm.New(&evm.VM{}),
+			"vm": rpcchainvm.New(&evm.VM{CLIConfig: cliConfig}),
 		},
 
 		// A non-nil value here enables gRPC serving for this plugin...

@@ -153,5 +153,5 @@ var (
 
 	// MinGasPrice is the number of nAVAX required per gas unit for a transaction
 	// to be valid, measured in wei
-	MinGasPrice = big.NewInt(1)
+	MinGasPrice = big.NewInt(10000)
 )

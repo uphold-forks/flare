@@ -7,7 +7,7 @@ const xrplAPI = new RippleAPI({
 	server: 'wss://s.altnet.rippletest.net:51233'
 });
 
-const PAYMENTS_PER_AGENT = 1000;
+const PAYMENTS_PER_AGENT = 100000;
 
 async function sleep(ms) {
 	return new Promise((resolve) => {

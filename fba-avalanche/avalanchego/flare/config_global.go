@@ -2,9 +2,8 @@ package flare
 
 const (
 
-	FixedGas uint64 = 100000
-	FixedGasMax uint64 = 200000000000
-	FixedGasPrice uint64 = 100000000
+	FixedGasUsed uint64 = 100000
+	FixedGasCeil uint64 = 200000000000000000
 
   CChainGenesis = `{
     "config": {
@@ -23,7 +22,7 @@ const (
     "nonce": "0x0",
     "timestamp": "0x0",
     "extraData": "0x00",
-    "gasLimit": "0x38d7ea4c68000000",
+    "gasLimit": "0x5f5e100",
     "difficulty": "0x0",
     "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "coinbase": "0x0000000000000000000000000000000000000000",
