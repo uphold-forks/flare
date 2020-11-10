@@ -218,16 +218,9 @@ async function contract() {
 	fxrp.options.address = config.contract.address;
 }
 
-
-async function xrplConnectRetry(error) {
-	console.log('XRPL connecting...');
-	console.log(error);
-	setTimeout(() => {return xrplAPI.connect().catch(xrplConnectRetry)}, 1000);
-}
-
 async function processFailure(error) {
 	console.error('error:', error);
-	process.exit();
+	setTimeout(() => {return process.exit()}, getRandomInt(1000,5000));
 }
 
 async function updateClaimsInProgress(status) {
@@ -236,7 +229,7 @@ async function updateClaimsInProgress(status) {
 }
 
 function claimProcessingCompleted(message) {
-	xrplAPI.disconnect()
+	xrplAPI.disconnect().catch(processFailure)
 	.then(() => {
 		console.log(message);
 		setTimeout(() => {return process.exit()}, getRandomInt(1000,5000));
@@ -244,6 +237,7 @@ function claimProcessingCompleted(message) {
 }
 
 app.get('/fxrp', (req, res) => {
+	setTimeout(() => {process.exit()}, 60000);
 	if (claimsInProgress == true) {
 		res.status(200).send('Claims already being processed.').end();
 	} else {
@@ -256,7 +250,7 @@ app.get('/fxrp', (req, res) => {
 					return contract().catch(processFailure);
 				})
 				.then(() => {
-					return xrplAPI.connect().catch(xrplConnectRetry);
+					return xrplAPI.connect().catch(processFailure);
 				})
 			} else {
 				return processFailure('Error updating claimsInProgress.');
