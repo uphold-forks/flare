@@ -78,8 +78,8 @@ yarn
   
 Node 00
 ```bash
-# Run node
-./gcp/network.sh "node00"
+# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/network.sh "node00" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659" "<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -87,8 +87,8 @@ ps aux | grep avalanchego
 
 Node 01
 ```bash
-# Run node
-./gcp/network.sh "node01" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,"
+# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/network.sh "node01" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -96,8 +96,8 @@ ps aux | grep avalanchego
 
 Node 02
 ```bash
-# Run node
-./gcp/network.sh "node02" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,"
+# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/network.sh "node02" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -105,8 +105,8 @@ ps aux | grep avalanchego
 
 Node 03
 ```bash
-# Run node
-./gcp/network.sh "node03" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,"
+# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/network.sh "node03" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -114,8 +114,8 @@ ps aux | grep avalanchego
 
 Node 04
 ```bash
-# Run node
-./gcp/network.sh "node04" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659,"
+# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/network.sh "node04" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659" "<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
