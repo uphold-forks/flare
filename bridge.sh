@@ -1,3 +1,5 @@
+#!/bin/bash -x
+
 PORT=$((8080+$1))
 while true; do 
 	nohup $(sleep 2; curl -s http://localhost:$PORT/fxrp) >& /dev/null &

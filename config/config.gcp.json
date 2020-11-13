@@ -9,7 +9,7 @@
       "F": {
         "address": "0xc2058730Cd09E1CF095ECBe8265Ba29A75004974",
         "privateKey": "af891a28f7ab98620377719073751901ae52827fab7e77f32ce06ed3d93f2be7",
-        "url": "http://35.234.103.77:9650/ext/bc/C/rpc"
+        "url": "http://<node00>/ext/bc/C/rpc"
       },
       "UNL": [
         0,
@@ -27,7 +27,7 @@
       "F": {
         "address": "0xc2679fB46DF45A2e6ed01910C876D52d8886704C",
         "privateKey": "a48db12716f5a554956fda206dce8c961db583591e5f39015b4b321bcef8638c",
-        "url": "http://35.234.115.112:9652/ext/bc/C/rpc"
+        "url": "http://<node01>/ext/bc/C/rpc"
       },
       "UNL": [
         0,
@@ -45,7 +45,7 @@
       "F": {
         "address": "0xc264Df6089Cd05427EfeC817821181B69BbDd934",
         "privateKey": "06e5dbb2f4e34f326973e45b3144d6d86c52c4fc13954e979535c47f191647ba",
-        "url": "http://35.246.168.96:9654/ext/bc/C/rpc"
+        "url": "http://<node02>/ext/bc/C/rpc"
       },
       "UNL": [
         0,
@@ -63,7 +63,7 @@
       "F": {
         "address": "0xc20c5a4fdd7AD763eC87C2F31b557177bd817978",
         "privateKey": "e2db1a100f289e6dcc9b9c69a7bf45cc1f63f12d5779fa3db9de497d929d7026",
-        "url": "http://34.107.5.204:9656/ext/bc/C/rpc"
+        "url": "http://<node03>/ext/bc/C/rpc"
       },
       "UNL": [
         0,
@@ -81,7 +81,7 @@
       "F": {
         "address": "0xc2f30826ADff11307faEA5D349D2bf298098512b",
         "privateKey": "ac2453e2dbe7dc5f5cefef20b90fd34fbb6aab6fc6be0a20f5f20f63d35f61bb",
-        "url": "http://34.89.148.248:9658/ext/bc/C/rpc"
+        "url": "http://<node04>/ext/bc/C/rpc"
       },
       "UNL": [
         1,
