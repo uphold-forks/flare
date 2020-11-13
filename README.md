@@ -31,20 +31,19 @@ Flare runs the [Avalanche consensus protocol](https://github.com/ava-labs/avalan
 The changes made to Avalanche to enable FBA consensus are primarily underpinned by disabling the staking system of Avalanche, and instead allowing each node to independently define the probability of sampling peer nodes as opposed to globally basing this probability according to token ownership. 
 
 1) Disabling the staking system, allowing private weighting of the importance of other nodes: 
-- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/vms/platformvm/vm.go#L288
-- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/vms/platformvm/vm.go#L984
-- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/genesis/genesis.go#L131
+- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/vms/platformvm/vm.go#L989
+- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/genesis/genesis.go#L125
 
 2) Private weighting of the probability of sampling other nodes: 
-- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/main/params.go#L157
+- https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/main/params.go#L227
 
 ### Ethereum Virtual Machine: Fixed Gas Costs and Unique Node List Definition at the Contract Layer
 
 No changes will ever be made to go-ethereum, only to coreth (maintained by Ava Labs) which inherits go-ethereum and interfaces with avalanchego. These changes represent enabling the state-connector system to operate exactly as specified in the Flare whitepaper: https://flare.xyz/app/uploads/2020/08/flare_v1.1.pdf. See section 2.2 "State-Connectors: Consensus on the state of external systems" as well as Appendix A: "Encoding the UNL within the smart contract layer" for a description of the system design and its engineering considerations.
 
-1) Custom values of block.coinbase when the state connector contract is called: https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/coreth/core/state_transition.go#L284
+1) Custom values of block.coinbase when the state connector contract is called: https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/coreth/core/state_transition.go#L262
 
-2) Fixed gas costs (at the same order of magnitude as the XRP Ledger), with an upper-limit on computational complexity per transaction: https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/coreth/core/state_transition.go#L193
+2) Fixed gas costs for the state connector system (at the same order of magnitude as the XRP Ledger), with an upper-limit on computational complexity per transaction: https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/coreth/core/state_transition.go#L274
 
 ## State-Connector System
 
@@ -135,7 +134,7 @@ Terminal 5:
 ./bridge.sh 4
 ```
 
-Note that the terminal output of the state-connector reports each node's independent definition of the UNL, derived from their local definition of the `block.coinbase` variable which is used to index: `UNLmap[block.coinbase].list` https://gitlab.com/flarenetwork/flare/-/blob/master/solidity/fxrp.sol#L137
+Note that the terminal output of the state-connector reports each node's independent definition of the UNL, derived from their local definition of the `block.coinbase` variable which is used to index: `UNLmap[block.coinbase].list` https://gitlab.com/flarenetwork/flare/-/blob/master/solidity/fxrp.sol#L71
 
 
 (c) Flare Networks Ltd. 2020
