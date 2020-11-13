@@ -136,5 +136,9 @@ Terminal 5:
 
 Note that the terminal output of the state-connector reports each node's independent definition of the UNL, derived from their local definition of the `block.coinbase` variable which is used to index: `UNLmap[block.coinbase].list` https://gitlab.com/flarenetwork/flare/-/blob/master/solidity/fxrp.sol#L71. Also, the state connector smart contract automatically bounces excess transactions as part of its normal operation, so you will likely occasionally see transaction rejection messages in the terminal output of the bridge.sh script. This is normal and is performed in order to reduce the network traffic footprint of the state connector system.
 
+## Google Cloud Platform deployment
+
+To see how the Flare nodes can be deployed to GCP, see: https://gitlab.com/flarenetwork/flare/-/tree/master/gcp
+
 
 (c) Flare Networks Ltd. 2020
