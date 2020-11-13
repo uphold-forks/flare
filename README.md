@@ -67,13 +67,18 @@ The state connector system has the useful safety property of only possibly havin
 
 ## Deploy
 
-Launch a 5-node network, with varying definitions of Unique Node List (UNL) across nodes. A node then mirrors its own network-level UNL definition at the contract level for the state-connector system.
+Configure and launch a 5-node network, with varying definitions of Unique Node List (UNL) across nodes. A node then mirrors its own network-level UNL definition at the contract level for the state-connector system.
 
 ```
-./network.sh
+./config.sh
 ```
 
-When the deployment is complete, this command displays the unique node list definitions of each node. Starting in this version of flare, setting UNL definitions is a completely out-of-band operation that does not require any network-level consensus on which Node ID's are elegible to be included in the UNL.
+Once the above config script completes execution, launch the network using:
+```
+./launch.sh
+```
+
+When the deployment is complete, this command displays the unique node list definitions of each node. Setting UNL definitions is a completely out-of-band operation that does not require any network-level consensus on which Node IDs are elegible to be included in the UNL.
 
 To test the sampling of peer nodes, try these commands:
 
@@ -101,11 +106,9 @@ curl -sX POST --data '{
 }' -H 'content-type:application/json;' 127.0.0.1:9658/ext/P | jq '.result'
 ```
 
-The above deploy script also initiated 1000 XRP payments to a signalling address. The state-connector system observes these payments, finalises the state to the Flare Network, and then issues a corresponding Spark payment to a Flare account referenced in the memo field of the XRP Ledger transaction. The XRP Ledger payments can be seen in real-time at https://testnet.xrpl.org/.
+## State-Connector System Operation
 
-## State-Connector System Deployment
-
-In new terminal windows, the following commands launch a state-connector instance attached to each respective node. The terminal output of the command shows the entire process of observing, registering and finalising the state of the XRP Ledger. 
+In new terminal windows, the following commands launch a state-connector instance attached to each respective node. The terminal output of the command shows the entire process of observing, registering and finalising the state of the XRP Ledger. The state connector deployment is configured to operate over a historic set of approximately 45k payments on the XRPL testnet beginning at ledger index number 11843371. The system records claim periods (see the Flare whitepaper linked above) as a merkle tree hash, allowing one to prove to a contract on the Flare Network, such as FXRP, that a payment exists on the XRPL using an SPV proof.
 
 Terminal 1:
 ```
@@ -133,36 +136,6 @@ Terminal 5:
 ```
 
 Note that the terminal output of the state-connector reports each node's independent definition of the UNL, derived from their local definition of the `block.coinbase` variable which is used to index: `UNLmap[block.coinbase].list` https://gitlab.com/flarenetwork/flare/-/blob/master/solidity/fxrp.sol#L137
-
-The resulting effect on the Flare Network state can be observed by checking the balance of the Flare account referenced in the memo field of the 1000 XRP Ledger transactions. At the conclusion of the state-connector system finalising this set of transactions to the Flare Network, the balance of the Flare account should report as `"0x3e8"`, i.e. 1000.
-
-### Node 1's State
-
-```
-curl -sX POST --data '{
-    "jsonrpc": "2.0",
-    "method": "eth_getBalance",
-    "params": [
-        "0x0000000000000000000000000000000000000002",
-        "latest"
-    ],
-    "id": 1
-}' -H 'content-type:application/json;' 127.0.0.1:9650/ext/bc/C/rpc | jq '.result'
-```
-
-### Node 5's State
-
-```
-curl -sX POST --data '{
-    "jsonrpc": "2.0",
-    "method": "eth_getBalance",
-    "params": [
-        "0x0000000000000000000000000000000000000002",
-        "latest"
-    ],
-    "id": 1
-}' -H 'content-type:application/json;' 127.0.0.1:9658/ext/bc/C/rpc | jq '.result'
-```
 
 
 (c) Flare Networks Ltd. 2020
