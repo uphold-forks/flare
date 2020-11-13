@@ -1,5 +1,4 @@
 #!/bin/bash
-# exec > $(pwd)/logs/network.log 2>&1
 
 # Pass in vars
 NODE_NAME="${1:-node00}"
@@ -158,9 +157,31 @@ case "$NODE_NAME" in
     ;;
 esac
 
-# Launch the state connector
+# Configure the state connector dynamically - Currently configured to 5 nodes 00-04
+printf "\nNetwork launched, configuring the state-connector system\n"
 cd $REPO_DIR
-printf "\nNetwork launched, deploying state-connector system\n"
+cp $CONFIG_DIR/config.gcp.json $CONFIG_DIR/config.json
+NODE_NO=0
+IFS=',' ;for IP in `echo "$STATE_CONNECTOR_IPS"`
+do
+    echo $NODE_NO
+    echo $IP
+
+    if (( $NODE_NO < 10 )); then
+        # Replace each <node0-9> with an IP and Port
+        FIND_NAME="<node0${NODE_NO}>"
+    else    
+        # Replace each <node10-99> with an IP and Port
+        FIND_NAME="<node${NODE_NO}>"
+    fi
+
+    sed -i "s/$FIND_NAME/$IP/" $CONFIG_DIR/config.json
+
+    NODE_NO=$[$NODE_NO +1]
+done
+
+# Launch the state connector
+printf "\nDeploying state-connector system\n"
 # node stateConnectorConfig.js
 node deploy.js
 
@@ -177,4 +198,5 @@ node deploy.js
 # kill $CLIENT_PID &>/dev/null
 
 printf "\n\n\n"
-printf "To kill the node and client run gcp/stop.sh script \x1b[0m"
+printf "To kill the node and client run bash gcp/stop.sh script \x1b[0m"
+

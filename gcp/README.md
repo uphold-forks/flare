@@ -44,8 +44,8 @@ source ~/.profile
   
 Node 00
 ```bash
-# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
-bash -x gcp/network.sh "node00" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
+# Run node - bash -x gcp/bootstrap.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/bootstrap.sh "node00" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -53,8 +53,8 @@ ps aux | grep avalanchego
 
 Node 01
 ```bash
-# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
-bash -x gcp/network.sh "node01" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
+# Run node - bash -x gcp/bootstrap.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/bootstrap.sh "node01" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -62,8 +62,8 @@ ps aux | grep avalanchego
 
 Node 02
 ```bash
-# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
-bash -x gcp/network.sh "node02" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
+# Run node - bash -x gcp/bootstrap.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/bootstrap.sh "node02" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -71,8 +71,8 @@ ps aux | grep avalanchego
 
 Node 03
 ```bash
-# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
-bash -x gcp/network.sh "node03" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
+# Run node - bash -x gcp/bootstrap.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/bootstrap.sh "node03" "<insert-node00-internal-ip-address>:9651,<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
@@ -80,67 +80,38 @@ ps aux | grep avalanchego
 
 Node 04
 ```bash
-# Run node - bash -x gcp/network.sh "<node-id>" "<peering-ips>" "state-connector-ips"
-bash -x gcp/network.sh "node04" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
+# Run node - bash -x gcp/bootstrap.sh "<node-id>" "<peering-ips>" "state-connector-ips"
+bash -x gcp/bootstrap.sh "node04" "<insert-node01-internal-ip-address>:9653,<insert-node02-internal-ip-address>:9655,<insert-node03-internal-ip-address>:9657,<insert-node04-internal-ip-address>:9659" "<insert-node00-internal-ip-address>:9650,<insert-node01-internal-ip-address>:9652,<insert-node02-internal-ip-address>:9654,<insert-node03-internal-ip-address>:9656,<insert-node04-internal-ip-address>:9658"
 
 # Check it's running
 ps aux | grep avalanchego
 ```
 
 ## GCP State-Connector System Deployment
-### Wait until the network scripts have finished running to run the following bridge scripts
+### Wait until the bootstrap script has finished running to run the following bridge scripts
 Node 00
 ```bash
-./bridge.sh 0
+bash bridge.sh 0
 ```
 
 Node 01
 ```bash
-./bridge.sh 1
+bash bridge.sh 1
 ```
 
 Node 02
 ```bash
-./bridge.sh 2
+bash bridge.sh 2
 ```
 
 Node 03
 ```bash
-./bridge.sh 3
+bash bridge.sh 3
 ```
 
 Node 04
 ```bash
-./bridge.sh 4
+bash bridge.sh 4
 ```
-
-### node00's State
-
-```bash
-curl -sX POST --data '{
-    "jsonrpc": "2.0",
-    "method": "eth_getBalance",
-    "params": [
-        "0x0000000000000000000000000000000000000002",
-        "latest"
-    ],
-    "id": 1
-}' -H 'content-type:application/json;' 127.0.0.1:9650/ext/bc/C/rpc | jq '.result'
-```
-
-### node04's State
-
-```bash
-curl -sX POST --data '{
-    "jsonrpc": "2.0",
-    "method": "eth_getBalance",
-    "params": [
-        "0x0000000000000000000000000000000000000002",
-        "latest"
-    ],
-    "id": 1
-}' -H 'content-type:application/json;' 127.0.0.1:9658/ext/bc/C/rpc | jq '.result'
-```
-
 
 (c) Flare Networks Ltd. 2020
