@@ -20,7 +20,7 @@ const (
 	DenaliID  uint32 = 3
 	EverestID uint32 = 4
 	FujiID    uint32 = 5
-	FlareID   uint32 = 14
+	FlareID	  uint32 = 14
 
 	TestnetID  uint32 = FujiID
 	UnitTestID uint32 = 10
@@ -34,7 +34,7 @@ const (
 	TestnetName  = "testnet"
 	UnitTestName = "testing"
 	LocalName    = "local"
-	FlareName    = "flare"
+	FlareName	 = "flare"
 
 	MainnetHRP  = "avax"
 	CascadeHRP  = "cascade"
@@ -44,7 +44,7 @@ const (
 	UnitTestHRP = "testing"
 	LocalHRP    = "local"
 	FallbackHRP = "custom"
-	FlareHRP    = "flare"
+	FlareHRP	= "flare"
 )
 
 // Variables to be exported

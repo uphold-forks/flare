@@ -130,10 +130,10 @@ type ManagerConfig struct {
 	AVAXAssetID             ids.ID
 	XChainID                ids.ID
 	CriticalChains          ids.Set          // Chains that can't exit gracefully
+	WhitelistedSubnets      ids.Set          // Subnets to validate
 	TimeoutManager          *timeout.Manager // Manages request timeouts when sending messages to other validators
 	HealthService           *health.Health
 	UNLvalidators 			[]ids.ShortID
-	StateConnectorID 		string
 }
 
 type manager struct {
@@ -181,6 +181,15 @@ func (m *manager) CreateChain(chain ChainParameters) {
 
 // Create a chain
 func (m *manager) ForceCreateChain(chainParams ChainParameters) {
+	if !m.WhitelistedSubnets.Contains(chainParams.SubnetID) {
+		m.Log.Debug("Skipped creating non-whitelisted chain:\n"+
+			"    ID: %s\n"+
+			"    VMID:%s",
+			chainParams.ID,
+			chainParams.VMAlias,
+		)
+		return
+	}
 	// Assert that there isn't already a chain with an alias in [chain].Aliases
 	// (Recall that the string repr. of a chain's ID is also an alias for a chain)
 	if alias, isRepeat := m.isChainWithAlias(chainParams.ID.String()); isRepeat {
@@ -233,8 +242,6 @@ func (m *manager) buildChain(chainParams ChainParameters) (*chain, error) {
 	}
 
 	ctx := &snow.Context{
-		UNLvalidators:		 m.ManagerConfig.UNLvalidators,
-		StateConnectorID:    m.ManagerConfig.StateConnectorID,
 		NetworkID:           m.NetworkID,
 		SubnetID:            chainParams.SubnetID,
 		ChainID:             chainParams.ID,
@@ -250,6 +257,7 @@ func (m *manager) buildChain(chainParams ChainParameters) (*chain, error) {
 		SNLookup:            m,
 		Namespace:           fmt.Sprintf("%s_%s_vm", constants.PlatformName, primaryAlias),
 		Metrics:             m.ConsensusParams.Metrics,
+		UNLvalidators:		 m.ManagerConfig.UNLvalidators,
 	}
 
 	// Get a factory for the vm we want to use on our chain

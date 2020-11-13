@@ -6,9 +6,9 @@ package node
 import (
 	"time"
 
-	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/genesis"
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/nat"
 	"github.com/ava-labs/avalanchego/snow/consensus/avalanche"
 	"github.com/ava-labs/avalanchego/snow/networking/benchlist"
@@ -57,10 +57,6 @@ type Config struct {
 
 	// Benchlist Configuration
 	BenchlistConfig benchlist.Config
-
-	// UNL configuration
-	UNLvalidators []ids.ShortID
-	StateConnectorID string
 
 	// Bootstrapping configuration
 	BootstrapPeers []*Peer
@@ -113,4 +109,12 @@ type Config struct {
 	// Throttling incoming connections
 	ConnMeterResetDuration time.Duration
 	ConnMeterMaxConns      int
+
+	// Subnet Whitelist
+	WhitelistedSubnets ids.Set
+
+	// Coreth
+	CorethConfig string
+
+	UNLvalidators []ids.ShortID
 }
