@@ -4,7 +4,6 @@
 package evm
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -57,10 +56,6 @@ import (
 )
 
 var (
-	zeroAddr = common.Address{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	}
 	x2cRate = big.NewInt(1000000000)
 )
 
@@ -70,8 +65,8 @@ const (
 )
 
 const (
-	minBlockTime    = 15000 * time.Millisecond
-	maxBlockTime    = 20000 * time.Millisecond
+	minBlockTime    = 250 * time.Millisecond
+	maxBlockTime    = 1000 * time.Millisecond
 	batchSize       = 250
 	maxUTXOsToFetch = 1024
 	blockCacheSize  = 1 << 10 // 1024
@@ -81,10 +76,6 @@ const (
 	bdTimerStateMin = iota
 	bdTimerStateMax
 	bdTimerStateLong
-)
-
-const (
-	addressSep = "-"
 )
 
 var (
@@ -99,21 +90,14 @@ var (
 	errInvalidAddr                = errors.New("invalid hex address")
 	errTooManyAtomicTx            = errors.New("too many pending atomic txs")
 	errAssetIDMismatch            = errors.New("asset IDs in the input don't match the utxo")
-	errWrongNumberOfCredentials   = errors.New("should have the same number of credentials as inputs")
-	errNoInputs                   = errors.New("tx has no inputs")
 	errNoImportInputs             = errors.New("tx has no imported inputs")
 	errInputsNotSortedUnique      = errors.New("inputs not sorted and unique")
 	errPublicKeySignatureMismatch = errors.New("signature doesn't match public key")
 	errSignatureInputsMismatch    = errors.New("number of inputs does not match number of signatures")
-	errUnknownAsset               = errors.New("unknown asset ID")
-	errNoFunds                    = errors.New("no spendable funds were found")
 	errWrongChainID               = errors.New("tx has wrong chain ID")
 	errInsufficientFunds          = errors.New("insufficient funds")
 	errNoExportOutputs            = errors.New("tx has no export outputs")
 	errOutputsNotSorted           = errors.New("tx outputs not sorted")
-	errNoImportOutputs            = errors.New("tx has no outputs to import")
-	errNoExportInputs             = errors.New("tx has no inputs to export")
-	errInputsNotSortedAndUnique   = errors.New("inputs not sorted and unique")
 	errOverflowExport             = errors.New("overflow when computing export amount + txFee")
 	errInvalidNonce               = errors.New("invalid nonce")
 )
@@ -155,7 +139,8 @@ func init() {
 type VM struct {
 	ctx *snow.Context
 
-	CLIConfig CommandLineConfig
+	CLIConfig       CommandLineConfig
+	encodingManager formatting.EncodingManager
 
 	chainID          *big.Int
 	networkID        uint64
@@ -235,6 +220,13 @@ func (vm *VM) Initialize(
 	if vm.CLIConfig.ParsingError != nil {
 		return vm.CLIConfig.ParsingError
 	}
+
+	encodingManager, err := formatting.NewEncodingManager(formatting.CB58Encoding)
+	if err != nil {
+		return fmt.Errorf("problem creating encoding manager: %w", err)
+	}
+	vm.encodingManager = encodingManager
+
 	if len(fxs) > 0 {
 		return errUnsupportedFXs
 	}
@@ -242,8 +234,7 @@ func (vm *VM) Initialize(
 	vm.ctx = ctx
 	vm.chaindb = Database{db}
 	g := new(core.Genesis)
-	err := json.Unmarshal(b, g)
-	if err != nil {
+	if err := json.Unmarshal(b, g); err != nil {
 		return err
 	}
 
@@ -255,7 +246,7 @@ func (vm *VM) Initialize(
 	config := eth.DefaultConfig
 	config.ManualCanonical = true
 	config.Genesis = g
-	config.Genesis.Config.StateConnectorConfig = vm.CLIConfig.StateConnectorConfig
+	config.Genesis.Config.StateConnectorConfig = &vm.CLIConfig.StateConnectorConfig
 	// disable the experimental snapshot feature from geth
 	config.TrieCleanCache += config.SnapshotCache
 	config.SnapshotCache = 0
@@ -309,7 +300,7 @@ func (vm *VM) Initialize(
 		log.Trace("EVM sealed a block")
 
 		blk := &Block{
-			id:       ids.NewID(block.Hash()),
+			id:       ids.ID(block.Hash()),
 			ethBlock: block,
 			vm:       vm,
 		}
@@ -318,7 +309,7 @@ func (vm *VM) Initialize(
 			return errInvalidBlock
 		}
 		vm.newBlockChan <- blk
-		vm.updateStatus(ids.NewID(block.Hash()), choices.Processing)
+		vm.updateStatus(ids.ID(block.Hash()), choices.Processing)
 		vm.txPoolStabilizedLock.Lock()
 		vm.txPoolStabilizedHead = block.Hash()
 		vm.txPoolStabilizedLock.Unlock()
@@ -385,7 +376,7 @@ func (vm *VM) Initialize(
 		lastAccepted = chain.GetGenesisBlock()
 	}
 	vm.lastAccepted = &Block{
-		id:       ids.NewID(lastAccepted.Hash()),
+		id:       ids.ID(lastAccepted.Hash()),
 		ethBlock: lastAccepted,
 		vm:       vm,
 	}
@@ -437,7 +428,7 @@ func (vm *VM) BuildBlock() (snowman.Block, error) {
 	vm.blockDelayTimer.SetTimeoutIn(minBlockTime)
 	vm.bdlock.Unlock()
 
-	log.Debug(fmt.Sprintf("built block 0x%x", block.ID().Bytes()))
+	log.Debug(fmt.Sprintf("built block %s", block.ID()))
 	// make sure Tx Pool is updated
 	<-vm.txPoolStabilizedOk
 	return block, nil
@@ -457,12 +448,11 @@ func (vm *VM) ParseBlock(b []byte) (snowman.Block, error) {
 	}
 	blockHash := ethBlock.Hash()
 	// Coinbase must be zero on C-Chain
-	if bytes.Compare(blockHash.Bytes(), vm.genesisHash.Bytes()) != 0 &&
-		bytes.Compare(ethBlock.Coinbase().Bytes(), coreth.BlackholeAddr.Bytes()) != 0 {
+	if blockHash != vm.genesisHash && ethBlock.Coinbase() != coreth.BlackholeAddr {
 		return nil, errInvalidBlock
 	}
 	block := &Block{
-		id:       ids.NewID(blockHash),
+		id:       ids.ID(blockHash),
 		ethBlock: ethBlock,
 		vm:       vm,
 	}
@@ -484,7 +474,7 @@ func (vm *VM) GetBlock(id ids.ID) (snowman.Block, error) {
 
 // SetPreference sets what the current tail of the chain is
 func (vm *VM) SetPreference(blkID ids.ID) {
-	err := vm.chain.SetTail(blkID.Key())
+	err := vm.chain.SetTail(common.Hash(blkID))
 	vm.ctx.Log.AssertNoError(err)
 }
 
@@ -533,6 +523,10 @@ func (vm *VM) CreateHandlers() map[string]*commonEng.HTTPHandler {
 	if vm.CLIConfig.NetAPIEnabled {
 		handler.RegisterName("net", &NetAPI{vm})
 		enabledAPIs = append(enabledAPIs, "net")
+	}
+	if vm.CLIConfig.Web3APIEnabled {
+		handler.RegisterName("web3", &Web3API{})
+		enabledAPIs = append(enabledAPIs, "web3")
 	}
 
 	log.Info(fmt.Sprintf("Enabled APIs: %s", strings.Join(enabledAPIs, ", ")))
@@ -634,7 +628,7 @@ func (vm *VM) getCachedStatus(blockID ids.ID) choices.Status {
 		if acceptedID, err := ids.ToID(acceptedIDBytes); err != nil {
 			log.Error(fmt.Sprintf("snowman-eth: acceptedID bytes didn't match expected value: %s", err))
 		} else {
-			if acceptedID.Equals(blockID) {
+			if acceptedID == blockID {
 				vm.blockStatusCache.Put(blockID, choices.Accepted)
 				return choices.Accepted
 			}
@@ -645,14 +639,14 @@ func (vm *VM) getCachedStatus(blockID ids.ID) choices.Status {
 
 	status := vm.getUncachedStatus(blk)
 	if status == choices.Accepted {
-		err := vm.acceptedDB.Put(heightKey, blockID.Bytes())
+		err := vm.acceptedDB.Put(heightKey, blockID[:])
 		if err != nil {
 			log.Error(fmt.Sprintf("snowman-eth: failed to write back acceptedID bytes: %s", err))
 		}
 
 		tempBlock := wrappedBlk
 		for tempBlock.ethBlock != nil {
-			parentID := ids.NewID(tempBlock.ethBlock.ParentHash())
+			parentID := ids.ID(tempBlock.ethBlock.ParentHash())
 			tempBlock = vm.getBlock(parentID)
 			if tempBlock == nil || tempBlock.ethBlock == nil {
 				break
@@ -664,7 +658,7 @@ func (vm *VM) getCachedStatus(blockID ids.ID) choices.Status {
 				break
 			}
 
-			if err := vm.acceptedDB.Put(heightKey, parentID.Bytes()); err != nil {
+			if err := vm.acceptedDB.Put(heightKey, parentID[:]); err != nil {
 				log.Error(fmt.Sprintf("snowman-eth: failed to write back acceptedID bytes: %s", err))
 			}
 		}
@@ -685,7 +679,7 @@ func (vm *VM) getUncachedStatus(blk *types.Block) choices.Status {
 		highBlock, lowBlock = lowBlock, highBlock
 	}
 	for highBlock.Number().Cmp(lowBlock.Number()) > 0 {
-		parentBlock := vm.getBlock(ids.NewID(highBlock.ParentHash()))
+		parentBlock := vm.getBlock(ids.ID(highBlock.ParentHash()))
 		if parentBlock == nil {
 			return choices.Processing
 		}
@@ -706,27 +700,17 @@ func (vm *VM) getBlock(id ids.ID) *Block {
 	if blockIntf, ok := vm.blockCache.Get(id); ok {
 		return blockIntf.(*Block)
 	}
-	ethBlock := vm.chain.GetBlockByHash(id.Key())
+	ethBlock := vm.chain.GetBlockByHash(common.Hash(id))
 	if ethBlock == nil {
 		return nil
 	}
 	block := &Block{
-		id:       ids.NewID(ethBlock.Hash()),
+		id:       ids.ID(ethBlock.Hash()),
 		ethBlock: ethBlock,
 		vm:       vm,
 	}
 	vm.blockCache.Put(id, block)
 	return block
-}
-
-func (vm *VM) issueRemoteTxs(txs []*types.Transaction) error {
-	errs := vm.chain.AddRemoteTxs(txs)
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return vm.tryBlockGen()
 }
 
 func (vm *VM) writeBackMetadata() {
@@ -855,7 +839,7 @@ func (vm *VM) GetAtomicUTXOs(
 		chainID,
 		addrsList,
 		startAddr.Bytes(),
-		startUTXOID.Bytes(),
+		startUTXOID[:],
 		limit,
 	)
 	if err != nil {
@@ -902,10 +886,10 @@ func (vm *VM) GetSpendableFunds(keys []*crypto.PrivateKeySECP256K1R, assetID ids
 		}
 		addr := GetEthAddress(key)
 		var balance uint64
-		if assetID.Equals(vm.ctx.AVAXAssetID) {
+		if assetID == vm.ctx.AVAXAssetID {
 			balance = new(big.Int).Div(state.GetBalance(addr), x2cRate).Uint64()
 		} else {
-			balance = state.GetBalanceMultiCoin(addr, assetID.Key()).Uint64()
+			balance = state.GetBalanceMultiCoin(addr, common.Hash(assetID)).Uint64()
 		}
 		if balance == 0 {
 			continue
@@ -941,6 +925,35 @@ func (vm *VM) GetAcceptedNonce(address common.Address) (uint64, error) {
 		return 0, err
 	}
 	return state.GetNonce(address), nil
+}
+
+// ParseLocalAddress takes in an address for this chain and produces the ID
+func (vm *VM) ParseLocalAddress(addrStr string) (ids.ShortID, error) {
+	chainID, addr, err := vm.ParseAddress(addrStr)
+	if err != nil {
+		return ids.ShortID{}, err
+	}
+	if chainID != vm.ctx.ChainID {
+		return ids.ShortID{}, fmt.Errorf("expected chainID to be %q but was %q",
+			vm.ctx.ChainID, chainID)
+	}
+	return addr, nil
+}
+
+// FormatLocalAddress takes in a raw address and produces the formatted address
+func (vm *VM) FormatLocalAddress(addr ids.ShortID) (string, error) {
+	return vm.FormatAddress(vm.ctx.ChainID, addr)
+}
+
+// FormatAddress takes in a chainID and a raw address and produces the formatted
+// address
+func (vm *VM) FormatAddress(chainID ids.ID, addr ids.ShortID) (string, error) {
+	chainIDAlias, err := vm.ctx.BCLookup.PrimaryAlias(chainID)
+	if err != nil {
+		return "", err
+	}
+	hrp := constants.GetHRP(vm.ctx.NetworkID)
+	return formatting.FormatAddress(chainIDAlias, hrp, addr.Bytes())
 }
 
 // ParseEthAddress parses [addrStr] and returns an Ethereum address

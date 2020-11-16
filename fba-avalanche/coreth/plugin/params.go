@@ -4,8 +4,8 @@ import (
 	// "encoding/json"
 	"flag"
 	"os"
-	"strings"
 	"fmt"
+	"strings"
 
 	"github.com/ava-labs/coreth/plugin/evm"
 )
@@ -29,6 +29,7 @@ func init() {
 	// 	cliConfig.PersonalAPIEnabled = true
 	// 	cliConfig.TxPoolAPIEnabled = true
 	// 	cliConfig.NetAPIEnabled = true
+	// 	cliConfig.Web3APIEnabled = true
 	// 	cliConfig.RPCGasCap = 2500000000 // 25000000 x 100
 	// 	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
 	// } else {
@@ -40,6 +41,7 @@ func init() {
 	cliConfig.PersonalAPIEnabled = true
 	cliConfig.TxPoolAPIEnabled = true
 	cliConfig.NetAPIEnabled = true
+	cliConfig.Web3APIEnabled = true
 	cliConfig.RPCGasCap = 2500000000 // 25000000 x 100
 	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
 

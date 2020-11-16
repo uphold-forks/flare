@@ -46,6 +46,8 @@ func GetParams(networkID uint32) *Params {
 		return &FujiParams
 	case constants.LocalID:
 		return &LocalParams
+	case constants.FlareID:
+		return &FlareParams
 	default:
 		return &LocalParams
 	}

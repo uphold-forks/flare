@@ -666,7 +666,7 @@ func setNodeConfig(v *viper.Viper) error {
 			}
 			Config.UNLvalidators = append(Config.UNLvalidators, validatorID)
 		}
-	}	
+	}
 
 	return nil
 }

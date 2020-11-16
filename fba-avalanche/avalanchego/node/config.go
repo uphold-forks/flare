@@ -116,5 +116,6 @@ type Config struct {
 	// Coreth
 	CorethConfig string
 
+	// Unique Node List
 	UNLvalidators []ids.ShortID
 }

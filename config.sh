@@ -1,7 +1,7 @@
 #!/bin/bash
 
-NODE_VERSION=@v1.0.4
-CORETH_VERSION=@v0.3.12
+NODE_VERSION=@v1.0.5
+CORETH_VERSION=@v0.3.14
 
 rm -rf logs
 mkdir logs
@@ -138,7 +138,7 @@ curl -sX POST --data '{
 cd - &>/dev/null
 printf "\nNetwork launched, deploying state-connector system..."
 node deploy.js
-printf "\nNode endpoints configured, stopping network..."
+printf "\nNode endpoints configured, stopping network...\n"
 sleep 5
 kill $NODE_00_PID
 kill $NODE_01_PID

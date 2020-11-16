@@ -269,14 +269,15 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 					st.evm.Context.Coinbase = originalCoinbase
 				}()
 				chainConfig := st.evm.ChainConfig()
-				st.evm.Context.Coinbase = common.HexToAddress(chainConfig.StateConnectorConfig[0])
+				stateConnectorConfig := *chainConfig.StateConnectorConfig
+				st.evm.Context.Coinbase = common.HexToAddress(stateConnectorConfig[0])
 				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.FixedGasCeil, st.value)
 				st.gas = st.gas + gas - flare.FixedGasUsed
 			}
 		} else {
 			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		}
-		
+
 	}
 	st.refundGas()
 	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))

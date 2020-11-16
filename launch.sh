@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NODE_VERSION=@v1.0.4
+NODE_VERSION=@v1.0.5
 
 LOG_DIR=$(pwd)/logs
 PKG_DIR=$GOPATH/pkg/mod/github.com/ava-labs

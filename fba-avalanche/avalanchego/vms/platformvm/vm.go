@@ -75,10 +75,10 @@ const (
 )
 
 var (
-	timestampKey     = ids.NewID([32]byte{'t', 'i', 'm', 'e'})
-	chainsKey        = ids.NewID([32]byte{'c', 'h', 'a', 'i', 'n', 's'})
-	subnetsKey       = ids.NewID([32]byte{'s', 'u', 'b', 'n', 'e', 't', 's'})
-	currentSupplyKey = ids.NewID([32]byte{'c', 'u', 'r', 'r', 'e', 't', ' ', 's', 'u', 'p', 'p', 'l', 'y'})
+	timestampKey     = ids.ID{'t', 'i', 'm', 'e'}
+	chainsKey        = ids.ID{'c', 'h', 'a', 'i', 'n', 's'}
+	subnetsKey       = ids.ID{'s', 'u', 'b', 'n', 'e', 't', 's'}
+	currentSupplyKey = ids.ID{'c', 'u', 'r', 'r', 'e', 't', ' ', 's', 'u', 'p', 'p', 'l', 'y'}
 
 	errRegisteringType          = errors.New("error registering type with database")
 	errInvalidLastAcceptedBlock = errors.New("last accepted block must be a decision block")
@@ -174,7 +174,7 @@ type VM struct {
 
 	// Key: block ID
 	// Value: the block
-	currentBlocks map[[32]byte]Block
+	currentBlocks map[ids.ID]Block
 
 	// fee that must be burned by every state creating transaction
 	creationTxFee uint64
@@ -342,7 +342,7 @@ func (vm *VM) Initialize(
 		// Create the genesis block and save it as being accepted (We don't just
 		// do genesisBlock.Accept() because then it'd look for genesisBlock's
 		// non-existent parent)
-		genesisID := ids.NewID(hashing.ComputeHash256Array(genesisBytes))
+		genesisID := hashing.ComputeHash256Array(genesisBytes)
 		genesisBlock, err := vm.newCommitBlock(genesisID, 0)
 		if err != nil {
 			return err
@@ -364,7 +364,7 @@ func (vm *VM) Initialize(
 		}
 	}
 
-	vm.currentBlocks = make(map[[32]byte]Block)
+	vm.currentBlocks = make(map[ids.ID]Block)
 
 	if err := vm.initSubnets(); err != nil {
 		ctx.Log.Error("failed to initialize Subnets: %s", err)
@@ -435,7 +435,7 @@ func (vm *VM) createChain(tx *Tx) {
 		return
 	}
 	if vm.stakingEnabled && // Staking is enabled, so nodes might not validate all chains
-		!constants.PrimaryNetworkID.Equals(unsignedTx.SubnetID) && // All nodes must validate the primary network
+		constants.PrimaryNetworkID != unsignedTx.SubnetID && // All nodes must validate the primary network
 		!validators.Contains(vm.Ctx.NodeID) { // This node doesn't validate this blockchain
 		return
 	}
@@ -630,7 +630,7 @@ func (vm *VM) GetBlock(blkID ids.ID) (snowman.Block, error) { return vm.getBlock
 
 func (vm *VM) getBlock(blkID ids.ID) (Block, error) {
 	// If block is in memory, return it.
-	if blk, exists := vm.currentBlocks[blkID.Key()]; exists {
+	if blk, exists := vm.currentBlocks[blkID]; exists {
 		return blk, nil
 	}
 	// Block isn't in memory. If block is in database, return it.
@@ -646,7 +646,7 @@ func (vm *VM) getBlock(blkID ids.ID) (Block, error) {
 
 // SetPreference sets the preferred block to be the one with ID [blkID]
 func (vm *VM) SetPreference(blkID ids.ID) {
-	if !blkID.Equals(vm.Preferred()) {
+	if blkID != vm.Preferred() {
 		vm.SnowmanVM.SetPreference(blkID)
 		vm.mempool.ResetTimer()
 	}
@@ -822,6 +822,7 @@ func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, time
 	startIter := startDB.NewIterator()
 	defer startIter.Release()
 
+pendingStakerLoop:
 	for startIter.Next() { // Iterates in order of increasing start time
 		txBytes := startIter.Value()
 
@@ -835,12 +836,12 @@ func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, time
 
 		switch staker := tx.UnsignedTx.(type) {
 		case *UnsignedAddDelegatorTx:
-			if !subnetID.Equals(constants.PrimaryNetworkID) {
+			if subnetID != constants.PrimaryNetworkID {
 				return fmt.Errorf("AddDelegatorTx is invalid for subnet %s",
 					subnetID)
 			}
 			if staker.StartTime().After(timestamp) {
-				return nil
+				break pendingStakerLoop
 			}
 			if err := vm.dequeueStaker(db, subnetID, &tx); err != nil {
 				return fmt.Errorf("couldn't dequeue staker: %w", err)
@@ -859,12 +860,12 @@ func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, time
 				return fmt.Errorf("couldn't add staker: %w", err)
 			}
 		case *UnsignedAddValidatorTx:
-			if !subnetID.Equals(constants.PrimaryNetworkID) {
+			if subnetID != constants.PrimaryNetworkID {
 				return fmt.Errorf("AddValidatorTx is invalid for subnet %s",
 					subnetID)
 			}
 			if staker.StartTime().After(timestamp) {
-				return nil
+				break pendingStakerLoop
 			}
 			if err := vm.dequeueStaker(db, subnetID, &tx); err != nil {
 				return fmt.Errorf("couldn't dequeue staker: %w", err)
@@ -883,12 +884,12 @@ func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, time
 				return fmt.Errorf("couldn't add staker: %w", err)
 			}
 		case *UnsignedAddSubnetValidatorTx:
-			if txSubnetID := staker.Validator.SubnetID(); !subnetID.Equals(txSubnetID) {
+			if txSubnetID := staker.Validator.SubnetID(); subnetID != txSubnetID {
 				return fmt.Errorf("AddSubnetValidatorTx references the incorrect subnet. Expected %s; Got %s",
 					subnetID, txSubnetID)
 			}
 			if staker.StartTime().After(timestamp) {
-				return nil
+				break pendingStakerLoop
 			}
 			if err := vm.dequeueStaker(db, subnetID, &tx); err != nil {
 				return fmt.Errorf("couldn't dequeue staker: %w", err)
@@ -913,6 +914,7 @@ func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, time
 	stopIter := stopDB.NewIterator()
 	defer stopIter.Release()
 
+currentStakerLoop:
 	for stopIter.Next() { // Iterates in order of increasing start time
 		txBytes := stopIter.Value()
 
@@ -926,28 +928,28 @@ func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, time
 
 		switch staker := tx.Tx.UnsignedTx.(type) {
 		case *UnsignedAddDelegatorTx:
-			if !subnetID.Equals(constants.PrimaryNetworkID) {
+			if subnetID != constants.PrimaryNetworkID {
 				return fmt.Errorf("AddDelegatorTx is invalid for subnet %s",
 					subnetID)
 			}
 			if staker.EndTime().After(timestamp) {
-				return nil
+				break currentStakerLoop
 			}
 		case *UnsignedAddValidatorTx:
-			if !subnetID.Equals(constants.PrimaryNetworkID) {
+			if subnetID != constants.PrimaryNetworkID {
 				return fmt.Errorf("AddValidatorTx is invalid for subnet %s",
 					subnetID)
 			}
 			if staker.EndTime().After(timestamp) {
-				return nil
+				break currentStakerLoop
 			}
 		case *UnsignedAddSubnetValidatorTx:
-			if txSubnetID := staker.Validator.SubnetID(); !subnetID.Equals(txSubnetID) {
+			if txSubnetID := staker.Validator.SubnetID(); subnetID != txSubnetID {
 				return fmt.Errorf("AddSubnetValidatorTx references the incorrect subnet. Expected %s; Got %s",
 					subnetID, txSubnetID)
 			}
 			if staker.EndTime().After(timestamp) {
-				return nil
+				break currentStakerLoop
 			}
 			if err := vm.removeStaker(db, subnetID, &tx); err != nil {
 				return fmt.Errorf("couldn't remove staker: %w", err)
@@ -1025,7 +1027,7 @@ func (vm *VM) GetAtomicUTXOs(
 	chainID ids.ID,
 	addrs ids.ShortSet,
 	startAddr state.Marshaller,
-	startUTXOID state.Marshaller,
+	startUTXOID ids.ID,
 	limit int,
 ) ([]*avax.UTXO, ids.ShortID, ids.ID, error) {
 	if limit <= 0 || limit > maxUTXOsToFetch {
@@ -1044,7 +1046,7 @@ func (vm *VM) GetAtomicUTXOs(
 		chainID,
 		addrsList,
 		startAddr.Bytes(),
-		startUTXOID.Bytes(),
+		startUTXOID[:],
 		limit,
 	)
 	if err != nil {
@@ -1077,7 +1079,7 @@ func (vm *VM) ParseLocalAddress(addrStr string) (ids.ShortID, error) {
 	if err != nil {
 		return ids.ShortID{}, err
 	}
-	if !chainID.Equals(vm.Ctx.ChainID) {
+	if chainID != vm.Ctx.ChainID {
 		return ids.ShortID{}, fmt.Errorf("expected chainID to be %q but was %q",
 			vm.Ctx.ChainID, chainID)
 	}
