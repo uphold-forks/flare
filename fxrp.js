@@ -10,6 +10,8 @@ const request = require('request');
 const fs = require('fs');
 const express = require('express');
 const app = express();
+const { MerkleTree } = require('merkletreejs');
+const SHA256 = require('crypto-js/sha256');
 
 const minFee = 1;
 var config;
@@ -91,15 +93,7 @@ async function run() {
 			console.log("\x1b[0mCoinbase address:\t\x1b[33m", result[4], '\x1b[0m');
 			console.log("\x1b[0mContract-layer UNL:\n", result[5], '\x1b[0m');
 			if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
-				return processLedgers({
-						ledger: 	[],
-						txHash: 	[],
-						sender: 	[],
-						receiver: 	[],
-						amount: 	[],
-						memo: 		[]
-					},
-					result[0], result[1], result[2], result[3]);
+				return processLedgers([], result[0], result[1], result[2], result[3]);
 			} else {
 				return claimProcessingCompleted('Claim period processing complete, waiting for a new claim period...');
 			}
@@ -146,12 +140,24 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 						// 	'\nXRPL Receiver:', item.tx.Destination, 
 						// 	'\nXRP Drops Amount:', item.tx.Amount, 
 						// 	'\nMemo:', memo);
-						payloads.ledger.push(item.tx.inLedger);
-						payloads.txHash.push(item.tx.hash);
-						payloads.sender.push(item.tx.Account);
-						payloads.receiver.push(item.tx.Destination);
-						payloads.amount.push(item.tx.Amount);
-						payloads.memo.push(memo);
+						payloads.push(web3.eth.abi.encodeParameters(
+							[
+								'uint256',
+								'string',
+								'string',
+								'string',
+								'uint256',
+								'string'
+							],
+							[
+								item.tx.inLedger,
+								item.tx.hash,
+								item.tx.Account,
+								item.tx.Destination,
+								item.tx.Amount,
+								memo
+							])
+						);
 					} else {
 						console.error("ErrorCode006 - Invalid EVM address: ", item.tx.hash);
 						continue;
@@ -164,10 +170,10 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 					responseIterate(next_response);
 				})
 			} else {
-				var payloadsString = JSON.stringify(payloads);
-				var payloadsHash = web3.utils.soliditySha3(payloadsString);
-				var claimPeriodHash = web3.utils.soliditySha3(ledger, claimPeriodIndex, payloadsHash);
-				registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, claimPeriodHash);
+				const leaves = payloads.map(x => SHA256(x));
+				const tree = new MerkleTree(leaves, SHA256);
+				const root = tree.getRoot().toString('hex');
+				registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, '0x'+root);
 			}
 		}
 		responseIterate(response);
