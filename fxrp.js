@@ -172,9 +172,9 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 					responseIterate(next_response);
 				})
 			} else {
-				const leaves = payloads.map(x => SHA256(x));
-				const tree = new MerkleTree(leaves, SHA256);
-				const root = tree.getRoot().toString('hex');
+				var leaves = payloads.map(x => SHA256(x));
+				var tree = new MerkleTree(leaves, SHA256);
+				var root = tree.getRoot().toString('hex');
 				var claimPeriodHash = web3.utils.soliditySha3(ledger, 'flare', claimPeriodIndex, '0x'+root);
 				registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, claimPeriodHash);
 			}
