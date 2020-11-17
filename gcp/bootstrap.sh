@@ -38,7 +38,7 @@ $NODE_DIR/scripts/build.sh
 start_node () {
     printf "Launching $NODE_NAME at $PIP:9650\n"
     nohup $NODE_DIR/build/avalanchego --http-host=  --http-port=$4 --public-ip=$PIP --staking-port=$5  \
-    --staking-enabled=true --p2p-tls-enabled=true --log-level=debug --network-id=flare \
+    --staking-enabled=true --p2p-tls-enabled=true --log-level=info --network-id=flare \
     --db-dir=$DB_DIR \
     --staking-tls-cert-file=$(pwd)/keys/$NODE_NAME/staker.crt  \
     --staking-tls-key-file=$(pwd)/keys/$NODE_NAME/staker.key \
