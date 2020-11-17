@@ -140,23 +140,25 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 						// 	'\nXRPL Receiver:', item.tx.Destination, 
 						// 	'\nXRP Drops Amount:', item.tx.Amount, 
 						// 	'\nMemo:', memo);
-						payloads.push(web3.eth.abi.encodeParameters(
-							[
-								'uint256',
-								'string',
-								'string',
-								'string',
-								'uint256',
-								'string'
-							],
-							[
-								item.tx.inLedger,
-								item.tx.hash,
-								item.tx.Account,
-								item.tx.Destination,
-								item.tx.Amount,
-								memo
-							])
+						payloads.push(web3.utils.soliditySha3(
+								web3.eth.abi.encodeParameters(
+								[
+									'uint256',
+									'string',
+									'string',
+									'string',
+									'uint256',
+									'string'
+								],
+								[
+									item.tx.inLedger,
+									item.tx.hash,
+									item.tx.Account,
+									item.tx.Destination,
+									item.tx.Amount,
+									memo
+								])
+							)
 						);
 					} else {
 						console.error("ErrorCode006 - Invalid EVM address: ", item.tx.hash);
@@ -173,7 +175,8 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 				const leaves = payloads.map(x => SHA256(x));
 				const tree = new MerkleTree(leaves, SHA256);
 				const root = tree.getRoot().toString('hex');
-				registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, '0x'+root);
+				var claimPeriodHash = web3.utils.soliditySha3(ledger, 'flare', claimPeriodIndex, '0x'+root);
+				registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, claimPeriodHash);
 			}
 		}
 		responseIterate(response);
