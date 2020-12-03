@@ -7,7 +7,7 @@ const Common = require('ethereumjs-common').default;
 const fs = require('fs');
 
 var config;
-var fxrp;
+var stateConnector;
 var customCommon;
 
 async function config() {
@@ -15,15 +15,15 @@ async function config() {
 	config = JSON.parse(rawConfig);
 	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[0].F.url));
 	// Read the compiled contract code
-	let source = fs.readFileSync("solidity/fxrp.json");
+	let source = fs.readFileSync("solidity/stateConnector.json");
 	let contracts = JSON.parse(source)["contracts"];
 	// ABI description as JSON structure
-	let abi = JSON.parse(contracts['fxrp.sol:fxrp'].abi);
+	let abi = JSON.parse(contracts['stateConnector.sol:stateConnector'].abi);
 	// Create Contract proxy class
-	fxrp = new web3.eth.Contract(abi);
+	stateConnector = new web3.eth.Contract(abi);
 	// Smart contract EVM bytecode as hex
-	fxrp.options.data = '0x' + contracts['fxrp.sol:fxrp'].bin;
-	fxrp.options.from = config.stateConnectors[0].F.address;
+	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
+	stateConnector.options.from = config.stateConnectors[0].F.address;
 	customCommon = Common.forCustomChain('ropsten',
 						{
 							name: 'coston',
@@ -36,7 +36,7 @@ async function config() {
 config().then(() => {
 	web3.eth.getTransactionCount(config.stateConnectors[0].F.address)
 	.then(nonce => {
-		return [fxrp.deploy({
+		return [stateConnector.deploy({
 			arguments: [config.contract.genesisLedger,
 						config.contract.claimPeriodLength,
 						config.contract.UNLsize,
@@ -60,7 +60,7 @@ config().then(() => {
 
 		web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
 		.on('receipt', receipt => {
-			fxrp.options.address = receipt.contractAddress;
+			stateConnector.options.address = receipt.contractAddress;
 			config.contract.address = receipt.contractAddress;
 			let newConfig = JSON.stringify(config);
 			fs.writeFileSync('config/config.json', newConfig);
@@ -91,7 +91,7 @@ async function UNLconfig(n) {
 	};
 	web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
 	.then(nonce => {
-		return [fxrp.methods.updateUNL(UNL)
+		return [stateConnector.methods.updateUNL(UNL)
 				.encodeABI(), nonce];
 	})
 	.then(txData => {
@@ -101,7 +101,7 @@ async function UNLconfig(n) {
 			gas: web3.utils.toHex(config.evm.contractGas),
 			chainId: config.evm.chainId,
 			from: config.stateConnectors[n].F.address,
-			to: fxrp.options.address,
+			to: stateConnector.options.address,
 			data: txData[0]
 		}
 		var tx = new Tx(rawTx, {common: customCommon});

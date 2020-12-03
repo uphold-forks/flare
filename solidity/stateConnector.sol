@@ -2,7 +2,7 @@
 pragma solidity ^0.7.3;
 pragma experimental ABIEncoderV2;
 
-contract fxrp {
+contract stateConnector {
 
 //====================================================================
 // Data Structures
@@ -54,6 +54,43 @@ contract fxrp {
 // Functions
 //====================================================================
 
+    function getLedgerClaimPeriodHash(uint256 ledger) private view returns (bytes32 finalisedClaimPeriodHash) {
+        require(ledger >= genesisLedger, 'ledger < genesisLedger');
+        require(ledger < finalisedLedgerIndex, 'ledger >= finalisedLedgerIndex');
+        uint256 currClaimPeriodIndex = (ledger - genesisLedger)/claimPeriodLength;
+        return finalisedClaimPeriods[keccak256(abi.encodePacked('flare', keccak256(abi.encodePacked('ledger', genesisLedger + currClaimPeriodIndex*claimPeriodLength)), keccak256(abi.encodePacked('claimPeriodIndex', currClaimPeriodIndex))))];        
+    }
+
+    function verifyMerkleProof(bytes32 root, bytes32 leaf, bytes32[] memory proof) private pure returns (bool) {
+        bytes32 computedHash = leaf;
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+            if (computedHash < proofElement) {
+                // Hash(current computed hash + current element of the proof)
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+            } else {
+                // Hash(current element of the proof + current computed hash)
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+            }
+        }
+        // Check if the computed hash (root) is equal to the provided root
+        return computedHash == root;
+    }
+
+    function provePaymentFinality(uint256 ledger, string memory txHash, string memory sender, string memory receiver, uint256 amount, address memo, bytes32 memory proof) public view returns (bool) {
+        bytes32 leaf = sha3(abi.encodePacked(
+            sha3('ledger', item.tx.inLedger),
+            sha3('txHash', item.tx.hash),
+            sha3('sender', item.tx.Account),
+            sha3('destination', item.tx.Destination),
+            sha3('amount', item.tx.Amount),
+            sha3('memo', memo))
+        );
+
+
+
+    }
+
     function updateUNL(address[] memory list) public {
         require(list.length == UNLsize, "Invalid UNL size");
         UNLmap[msg.sender].list = list;
@@ -66,7 +103,6 @@ contract fxrp {
     function getlatestIndex() public view returns (uint256 _genesisLedger, uint256 _claimPeriodIndex,
         uint256 _claimPeriodLength, uint256 _ledger, address _coinbase, address[] memory _UNL) {
         require(UNLmap[msg.sender].exists == true);
-
         return (genesisLedger, finalisedClaimPeriodIndex, claimPeriodLength,
             finalisedLedgerIndex, block.coinbase, UNLmap[block.coinbase].list);
     }
