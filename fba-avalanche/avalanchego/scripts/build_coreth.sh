@@ -13,8 +13,8 @@ BUILD_DIR="$AVALANCHE_PATH/build" # Where binaries go
 PLUGIN_DIR="$BUILD_DIR/plugins" # Where plugin binaries (namely coreth) go
 BINARY_PATH="$PLUGIN_DIR/evm"
 
-CORETH_VER="v0.3.14"
-# go get "github.com/ava-labs/coreth@$CORETH_VER"
+CORETH_VER="v0.3.16"
+go get "github.com/ava-labs/coreth@$CORETH_VER"
 
 CORETH_PATH="$GOPATH/pkg/mod/github.com/ava-labs/coreth@$CORETH_VER"
 
@@ -33,4 +33,4 @@ go build -o "$BINARY_PATH" "plugin/"*.go
 cd "$CURRENT_DIR"
 
 # Building coreth + using go get can mess with the go.mod file.
-# go mod tidy
+go mod tidy

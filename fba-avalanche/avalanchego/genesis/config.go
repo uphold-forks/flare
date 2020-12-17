@@ -160,6 +160,10 @@ var (
 	// FlareConfig is the config that should be used to generate the flare
 	// genesis.
 	FlareConfig Config
+
+	// CostonConfig is the config that should be used to generate the coston
+	// genesis.
+	CostonConfig Config
 )
 
 func init() {
@@ -167,6 +171,7 @@ func init() {
 	unparsedFujiConfig := UnparsedConfig{}
 	unparsedLocalConfig := UnparsedConfig{}
 	unparsedFlareConfig := UnparsedConfig{}
+	unparsedCostonConfig := UnparsedConfig{}
 
 	errs := wrappers.Errs{}
 	errs.Add(
@@ -174,6 +179,7 @@ func init() {
 		json.Unmarshal([]byte(fujiGenesisConfigJSON), &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
 		json.Unmarshal([]byte(flareGenesisConfigJSON), &unparsedFlareConfig),
+		json.Unmarshal([]byte(costonGenesisConfigJSON), &unparsedCostonConfig),
 	)
 	if errs.Errored() {
 		panic(errs.Err)
@@ -195,6 +201,10 @@ func init() {
 	errs.Add(err)
 	FlareConfig = flareConfig
 
+	costonConfig, err := unparsedCostonConfig.Parse()
+	errs.Add(err)
+	CostonConfig = costonConfig
+
 	if errs.Errored() {
 		panic(errs.Err)
 	}
@@ -211,6 +221,8 @@ func GetConfig(networkID uint32) *Config {
 		return &LocalConfig
 	case constants.FlareID:
 		return &FlareConfig
+	case constants.CostonID:
+		return &CostonConfig
 	default:
 		tempConfig := LocalConfig
 		tempConfig.NetworkID = networkID

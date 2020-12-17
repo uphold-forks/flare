@@ -1,7 +1,7 @@
 #!/bin/bash
 
-NODE_VERSION=@v1.0.5
-CORETH_VERSION=@v0.3.14
+NODE_VERSION=@v1.1.0
+CORETH_VERSION=@v0.3.16
 
 rm -rf logs
 mkdir logs

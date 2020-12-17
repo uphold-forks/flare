@@ -1,15 +1,9 @@
-// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
-// See the file LICENSE for licensing terms.
-
 package genesis
 
 import (
 	"time"
 	"github.com/ava-labs/avalanchego/utils/units"
 )
-
-// PrivateKey-vmRQiZeXEXYMyJhEiqdC2z5JhuDbxL8ix9UVvjgMu2Er1NepE => X-local1g65uqn6t77p656w64023nh8nd9updzmxyymev2
-// PrivateKey-ewoqjP7PxY4yr3iLTpLisriqt94hdyDFNgchSxGGztUrTXtNN => X-local18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u
 
 var (
 	flareGenesisConfigJSON = `{
@@ -23,7 +17,7 @@ var (
 		"message": "flare"
 	}`
 	
-	// LocalParams are the params used for local networks
+	// FlareParams are the params used for local networks
 	FlareParams = Params{
 		TxFee:              units.MilliAvax,
 		CreationTxFee:      10 * units.MilliAvax,

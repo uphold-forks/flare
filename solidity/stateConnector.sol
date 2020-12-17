@@ -131,6 +131,10 @@ contract stateConnector {
         return (finalisedClaimPeriods[locationHash] == claimPeriodHash);
     }
 
+    // Just check for > 50 % participation
+
+    // To change quorum set, just need > 50 % vote
+
     function getLocalFinality(bytes32 registrationHash) private view returns (bool finality) {
         require(UNLmap[block.coinbase].exists == true, 'UNLmap[block.coinbase].exists != true');
         uint32 outerRegistered = 0;

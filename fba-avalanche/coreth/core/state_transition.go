@@ -259,9 +259,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		stateConnectorContractAddr := flare.GetStateConnectorContractAddr(st.evm.Context.BlockNumber)
-		if (*msg.To() == stateConnectorContractAddr) {
-			floorgval := new(big.Int).Mul(new(big.Int).SetUint64(flare.FixedGasCeil), st.gasPrice)
-			if (st.state.GetBalance(st.msg.From()).Cmp(floorgval) < 0 || st.gas + gas < flare.FixedGasUsed || flare.FixedGasCeil < flare.FixedGasUsed) {
+		if (*msg.To() == common.HexToAddress(stateConnectorContractAddr)) { 
+			floorgval := new(big.Int).Mul(new(big.Int).SetUint64(flare.GetFixedGasCeil(st.evm.Context.BlockNumber)), st.gasPrice)
+			if (st.state.GetBalance(st.msg.From()).Cmp(floorgval) < 0 || st.gas + gas < flare.GetFixedGasUsed(st.evm.Context.BlockNumber) || flare.GetFixedGasCeil(st.evm.Context.BlockNumber) < flare.GetFixedGasUsed(st.evm.Context.BlockNumber)) {
 				return nil, ErrInsufficientFunds
 			} else {
 				originalCoinbase := st.evm.Context.Coinbase
@@ -271,18 +271,17 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				chainConfig := st.evm.ChainConfig()
 				stateConnectorConfig := *chainConfig.StateConnectorConfig
 				st.evm.Context.Coinbase = common.HexToAddress(stateConnectorConfig[0])
-				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.FixedGasCeil, st.value)
-				st.gas = st.gas + gas - flare.FixedGasUsed
+				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
+				st.gas = st.gas + gas - flare.GetFixedGasUsed(st.evm.Context.BlockNumber)
 			}
 		} else {
 			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		}
-
 	}
 	st.refundGas()
 	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 	feePoolContractAddr := flare.GetFeePoolContractAddr(st.evm.Context.BlockNumber)
-	st.state.AddBalance(feePoolContractAddr, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	st.state.AddBalance(common.HexToAddress(feePoolContractAddr), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),

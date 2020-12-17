@@ -20,7 +20,8 @@ const (
 	DenaliID  uint32 = 3
 	EverestID uint32 = 4
 	FujiID    uint32 = 5
-	FlareID	  uint32 = 14
+	FlareID  uint32 = 14
+	CostonID  uint32 = 16
 
 	TestnetID  uint32 = FujiID
 	UnitTestID uint32 = 10
@@ -35,6 +36,7 @@ const (
 	UnitTestName = "testing"
 	LocalName    = "local"
 	FlareName	 = "flare"
+	CostonName	 = "coston"
 
 	MainnetHRP  = "avax"
 	CascadeHRP  = "cascade"
@@ -45,6 +47,7 @@ const (
 	LocalHRP    = "local"
 	FallbackHRP = "custom"
 	FlareHRP	= "flare"
+	CostonHRP	= "coston"
 )
 
 // Variables to be exported
@@ -61,6 +64,7 @@ var (
 		UnitTestID: UnitTestName,
 		LocalID:    LocalName,
 		FlareID:    FlareName,
+		CostonID:   CostonName,
 	}
 	NetworkNameToNetworkID = map[string]uint32{
 		MainnetName:  MainnetID,
@@ -72,6 +76,7 @@ var (
 		UnitTestName: UnitTestID,
 		LocalName:    LocalID,
 		FlareName:    FlareID,
+		CostonName:   CostonID,
 	}
 
 	NetworkIDToHRP = map[uint32]string{
@@ -83,6 +88,7 @@ var (
 		UnitTestID: UnitTestHRP,
 		LocalID:    LocalHRP,
 		FlareID:    FlareHRP,
+		CostonID:   CostonHRP,
 	}
 	NetworkHRPToNetworkID = map[string]uint32{
 		MainnetHRP:  MainnetID,
@@ -93,6 +99,7 @@ var (
 		UnitTestHRP: UnitTestID,
 		LocalHRP:    LocalID,
 		FlareHRP:    FlareID,
+		CostonHRP:   CostonID,
 	}
 
 	ValidNetworkName = regexp.MustCompile(`network-[0-9]+`)
