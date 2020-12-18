@@ -133,34 +133,6 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 				} else {
 					const memo = Buffer.from(item.tx.Memos[0].Memo.MemoData, "hex").toString("utf-8");
 					if (web3.utils.isAddress(memo) == true) {
-						// console.log('\ntxHash:', item.tx.hash, 
-						// 	'\ninLedger:', item.tx.inLedger, 
-						// 	'\nDate:', item.tx.date, 
-						// 	'\nXRPL Sender:', item.tx.Account, 
-						// 	'\nXRPL Receiver:', item.tx.Destination, 
-						// 	'\nXRP Drops Amount:', item.tx.Amount, 
-						// 	'\nMemo:', memo);
-						// payloads.push(web3.utils.soliditySha3(
-						// 		web3.eth.abi.encodeParameters(
-						// 		[
-						// 			'uint256',
-						// 			'string',
-						// 			'string',
-						// 			'string',
-						// 			'uint256',
-						// 			'string'
-						// 		],
-						// 		[
-						// 			item.tx.inLedger,
-						// 			item.tx.hash,
-						// 			item.tx.Account,
-						// 			item.tx.Destination,
-						// 			item.tx.Amount,
-						// 			memo
-						// 		])
-						// 	)
-						// );
-
 						payloads.push(web3.utils.soliditySha3(
 							web3.utils.soliditySha3('ledger', item.tx.inLedger),
 							web3.utils.soliditySha3('txHash', item.tx.hash),
@@ -208,7 +180,7 @@ async function config(stateConnector) {
 	});
 
 	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[n].F.url));
-
+	web3.eth.handleRevert = true;
 	customCommon = Common.forCustomChain('ropsten',
 						{
 							name: 'coston',

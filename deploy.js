@@ -14,6 +14,7 @@ async function config() {
 	let rawConfig = fs.readFileSync('config/config.json');
 	config = JSON.parse(rawConfig);
 	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[0].F.url));
+	web3.eth.handleRevert = true;
 	// Read the compiled contract code
 	let source = fs.readFileSync("solidity/stateConnector.json");
 	let contracts = JSON.parse(source)["contracts"];
@@ -27,8 +28,8 @@ async function config() {
 	customCommon = Common.forCustomChain('ropsten',
 						{
 							name: 'coston',
-							networkId: 14,
-							chainId: 14,
+							networkId: 16,
+							chainId: 16,
 						},
         				'petersburg',);
 }
@@ -38,9 +39,7 @@ config().then(() => {
 	.then(nonce => {
 		return [stateConnector.deploy({
 			arguments: [config.contract.genesisLedger,
-						config.contract.claimPeriodLength,
-						config.contract.UNLsize,
-						config.contract.VblockingSize]
+						config.contract.claimPeriodLength]
 		}).encodeABI(), nonce];
 	})
 	.then(contractData => {
@@ -50,8 +49,7 @@ config().then(() => {
 			gas: web3.utils.toHex(config.evm.contractGas),
 			chainId: config.evm.chainId,
 			from: config.stateConnectors[0].F.address,
-			data: contractData[0],
-			value: web3.utils.toHex(config.contract.balance)
+			data: contractData[0]
 		}
 		var tx = new Tx(rawTx, {common: customCommon});
 		var key = Buffer.from(config.stateConnectors[0].F.privateKey, 'hex');
@@ -91,7 +89,7 @@ async function UNLconfig(n) {
 	};
 	web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
 	.then(nonce => {
-		return [stateConnector.methods.updateUNL(UNL)
+		return [stateConnector.methods.updateUNLpointer(UNL)
 				.encodeABI(), nonce];
 	})
 	.then(txData => {

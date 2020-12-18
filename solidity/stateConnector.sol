@@ -12,15 +12,24 @@ contract stateConnector {
     // Unique Node Lists (UNL)
     //==================================
 
-    struct UNL {
+    struct UNLpointer {
+        bool        exists;
+        bytes32     pointer;
+        bytes32     updatedPointer;
+        uint256     createdBlock;
+        uint256     updatedBlock;
+    }
+
+    struct UNLdefinition {
         bool        exists;
         address[]   list;
-        uint256     lastUpdated;
+        uint256     createdBlock;
+        uint256     updatedBlock;
     }
-    uint32 private UNLsize;
-    uint32 private finalityThreshold;
+
     // UNL definitions
-    mapping(address => UNL) private UNLmap;
+    mapping(address => UNLpointer) private UNLpointerMap;
+    mapping(bytes32 => UNLdefinition) private UNLdefinitionMap;
 
     //==================================
     // Claim Periods
@@ -41,11 +50,9 @@ contract stateConnector {
 // Constructor
 //====================================================================
 
-    constructor(uint256 _genesisLedger, uint256 _claimPeriodLength, uint32 _UNLsize, uint32 _finalityThreshold) payable {
+    constructor(uint256 _genesisLedger, uint256 _claimPeriodLength) {
         genesisLedger = _genesisLedger;
         claimPeriodLength = _claimPeriodLength;
-        UNLsize = _UNLsize;
-        finalityThreshold = _finalityThreshold;
         finalisedClaimPeriodIndex = 0;
         finalisedLedgerIndex = _genesisLedger;
     }
@@ -54,61 +61,82 @@ contract stateConnector {
 // Functions
 //====================================================================
 
-    function getLedgerClaimPeriodHash(uint256 ledger) private view returns (bytes32 finalisedClaimPeriodHash) {
-        require(ledger >= genesisLedger, 'ledger < genesisLedger');
-        require(ledger < finalisedLedgerIndex, 'ledger >= finalisedLedgerIndex');
-        uint256 currClaimPeriodIndex = (ledger - genesisLedger)/claimPeriodLength;
-        return finalisedClaimPeriods[keccak256(abi.encodePacked('flare', keccak256(abi.encodePacked('ledger', genesisLedger + currClaimPeriodIndex*claimPeriodLength)), keccak256(abi.encodePacked('claimPeriodIndex', currClaimPeriodIndex))))];        
+    // function getLedgerClaimPeriodHash(uint256 ledger) private view returns (bytes32 finalisedClaimPeriodHash) {
+    //     require(ledger >= genesisLedger, 'ledger < genesisLedger');
+    //     require(ledger < finalisedLedgerIndex, 'ledger >= finalisedLedgerIndex');
+    //     uint256 currClaimPeriodIndex = (ledger - genesisLedger)/claimPeriodLength;
+    //     return finalisedClaimPeriods[keccak256(abi.encodePacked('flare', keccak256(abi.encodePacked('ledger', genesisLedger + currClaimPeriodIndex*claimPeriodLength)), keccak256(abi.encodePacked('claimPeriodIndex', currClaimPeriodIndex))))];        
+    // }
+
+    // function verifyMerkleProof(bytes32 root, bytes32 leaf, bytes32[] memory proof) private pure returns (bool) {
+    //     bytes32 computedHash = leaf;
+    //     for (uint256 i = 0; i < proof.length; i++) {
+    //         bytes32 proofElement = proof[i];
+    //         if (computedHash < proofElement) {
+    //             // Hash(current computed hash + current element of the proof)
+    //             computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+    //         } else {
+    //             // Hash(current element of the proof + current computed hash)
+    //             computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+    //         }
+    //     }
+    //     // Check if the computed hash (root) is equal to the provided root
+    //     return computedHash == root;
+    // }
+
+    // function provePaymentFinality(uint256 ledger, string memory txHash, string memory sender, string memory receiver, uint256 amount, address memo, bytes32 memory proof) public view returns (bool) {
+    //     bytes32 leaf = sha3(abi.encodePacked(
+    //         sha3('ledger', item.tx.inLedger),
+    //         sha3('txHash', item.tx.hash),
+    //         sha3('sender', item.tx.Account),
+    //         sha3('destination', item.tx.Destination),
+    //         sha3('amount', item.tx.Amount),
+    //         sha3('memo', memo))
+    //     );
+
+
+
+    // }
+
+    function updateUNLpointer(address[] memory list) public {
+        bytes32 hash = keccak256(abi.encodePacked('flare', list));
+        if (UNLpointerMap[msg.sender].exists != true) {
+            UNLpointerMap[msg.sender] = UNLpointer(true, hash, hash, block.number, block.number);
+        } else {
+            UNLpointerMap[msg.sender].pointer = hash;
+            UNLpointerMap[msg.sender].updatedPointer = hash;
+            UNLpointerMap[msg.sender].updatedBlock = block.number;
+        }
+        if (UNLdefinitionMap[hash].exists != true) {
+            UNLdefinitionMap[hash] = UNLdefinition(true, list, block.number, block.number);
+        }
     }
 
-    function verifyMerkleProof(bytes32 root, bytes32 leaf, bytes32[] memory proof) private pure returns (bool) {
-        bytes32 computedHash = leaf;
-        for (uint256 i = 0; i < proof.length; i++) {
-            bytes32 proofElement = proof[i];
-            if (computedHash < proofElement) {
-                // Hash(current computed hash + current element of the proof)
-                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
-            } else {
-                // Hash(current element of the proof + current computed hash)
-                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+    function updateUNLdefinition(address[] memory list) public {
+        require(UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].exists == true, 'UNL definition does not exist.');
+        bytes32 hash = keccak256(abi.encodePacked('flare', list));
+        UNLpointerMap[msg.sender].updatedPointer = hash;
+        uint32 updateCount = 0;
+        for (uint32 i=0; i<UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].list.length; i++) {
+            if (UNLpointerMap[UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].list[i]].updatedPointer == hash) {
+                updateCount = updateCount + 1;
             }
         }
-        // Check if the computed hash (root) is equal to the provided root
-        return computedHash == root;
-    }
-
-    function provePaymentFinality(uint256 ledger, string memory txHash, string memory sender, string memory receiver, uint256 amount, address memo, bytes32 memory proof) public view returns (bool) {
-        bytes32 leaf = sha3(abi.encodePacked(
-            sha3('ledger', item.tx.inLedger),
-            sha3('txHash', item.tx.hash),
-            sha3('sender', item.tx.Account),
-            sha3('destination', item.tx.Destination),
-            sha3('amount', item.tx.Amount),
-            sha3('memo', memo))
-        );
-
-
-
-    }
-
-    function updateUNL(address[] memory list) public {
-        require(list.length == UNLsize, "Invalid UNL size");
-        UNLmap[msg.sender].list = list;
-        UNLmap[msg.sender].lastUpdated = block.number;
-        if (UNLmap[msg.sender].exists != true) {
-            UNLmap[msg.sender].exists = true;
+        if (uint(3)*updateCount >= uint(2)*UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].list.length + 1) {
+            UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].list = list;
+            UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].updatedBlock = block.number;
         }
     }
 
     function getlatestIndex() public view returns (uint256 _genesisLedger, uint256 _claimPeriodIndex,
         uint256 _claimPeriodLength, uint256 _ledger, address _coinbase, address[] memory _UNL) {
-        require(UNLmap[msg.sender].exists == true);
+        require(UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].exists == true, 'UNL definition does not exist.');
         return (genesisLedger, finalisedClaimPeriodIndex, claimPeriodLength,
-            finalisedLedgerIndex, block.coinbase, UNLmap[block.coinbase].list);
+            finalisedLedgerIndex, block.coinbase, UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].list);
     }
 
     function registerClaimPeriod(uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality) {
-        require(UNLmap[msg.sender].exists == true, 'msg.sender does not exist in UNLmap[]');
+        require(UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].exists == true, 'UNL definition does not exist.');
         bytes32 locationHash = keccak256(abi.encodePacked('flare', keccak256(abi.encodePacked('ledger', ledger)), keccak256(abi.encodePacked('claimPeriodIndex', claimPeriodIndex))));
         bytes32 registrationHash = keccak256(abi.encodePacked(locationHash, claimPeriodHash));
         require(claimPeriodRegisteredBy[registrationHash][msg.sender] == false, 'This claim period was already registered by msg.sender');
@@ -127,70 +155,18 @@ contract stateConnector {
         }
     }
 
-    function getGlobalFinality(bytes32 locationHash, bytes32 claimPeriodHash) public view returns (bool finality) {
-        return (finalisedClaimPeriods[locationHash] == claimPeriodHash);
-    }
-
-    // Just check for > 50 % participation
-
-    // To change quorum set, just need > 50 % vote
-
     function getLocalFinality(bytes32 registrationHash) private view returns (bool finality) {
-        require(UNLmap[block.coinbase].exists == true, 'UNLmap[block.coinbase].exists != true');
-        uint32 outerRegistered = 0;
-        uint32 innerRegistered1 = 0;
-        uint32 innerRegistered2 = 0;
-        // Compute quorum directly registered
-        for (uint32 i=0; i<UNLsize; i++) {
-            if (claimPeriodRegisteredBy[registrationHash][UNLmap[block.coinbase].list[i]] == true) {
-                outerRegistered = outerRegistered + 1;
+        require(UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].exists == true, 'UNL definition does not exist.');
+        uint32 registered = 0;
+        for (uint32 i=0; i<UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].list.length; i++) {
+            if (claimPeriodRegisteredBy[registrationHash][UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].list[i]] == true) {
+                registered = registered + 1;
             }
-        }
-        if (outerRegistered > UNLsize - finalityThreshold) {
-            return true;
-        } else {
-            // Compute whether a v-blocking set directly has a quorum registered
-            outerRegistered = 0;
-            for (uint32 i=0; i<UNLsize; i++) {
-                innerRegistered1 = 0;
-                for (uint32 j=0; j<UNLsize; j++) {
-                    if (claimPeriodRegisteredBy[registrationHash][UNLmap[UNLmap[block.coinbase].list[i]].list[j]] == true) {
-                        innerRegistered1 = innerRegistered1 + 1;
-                    }
-                }
-                if (innerRegistered1 > UNLsize - finalityThreshold) {
-                    outerRegistered = outerRegistered + 1;
-                }
-            }
-            if (outerRegistered >= finalityThreshold) {
+            if (uint(2)*registered > UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].list.length) {
                 return true;
-            } else {
-                // Compute whether a v-blocking set has a v-blocking set that has a quorum registered
-                outerRegistered = 0;
-                for (uint32 i=0; i<UNLsize; i++) {
-                    innerRegistered1 = 0;
-                    for (uint32 j=0; j<UNLsize; j++) {
-                        innerRegistered2 = 0;
-                        for (uint32 k=0; k<UNLsize; k++) {
-                            if (claimPeriodRegisteredBy[registrationHash][UNLmap[UNLmap[UNLmap[block.coinbase].list[i]].list[j]].list[k]] == true) {
-                                innerRegistered2 = innerRegistered2 + 1;
-                            }
-                        }
-                        if (innerRegistered2 > UNLsize - finalityThreshold) {
-                            innerRegistered1 = innerRegistered1 + 1;
-                        }
-                    }
-                    if (innerRegistered1 >= finalityThreshold) {
-                        outerRegistered = outerRegistered + 1;
-                    }
-                }
-                if (outerRegistered >= finalityThreshold) {
-                    return true;
-                } else {
-                    return false;
-                }
             }
         }
+        return false;
     }
 
 }
