@@ -29,48 +29,61 @@ function getRandomInt(min, max) {
 
 async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 	console.log('\nClaim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
-	web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
-	.then(nonce => {
-		return [stateConnector.methods.registerClaimPeriod(
+	stateConnector.methods.checkIfRegistered(
 					ledger,
 					claimPeriodIndex,
-					claimPeriodHash
-        		).encodeABI(), nonce];
-	})
-	.then(txData => {
-		var rawTx = {
-			nonce: txData[1],
-			gasPrice: web3.utils.toHex(parseInt(config.evm.gasPrice)),
-			gas: web3.utils.toHex(config.evm.gas),
-			to: stateConnector.options.address,
-			from: config.stateConnectors[n].F.address,
-			data: txData[0]
-		};
-		var tx = new Tx(rawTx, {common: customCommon});
-		var key = Buffer.from(config.stateConnectors[n].F.privateKey, 'hex');
-		tx.sign(key);
-		var serializedTx = tx.serialize();
-		const txHash = web3.utils.sha3(serializedTx);
-		console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
-		return web3.eth.getTransaction(txHash)
-		.then(txResult => {
-			if (txResult == null) {
-				web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
-				.on('receipt', receipt => {
-					if (receipt.status == false) {
-						return processFailure('receipt.status == false');
+					claimPeriodHash).call({
+		from: config.stateConnectors[n].F.address,
+		gas: config.evm.gas,
+		gasPrice: config.evm.gasPrice
+	}).catch(processFailure)
+	.then(result => {
+		if (result == true) {
+			return claimProcessingCompleted('Claim period processing complete');
+		} else {
+			web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
+			.then(nonce => {
+				return [stateConnector.methods.registerClaimPeriod(
+							ledger,
+							claimPeriodIndex,
+							claimPeriodHash).encodeABI(), nonce];
+			})
+			.then(txData => {
+				var rawTx = {
+					nonce: txData[1],
+					gasPrice: web3.utils.toHex(parseInt(config.evm.gasPrice)),
+					gas: web3.utils.toHex(config.evm.gas),
+					to: stateConnector.options.address,
+					from: config.stateConnectors[n].F.address,
+					data: txData[0]
+				};
+				var tx = new Tx(rawTx, {common: customCommon});
+				var key = Buffer.from(config.stateConnectors[n].F.privateKey, 'hex');
+				tx.sign(key);
+				var serializedTx = tx.serialize();
+				const txHash = web3.utils.sha3(serializedTx);
+				console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
+				return web3.eth.getTransaction(txHash)
+				.then(txResult => {
+					if (txResult == null) {
+						web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+						.on('receipt', receipt => {
+							if (receipt.status == false) {
+								return processFailure('receipt.status == false');
+							} else {
+								console.log('Transaction finalised:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
+								return claimProcessingCompleted('Claim period processing complete');
+							}
+						})
+						.on('error', error => {
+							return processFailure(error);
+						});
 					} else {
-						console.log('Transaction finalised:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
-						return claimProcessingCompleted('Claim period processing complete');
+						return processFailure('txResult != null');
 					}
 				})
-				.on('error', error => {
-					return processFailure(error);
-				});
-			} else {
-				return processFailure('txResult != null');
-			}
-		})
+			})
+		}
 	})
 }
 

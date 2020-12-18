@@ -135,6 +135,17 @@ contract stateConnector {
             finalisedLedgerIndex, block.coinbase, UNLdefinitionMap[UNLpointerMap[block.coinbase].pointer].list);
     }
 
+    function checkIfRegistered(uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public view returns (bool registered) {
+        require(UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].exists == true, 'UNL definition does not exist.');
+        bytes32 locationHash = keccak256(abi.encodePacked('flare', keccak256(abi.encodePacked('ledger', ledger)), keccak256(abi.encodePacked('claimPeriodIndex', claimPeriodIndex))));
+        bytes32 registrationHash = keccak256(abi.encodePacked(locationHash, claimPeriodHash));
+        if (claimPeriodRegisteredBy[registrationHash][msg.sender] == true) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     function registerClaimPeriod(uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality) {
         require(UNLdefinitionMap[UNLpointerMap[msg.sender].pointer].exists == true, 'UNL definition does not exist.');
         bytes32 locationHash = keccak256(abi.encodePacked('flare', keccak256(abi.encodePacked('ledger', ledger)), keccak256(abi.encodePacked('claimPeriodIndex', claimPeriodIndex))));
