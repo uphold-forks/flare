@@ -1,4 +1,6 @@
 const fs = require("fs");
+const Web3 = require('web3');
+const web3 = new Web3();
 const RippleAPI = require('ripple-lib').RippleAPI;
 const RippleKeys = require('ripple-keypairs');
 const Accounts = require('web3-eth-accounts');
@@ -7,7 +9,7 @@ const xrplAPI = new RippleAPI({
 	server: 'wss://s.altnet.rippletest.net:51233'
 });
 
-const PAYMENTS_PER_AGENT = 100000;
+const NUM_PAYMENTS = 1000;
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
@@ -29,32 +31,31 @@ async function xrplDisconnectRetry(error) {
 	})
 }
 
-async function sendPayment(agentNum, agentX, testAddress, paymentsNum) {
+async function sendSignal(account, hash) {
 	const payment = {
 	    "source": {
-			"address": agentX.address,
+			"address": account.address,
 			"maxAmount": {
 				"value": "0.000001",
 				"currency": "XRP"
 			}
 	    },
 	    "destination": {
-			"address": config.contract.agents[agentNum],
+			"address": config.contract.signal,
 			"amount": {
 				"value": "0.000001",
 				"currency": "XRP"
 			}
 		},
 		"memos": [{
-			"data": testAddress
+			"data": hash
 		}]
 	};
-	return xrplAPI.preparePayment(agentX.address, payment)
+	return xrplAPI.preparePayment(account.address, payment)
 	.then(preparedPayment=> {
-		return xrplAPI.sign(preparedPayment['txJSON'], agentX.privateKey)
+		return xrplAPI.sign(preparedPayment['txJSON'], account.privateKey)
 	})
 	.then(signedPayment=> {
-		console.log('\nSending payment', parseInt(agentNum)*PAYMENTS_PER_AGENT+(PAYMENTS_PER_AGENT-parseInt(paymentsNum))+1, ' to address: ', config.contract.agents[agentNum]);
 		return xrplAPI.submit(signedPayment.signedTransaction)
 	})
 	.then((response)=> {
@@ -62,23 +63,63 @@ async function sendPayment(agentNum, agentX, testAddress, paymentsNum) {
 			console.error('\nError:\n',response);
 			process.exit();
 		} else {
-			console.log('Success:\x1b[32m', response.tx_json.hash, '\x1b[0m');
-			if (paymentsNum > 1) {
-				return sendPayment(agentNum, agentX, testAddress, paymentsNum-1);
-			} else {
-				if (parseInt(agentNum) + 1 < config.contract.agents.length) {
-					return sendPayment(parseInt(agentNum) + 1, agentX, testAddress, PAYMENTS_PER_AGENT); 
+			console.log('Pointer:\t\x1b[32m', response.tx_json.hash, '\x1b[0m\t', response.tx_json.LastLedgerSequence);
+			return;
+		}
+ 	})
+}
+
+async function sendPayment(account, paymentsNum) {
+
+	const payment = {
+	    "source": {
+			"address": account.address,
+			"maxAmount": {
+				"value": "0.000001",
+				"currency": "XRP"
+			}
+	    },
+	    "destination": {
+			"address": config.stateConnectors[1].X.address,
+			"amount": {
+				"value": "0.000001",
+				"currency": "XRP"
+			}
+		},
+		"memos": [{
+			"data": web3.utils.soliditySha3(paymentsNum)
+		}]
+	};
+
+	return xrplAPI.preparePayment(account.address, payment)
+	.then(preparedPayment=> {
+		return xrplAPI.sign(preparedPayment['txJSON'], account.privateKey)
+	})
+	.then(signedPayment=> {
+		console.log('\nSending payment', NUM_PAYMENTS - paymentsNum + 1, ' to address: ', config.stateConnectors[1].X.address);
+		return xrplAPI.submit(signedPayment.signedTransaction)
+	})
+	.then((response)=> {
+		if (response.resultCode != 'tesSUCCESS'){
+			console.error('\nError:\n',response);
+			process.exit();
+		} else {
+			console.log('Payment:\t\x1b[32m', response.tx_json.hash, '\x1b[0m\t', response.tx_json.LastLedgerSequence);
+			sendSignal(account, response.tx_json.hash)
+			.then(()=> {
+				if (paymentsNum > 1) {
+					return sendPayment(account, paymentsNum-1);
 				} else {
 					return xrplAPI.disconnect().catch(xrplDisconnectRetry);
 				}
-			}
+			})
 		}
  	})
 }
 
 xrplAPI.on('connected', () => {
 	console.log('\x1b[34mXRPL connected.\x1b[0m');
-	return sendPayment(0, config.stateConnectors[0].X, config.contract.testAddress, PAYMENTS_PER_AGENT); 
+	return sendPayment(config.stateConnectors[0].X, NUM_PAYMENTS); 
 })
 
 xrplAPI.on('disconnected', () => {

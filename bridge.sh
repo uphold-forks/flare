@@ -8,5 +8,5 @@ while true; do
 	else
 		echo "System already activated."
 	fi;
-	sleep 1;
+	sleep 60;
 done
