@@ -32,7 +32,7 @@ nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quor
 $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
-$(cat $(pwd)/keys/node04/nodeID.txt) \
+$(cat $(pwd)/keys/node03/nodeID.txt) \
 --coreth-config=$(cat $(pwd)/keys/node00/scID.txt) &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
 NODE_00_PID=`cat $LOG_DIR/node00/ava.pid`
 sleep 5
@@ -71,18 +71,6 @@ $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
 --coreth-config=$(cat $(pwd)/keys/node03/scID.txt) &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
 NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
-sleep 5
-
-# NODE 5
-printf "Launching Node 5 at 127.0.0.1:9658\n"
-mkdir -p $LOG_DIR/node04
-nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9658 --staking-port=9659 --db-dir=db/node04 --staking-enabled=true --network-id=coston --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/keys/node00/nodeID.txt) --staking-tls-cert-file=$(pwd)/keys/node04/staker.crt --staking-tls-key-file=$(pwd)/keys/node04/staker.key --log-level=debug --unl-validators=\
-$(cat $(pwd)/keys/node01/nodeID.txt),\
-$(cat $(pwd)/keys/node02/nodeID.txt),\
-$(cat $(pwd)/keys/node03/nodeID.txt),\
-$(cat $(pwd)/keys/node04/nodeID.txt) \
---coreth-config=$(cat $(pwd)/keys/node04/scID.txt) &> $LOG_DIR/node04/nohup.out & echo $! > $LOG_DIR/node04/ava.pid
-NODE_04_PID=`cat $LOG_DIR/node04/ava.pid`
 sleep 5
 
 printf "\nNode 1 UNL:\n"
@@ -125,16 +113,6 @@ curl -sX POST --data '{
     }
 }' -H 'content-type:application/json;' 127.0.0.1:9656/ext/P | jq '.result'
 
-printf "\nNode 5 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9658/ext/P | jq '.result'
-
 cd - &>/dev/null
 printf "\nNetwork launched, deploying state-connector system..."
 node deploy.js
@@ -144,4 +122,3 @@ kill $NODE_00_PID
 kill $NODE_01_PID
 kill $NODE_02_PID
 kill $NODE_03_PID
-kill $NODE_04_PID

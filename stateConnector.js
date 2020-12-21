@@ -28,7 +28,6 @@ function getRandomInt(min, max) {
 }
 
 async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
-	console.log('\nClaim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
 	stateConnector.methods.checkIfRegistered(
 					ledger,
 					claimPeriodIndex,
@@ -38,10 +37,9 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 		gasPrice: config.evm.gasPrice
 	}).catch(processFailure)
 	.then(result => {
+		console.log('Claim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
 		if (result == true) {
-			// return claimProcessingCompleted('Claim period processing complete');
-			console.log('Claim period processing complete');
-			return setTimeout(() => {return run()}, getRandomInt(7500,15000));
+			return claimProcessingCompleted('Deferring until peers catch up.');
 		} else {
 			web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
 			.then(nonce => {
@@ -64,7 +62,8 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 				tx.sign(key);
 				var serializedTx = tx.serialize();
 				const txHash = web3.utils.sha3(serializedTx);
-				// console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
+
+				console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
 				return web3.eth.getTransaction(txHash)
 				.then(txResult => {
 					if (txResult == null) {
@@ -73,9 +72,7 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 							if (receipt.status == false) {
 								return processFailure('receipt.status == false');
 							} else {
-								console.log('Transaction finalised:\t\x1b[33m', receipt.transactionHash, '\x1b[0m');	
-								return setTimeout(() => {return run()}, getRandomInt(7500,15000));
-								// return claimProcessingCompleted('Claim period processing complete');
+								return claimProcessingCompleted('Transaction finalised:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
 							}
 						})
 						.on('error', error => {
@@ -104,20 +101,21 @@ async function run() {
 	.then(result => {
 		xrplAPI.getLedgerVersion().catch(processFailure)
 		.then(sampledLedger => {
-			console.log("Finalised claim period:\t\x1b[33m", result[1], 
+			console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
 				"\n\x1b[0mLast processed ledger:\t\x1b[33m", result[3], '\n\x1b[0mCurrent sampled ledger:\t\x1b[33m', sampledLedger);
 			console.log("\x1b[0mCoinbase address:\t\x1b[33m", result[4], '\x1b[0m');
 			console.log("\x1b[0mContract-layer UNL:\n", result[5], '\x1b[0m');
 			if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
 				return processLedgers([], result[0], result[1], result[2], result[3]);
 			} else {
-				return claimProcessingCompleted('Claim period processing complete, waiting for a new claim period...');
+				return claimProcessingCompleted('Reached edge of the XRPL state, waiting for new ledgers.');
 			}
 		})
 	})
 }
 
 async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger) {
+	console.log('\nRetrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
 	const command = 'account_tx';
 	const params = {
 		'account': config.contract.signal,
@@ -162,14 +160,6 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 							} else {
 								if (web3.utils.isHexStrict(tx.specification.memos[0].data) == true && tx.specification.memos[0].data.length == 66) {
 									const value = parseFloat(tx.outcome.deliveredAmount.value) / Math.pow(10, -6);
-									// console.log('ledger: ', tx.outcome.ledgerVersion, '\n',
-									// 			'indexInLedger: ', tx.outcome.indexInLedger, '\n',
-									// 			'txId: ', tx.id, '\n',
-									// 			'source: ', tx.specification.source.address, '\n',
-									// 			'destination: ', tx.specification.destination.address, '\n',
-									// 			'currency: ', tx.outcome.deliveredAmount.currency, '\n',
-									// 			'value: ', value, '\n',
-									// 			'memo: ', tx.specification.memos[0].data);
 									payloads.push(web3.utils.soliditySha3(
 										web3.utils.soliditySha3('ledger', tx.outcome.ledgerVersion),
 										web3.utils.soliditySha3('indexInLedger', tx.outcome.indexInLedger),
@@ -180,13 +170,26 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 										web3.utils.soliditySha3('value', value),
 										web3.utils.soliditySha3('memo', tx.specification.memos[0].data))
 									);
+									// return console.log('ledger: ', tx.outcome.ledgerVersion, '\n',
+									// 			'indexInLedger: ', tx.outcome.indexInLedger, '\n',
+									// 			'txId: ', tx.id, '\n',
+									// 			'source: ', tx.specification.source.address, '\n',
+									// 			'destination: ', tx.specification.destination.address, '\n',
+									// 			'currency: ', tx.outcome.deliveredAmount.currency, '\n',
+									// 			'value: ', value, '\n',
+									// 			'memo: ', tx.specification.memos[0].data, '\n');
 								} else {
 									console.error("ErrorCode012 - Memo not a correctly formatted and pre-fixed bytes32 hash (Payload): ", tx.specification.memos[0].data);
 								}
 							}
 						}).catch((error) => {
-							console.error("ErrorCode007 - ", error, ": ", memo);
-						});
+							const errorMessage = EvalError(error);
+							if (errorMessage.message == '[DisconnectedError(websocket was closed)]') {
+								processFailure("ErrorCode007 - ", error, ": ", memo);
+							} else {
+								console.error("ErrorCode013 - ", error, ": ", memo);
+							}
+						}).then(await sleep(50));
 					} else {
 						console.error("ErrorCode006 - Memo not a correctly formatted bytes32 hash (Pointer): ", memo);
 					}
@@ -202,9 +205,10 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 				var tree = new MerkleTree(leaves, SHA256);
 				var root = tree.getRoot().toString('hex');
 				var claimPeriodHash = web3.utils.soliditySha3(ledger, 'flare', claimPeriodIndex, '0x'+root);
-				registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, claimPeriodHash);
+				return registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, claimPeriodHash);
 			}
 		}
+		// return setTimeout((next_response) => {return responseIterate(next_response)}, 1000);
 		responseIterate(response);
 	})
 	.catch(error => {

@@ -1,10 +1,14 @@
 'use strict';
 process.env.NODE_ENV = 'production';
+const RippleAPI = require('ripple-lib').RippleAPI;
 const Web3 = require('web3');
 const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
 const Common = require('ethereumjs-common').default;
 const fs = require('fs');
+const xrplAPI = new RippleAPI({
+	server: 'wss://s.altnet.rippletest.net:51233'
+});
 
 var config;
 var stateConnector;
@@ -34,52 +38,72 @@ async function config() {
         				'petersburg',);
 }
 
-config().then(() => {
-	web3.eth.getTransactionCount(config.stateConnectors[0].F.address)
-	.then(nonce => {
-		return [stateConnector.deploy({
-			arguments: [config.contract.genesisLedger,
-						config.contract.claimPeriodLength]
-		}).encodeABI(), nonce];
-	})
-	.then(contractData => {
-		var rawTx = {
-			nonce: contractData[1],
-			gasPrice: web3.utils.toHex(config.evm.gasPrice),
-			gas: web3.utils.toHex(config.evm.contractGas),
-			chainId: config.evm.chainId,
-			from: config.stateConnectors[0].F.address,
-			data: contractData[0]
-		}
-		var tx = new Tx(rawTx, {common: customCommon});
-		var key = Buffer.from(config.stateConnectors[0].F.privateKey, 'hex');
-		tx.sign(key);
-		var serializedTx = tx.serialize();
-
-		web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
-		.on('receipt', receipt => {
-			stateConnector.options.address = receipt.contractAddress;
-			config.contract.address = receipt.contractAddress;
-			let newConfig = JSON.stringify(config);
-			fs.writeFileSync('config/config.json', newConfig);
-			console.log("\nGlobal config:");
-			console.log(config.contract);
-			console.log("State-connector system deployed, configuring node endpoints...")
-			sleep(10000)
-			.then(() => {
-				return UNLconfig(0);
-			});
+xrplAPI.on('connected', () => {
+	config().then(() => {
+		xrplAPI.getLedgerVersion().catch(console.error)
+		.then(sampledLedger => {
+			config.contract.genesisLedger = sampledLedger;
+			return web3.eth.getTransactionCount(config.stateConnectors[0].F.address)
 		})
-		.on('error', error => {
-			console.log(error);
-		});
-	}).catch(console.error);
+		.then(nonce => {
+			return [stateConnector.deploy({
+				arguments: [config.contract.genesisLedger,
+							config.contract.claimPeriodLength]
+			}).encodeABI(), nonce];
+		})
+		.then(contractData => {
+			var rawTx = {
+				nonce: contractData[1],
+				gasPrice: web3.utils.toHex(config.evm.gasPrice),
+				gas: web3.utils.toHex(config.evm.contractGas),
+				chainId: config.evm.chainId,
+				from: config.stateConnectors[0].F.address,
+				data: contractData[0]
+			}
+			var tx = new Tx(rawTx, {common: customCommon});
+			var key = Buffer.from(config.stateConnectors[0].F.privateKey, 'hex');
+			tx.sign(key);
+			var serializedTx = tx.serialize();
+
+			web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+			.on('receipt', receipt => {
+				stateConnector.options.address = receipt.contractAddress;
+				config.contract.address = receipt.contractAddress;
+				let newConfig = JSON.stringify(config);
+				fs.writeFileSync('config/config.json', newConfig);
+				console.log("\nGlobal config:");
+				console.log(config.contract);
+				console.log("State-connector system deployed, configuring node endpoints...")
+				sleep(10000)
+				.then(() => {
+					return UNLconfig(0);
+				});
+			})
+			.on('error', error => {
+				console.log(error);
+			});
+		}).catch(console.error);
+	})
 })
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
 	});
+}
+
+async function xrplConnectRetry(error) {
+	console.log('XRPL connecting...')
+	sleep(1000).then(() => {
+		xrplAPI.connect().catch(xrplConnectRetry);
+	})
+}
+
+async function xrplDisconnectRetry(error) {
+	console.log('XRPL disconnecting...')
+	sleep(1000).then(() => {
+		xrplAPI.disconnect().catch(xrplDisconnectRetry);
+	})
 }
 
 async function UNLconfig(n) {
@@ -113,12 +137,12 @@ async function UNLconfig(n) {
 			if (n+1 < config.stateConnectors.length) {
 				return UNLconfig(n+1);
 			} else {
-				return;
+				return xrplAPI.disconnect().catch(xrplDisconnectRetry);
 			}
 		});
 	}).catch(console.error);
 }
 
-
+xrplAPI.connect().catch(xrplConnectRetry);
 
 
