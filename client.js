@@ -9,7 +9,7 @@ const xrplAPI = new RippleAPI({
 	server: 'wss://s.altnet.rippletest.net:51233'
 });
 
-const NUM_PAYMENTS = 1000;
+const NUM_PAYMENTS = 100000;
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
@@ -105,14 +105,18 @@ async function sendPayment(account, paymentsNum) {
 			process.exit();
 		} else {
 			console.log('Payment:\t\x1b[32m', response.tx_json.hash, '\x1b[0m\t', response.tx_json.LastLedgerSequence);
-			sendSignal(account, response.tx_json.hash)
-			.then(()=> {
-				if (paymentsNum > 1) {
-					return sendPayment(account, paymentsNum-1);
-				} else {
-					return xrplAPI.disconnect().catch(xrplDisconnectRetry);
-				}
-			})
+			setTimeout(() => {
+				sendSignal(account, response.tx_json.hash)
+				.then(()=> {
+					if (paymentsNum > 1) {
+						setTimeout(() => {
+							return sendPayment(account, paymentsNum-1);
+						}, 500);
+					} else {
+						return xrplAPI.disconnect().catch(xrplDisconnectRetry);
+					}
+				})
+			}, 500);
 		}
  	})
 }
