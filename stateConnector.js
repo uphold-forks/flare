@@ -11,7 +11,6 @@ const fs = require('fs');
 const express = require('express');
 const app = express();
 const { MerkleTree } = require('merkletreejs');
-const SHA256 = require('crypto-js/sha256');
 
 const minFee = 1;
 var config;
@@ -214,14 +213,14 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 												web3.utils.soliditySha3('currency', tx.outcome.deliveredAmount.currency),
 												web3.utils.soliditySha3('value', value),
 												web3.utils.soliditySha3('memo', tx.specification.memos[0].data));
-											// return console.log('ledger: ', tx.outcome.ledgerVersion, '\n',
-											// 			'indexInLedger: ', tx.outcome.indexInLedger, '\n',
-											// 			'txId: ', tx.id, '\n',
-											// 			'source: ', tx.specification.source.address, '\n',
-											// 			'destination: ', tx.specification.destination.address, '\n',
-											// 			'currency: ', tx.outcome.deliveredAmount.currency, '\n',
-											// 			'value: ', value, '\n',
-											// 			'memo: ', tx.specification.memos[0].data, '\n');
+											console.log('ledger: ', tx.outcome.ledgerVersion, '\n',
+												'indexInLedger: ', tx.outcome.indexInLedger, '\n',
+												'txId: ', tx.id, '\n',
+												'source: ', tx.specification.source.address, '\n',
+												'destination: ', tx.specification.destination.address, '\n',
+												'currency: ', tx.outcome.deliveredAmount.currency, '\n',
+												'value: ', value, '\n',
+												'memo: ', tx.specification.memos[0].data, '\n');
 											payloads[payloads.length] = newPayload;
 											const currLength = payloads.length;
 											resolve(currLength);
@@ -281,8 +280,7 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 						responseIterate(next_response);
 					})
 				} else {
-					const leaves = payloads.map(x => SHA256(x))
-					const tree = new MerkleTree(leaves, SHA256);
+					const tree = new MerkleTree(payloads, web3.utils.soliditySha3);
 					const root = tree.getRoot().toString('hex');
 					console.log('Num Payloads:\t\t', payloads.length);
 					const claimPeriodHash = web3.utils.soliditySha3(ledger, 'flare', claimPeriodIndex, '0x'+root);
