@@ -20,30 +20,24 @@ var stateConnector;
 var n;
 var claimsInProgress = false;
 
-function getRandomInt(min, max) {
-	min = Math.ceil(min);
-	max = Math.floor(max);
-	return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
-}
-
-async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
-	stateConnector.methods.checkIfRegistered(
+async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash, registrationFee) {
+	stateConnector.methods.checkFinality(
+					config.chains[0].chainId,
 					ledger,
-					claimPeriodIndex,
-					claimPeriodHash).call({
-		from: config.stateConnectors[n].F.address,
-		gas: config.evm.gas,
-		gasPrice: config.evm.gasPrice
+					claimPeriodIndex).call({
+		from: config.stateConnector.address,
+		gas: config.flare.gas,
+		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
 	.then(result => {
 		console.log('Claim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
 		if (result == true) {
-			console.log('Deferring until peers catch up.');
-			return setTimeout(() => {return run()}, getRandomInt(5000,10000));
+			return claimProcessingCompleted('Latest claim period already registered, waiting for new ledgers.');
 		} else {
-			web3.eth.getTransactionCount(config.stateConnectors[n].F.address)
+			web3.eth.getTransactionCount(config.stateConnector.address)
 			.then(nonce => {
 				return [stateConnector.methods.registerClaimPeriod(
+							config.chains[0].chainId,
 							ledger,
 							claimPeriodIndex,
 							claimPeriodHash).encodeABI(), nonce];
@@ -51,14 +45,15 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 			.then(txData => {
 				var rawTx = {
 					nonce: txData[1],
-					gasPrice: web3.utils.toHex(parseInt(config.evm.gasPrice)),
-					gas: web3.utils.toHex(config.evm.gas),
+					gasPrice: web3.utils.toHex(parseInt(config.flare.gasPrice)),
+					gas: web3.utils.toHex(config.flare.gas),
 					to: stateConnector.options.address,
-					from: config.stateConnectors[n].F.address,
+					from: config.stateConnector.address,
+					value: registrationFee,
 					data: txData[0]
 				};
 				var tx = new Tx(rawTx, {common: customCommon});
-				var key = Buffer.from(config.stateConnectors[n].F.privateKey, 'hex');
+				var key = Buffer.from(config.stateConnector.privateKey, 'hex');
 				tx.sign(key);
 				var serializedTx = tx.serialize();
 				const txHash = web3.utils.sha3(serializedTx);
@@ -73,7 +68,7 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 								return processFailure('receipt.status == false');
 							} else {
 								console.log('Transaction finalised:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
-								return setTimeout(() => {return run()}, getRandomInt(5000,10000));
+								return setTimeout(() => {return run()}, 5000);
 							}
 						})
 						.on('error', error => {
@@ -91,23 +86,21 @@ async function registerClaimPeriod(ledger, claimPeriodIndex, claimPeriodHash) {
 async function run() {
 	console.log('\n\x1b[34mState Connector System connected at', Date(Date.now()).toString(), '\x1b[0m' );
 	stateConnector.methods.getlatestIndex().call({
-		from: config.stateConnectors[n].F.address,
+		from: config.stateConnector.address,
 		gas: config.evm.gas,
 		gasPrice: config.evm.gasPrice
 	}).catch(processFailure)
 	.then(result => {
-		return [parseInt(result._genesisLedger), parseInt(result._claimPeriodIndex), parseInt(result._claimPeriodLength),
-		parseInt(result._ledger), result._coinbase, result._UNL];
+		return [parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), 
+		parseInt(result.finalisedLedgerIndex), parseInt(result._registrationFee)];
 	})
 	.then(result => {
 		xrplAPI.getLedgerVersion().catch(processFailure)
 		.then(sampledLedger => {
 			console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
-				"\n\x1b[0mLast processed ledger:\t\x1b[33m", result[3], '\n\x1b[0mCurrent sampled ledger:\t\x1b[33m', sampledLedger);
-			console.log("\x1b[0mCoinbase address:\t\x1b[33m", result[4], '\x1b[0m');
-			console.log("\x1b[0mContract-layer UNL:\n", result[5], '\x1b[0m');
+				"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", result[3], '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
 			if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
-				return processLedgers([], result[0], result[1], result[2], result[3]);
+				return processLedgers([], result[0], result[1], result[2], result[3], result[4]);
 			} else {
 				return claimProcessingCompleted('Reached edge of the XRPL state, waiting for new ledgers.');
 			}
@@ -115,7 +108,7 @@ async function run() {
 	})
 }
 
-async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger) {
+async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, registrationFee) {
 	console.log('\nRetrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
 	const command = 'account_tx';
 	const params = {
@@ -205,6 +198,7 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 										const payloadPromise = new Promise((resolve, reject) => {
 											const value = parseFloat(tx.outcome.deliveredAmount.value) / Math.pow(10, -6);
 											const newPayload = web3.utils.soliditySha3(
+												web3.utils.soliditySha3('chainId', config.chains[0].chainId),
 												web3.utils.soliditySha3('ledger', tx.outcome.ledgerVersion),
 												web3.utils.soliditySha3('indexInLedger', tx.outcome.indexInLedger),
 												web3.utils.soliditySha3('txId', tx.id),
@@ -213,7 +207,8 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 												web3.utils.soliditySha3('currency', tx.outcome.deliveredAmount.currency),
 												web3.utils.soliditySha3('value', value),
 												web3.utils.soliditySha3('memo', tx.specification.memos[0].data));
-											console.log('ledger: ', tx.outcome.ledgerVersion, '\n',
+											console.log('chainId: ', config.chains[0].chainId, '\n',
+												'ledger: ', tx.outcome.ledgerVersion, '\n',
 												'indexInLedger: ', tx.outcome.indexInLedger, '\n',
 												'txId: ', tx.id, '\n',
 												'source: ', tx.specification.source.address, '\n',
@@ -283,8 +278,7 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 					const tree = new MerkleTree(payloads, web3.utils.soliditySha3);
 					const root = tree.getRoot().toString('hex');
 					console.log('Num Payloads:\t\t', payloads.length);
-					const claimPeriodHash = web3.utils.soliditySha3(ledger, 'flare', claimPeriodIndex, '0x'+root);
-					return registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, claimPeriodHash);
+					return registerClaimPeriod(genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root, registrationFee);
 				}
 			}
 			const numTransactions = response.transactions.length;
@@ -304,22 +298,18 @@ async function processLedgers(payloads, genesisLedger, claimPeriodIndex, claimPe
 async function config(stateConnector) {
 	let rawConfig = fs.readFileSync('config/config.json');
 	config = JSON.parse(rawConfig);
-	n = stateConnector;
-	if (n > config.stateConnectors.length) {
-		return processFailure('n > config.stateConnectors.length');
-	}
 	xrplAPI = new RippleAPI({
-	  server: config.stateConnectors[n].X.url,
+	  server: config.chains[0].url,
 	  timeout: 60000
 	});
 
-	web3.setProvider(new web3.providers.HttpProvider(config.stateConnectors[n].F.url));
+	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;
 	customCommon = Common.forCustomChain('ropsten',
 						{
 							name: 'coston',
-							networkId: config.evm.chainId,
-							chainId: config.evm.chainId,
+							networkId: config.flare.chainId,
+							chainId: config.flare.chainId,
 						},
         				'petersburg',);
 
@@ -338,13 +328,13 @@ async function contract() {
 	stateConnector = new web3.eth.Contract(abi);
 	// Smart contract EVM bytecode as hex
 	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
-	stateConnector.options.from = config.stateConnectors[n].F.address;
-	stateConnector.options.address = config.contract.address;
+	stateConnector.options.from = config.stateConnector.address;
+	stateConnector.options.address = config.stateConnector.address;
 }
 
 async function processFailure(error) {
 	console.error('error:', error);
-	setTimeout(() => {return process.exit()}, getRandomInt(2500,5000));
+	setTimeout(() => {return process.exit()}, 2500);
 }
 
 async function updateClaimsInProgress(status) {
@@ -356,7 +346,7 @@ function claimProcessingCompleted(message) {
 	xrplAPI.disconnect().catch(processFailure)
 	.then(() => {
 		console.log(message);
-		setTimeout(() => {return process.exit()}, getRandomInt(2500,5000));
+		setTimeout(() => {return process.exit()}, 2500);
 	})
 }
 
@@ -382,7 +372,7 @@ app.get('/stateConnector', (req, res) => {
 		.then(result => {
 			if (result == true) {
 				res.status(200).send('State Connector initiated.').end();
-				config(parseInt(process.argv[2])).catch(processFailure)
+				config().catch(processFailure)
 				.then(() => {
 					return contract().catch(processFailure);
 				})
