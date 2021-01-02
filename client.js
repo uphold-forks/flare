@@ -10,6 +10,12 @@ const xrplAPI = new RippleAPI({
 });
 
 const NUM_PAYMENTS = 100000;
+const xrplAccount = {
+	address: 'rEXiuTnmNa8YaZRZDcQjapXt2xxq5m54NQ',
+	privateKey: 'snm2KRWGGiHG1Qxh1ryFUzc7ths6F'
+}
+
+const xrplDestination = 'rfBUpzoBh8Q9ShgcxCpkYQLArZnYDZKQDf';
 
 async function sleep(ms) {
 	return new Promise((resolve) => {
@@ -41,7 +47,7 @@ async function sendSignal(account, hash) {
 			}
 	    },
 	    "destination": {
-			"address": config.contract.signal,
+			"address": config.chains[0].signal,
 			"amount": {
 				"value": "0.000001",
 				"currency": "XRP"
@@ -80,7 +86,7 @@ async function sendPayment(account, paymentsNum) {
 			}
 	    },
 	    "destination": {
-			"address": config.stateConnectors[1].X.address,
+			"address": xrplDestination,
 			"amount": {
 				"value": "0.000001",
 				"currency": "XRP"
@@ -96,7 +102,7 @@ async function sendPayment(account, paymentsNum) {
 		return xrplAPI.sign(preparedPayment['txJSON'], account.privateKey)
 	})
 	.then(signedPayment=> {
-		console.log('\nSending payment', NUM_PAYMENTS - paymentsNum + 1, ' to address: ', config.stateConnectors[1].X.address);
+		console.log('\nSending payment', NUM_PAYMENTS - paymentsNum + 1, ' to address: ', xrplDestination);
 		return xrplAPI.submit(signedPayment.signedTransaction)
 	})
 	.then((response)=> {
@@ -123,7 +129,7 @@ async function sendPayment(account, paymentsNum) {
 
 xrplAPI.on('connected', () => {
 	console.log('\x1b[34mXRPL connected.\x1b[0m');
-	return sendPayment(config.stateConnectors[0].X, NUM_PAYMENTS); 
+	return sendPayment(xrplAccount, NUM_PAYMENTS); 
 })
 
 xrplAPI.on('disconnected', () => {

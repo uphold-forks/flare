@@ -3,6 +3,10 @@
 NODE_VERSION=@v1.1.0
 CORETH_VERSION=@v0.3.16
 
+cd solidity
+./compile.sh stateConnector
+cd -
+
 rm -rf logs
 mkdir logs
 LOG_DIR=$(pwd)/logs

@@ -84,7 +84,7 @@ async function sleep(ms) {
 async function chainConfig(n) {
 	web3.eth.getTransactionCount(config.stateConnector.address)
 	.then(nonce => {
-		return [stateConnector.methods.addChain(config.chains[n].chainId, config.chains[n].genesisLedger, config.chains[n].claimPeriodLength
+		return [stateConnector.methods.addChain(n, config.chains[n].genesisLedger, config.chains[n].claimPeriodLength
 		).encodeABI(), nonce];
 	})
 	.then(txData => {
@@ -108,7 +108,7 @@ async function chainConfig(n) {
 			if (n+1 < config.chains.length) {
 				sleep(10000)
 				.then(() => {
-					return chainConfig(0);
+					return chainConfig(n+1);
 				});
 			} else {
 				process.exit();
