@@ -61,6 +61,7 @@ contract stateConnector {
 
     function setRegistrationFee(uint256 _registrationFee) public returns (bool success) {
         require(msg.sender == governanceContract, 'msg.sender != governanceContract');
+        require(_registrationFee > 0);
         registrationFee = _registrationFee;
         return true;
     }
@@ -132,8 +133,8 @@ contract stateConnector {
     }
 
     function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public payable returns (bool finality) {
+        require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(msg.value == registrationFee, 'msg.value != registrationFee');
-        governanceContract.transfer(registrationFee);
         require(Chains[chainId].exists == true, 'chainId does not exist');
         bytes32 locationHash =  keccak256(abi.encodePacked(
                                     keccak256(abi.encodePacked('chainId', chainId)),
@@ -141,18 +142,20 @@ contract stateConnector {
                                     keccak256(abi.encodePacked('claimPeriodIndex', claimPeriodIndex)))
                                 );
         require(finalisedClaimPeriods[locationHash].exists == false, 'claimPeriodHash already finalised');
-        // if (block.coinbase != address(uint160(uint256(keccak256(abi.encodePacked(block.number, locationHash, claimPeriodHash)))))) {
-        //     // msg.sender loses registration fee
-        //     return false;
-        // } else {
+        require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
+        if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
+            // Node checked claimPeriodHash, and it was valid
             registrationFeesDue[msg.sender] = registrationFeesDue[msg.sender] + registrationFee;
-            require(registrationFeesDue[msg.sender] > 0, '');
+            require(registrationFeesDue[msg.sender] > 0, 'Invalid registration fee');
             finalisedClaimPeriods[locationHash] = ClaimPeriodHash(true, claimPeriodHash);
             Chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             Chains[chainId].finalisedLedgerIndex = ledger;
             Chains[chainId].finalisedTimestamp = block.timestamp;
             return true;
-        // }
+        } else {
+            // Invalid claimPeriodHash
+            return false;
+        }
     }
 
 }

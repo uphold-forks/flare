@@ -19,6 +19,8 @@ package core
 import (
 	"math"
 	"math/big"
+	"bytes"
+	"encoding/hex"
 
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/params"
@@ -264,13 +266,21 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			if (st.state.GetBalance(st.msg.From()).Cmp(floorgval) < 0 || st.gas + gas < flare.GetFixedGasUsed(st.evm.Context.BlockNumber) || flare.GetFixedGasCeil(st.evm.Context.BlockNumber) < flare.GetFixedGasUsed(st.evm.Context.BlockNumber)) {
 				return nil, ErrInsufficientFunds
 			} else {
-				originalCoinbase := st.evm.Context.Coinbase
-				defer func() {
-					st.evm.Context.Coinbase = originalCoinbase
-				}()
-				chainConfig := st.evm.ChainConfig()
-				stateConnectorConfig := *chainConfig.StateConnectorConfig
-				st.evm.Context.Coinbase = common.HexToAddress(stateConnectorConfig[0])
+				var functionSelector []byte = st.data[0:4]
+				if (bytes.Compare(functionSelector, flare.GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0) {
+					ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
+					if (vmerr == nil) {
+						chainConfig := st.evm.ChainConfig()
+						stateConnectorConfig := *chainConfig.StateConnectorConfig
+						if (flare.VerifyClaimPeriod("0x" + hex.EncodeToString(st.data[4:33]), "0x" + hex.EncodeToString(st.data[33:65]), "0x" + hex.EncodeToString(st.data[65:97]), "0x" + hex.EncodeToString(st.data[97:len(st.data)]), stateConnectorConfig) == true) {
+							originalCoinbase := st.evm.Context.Coinbase
+							defer func() {
+								st.evm.Context.Coinbase = originalCoinbase
+							}()
+							st.evm.Context.Coinbase = st.msg.From()
+						}
+					}
+				}
 				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
 				st.gas = st.gas + gas - flare.GetFixedGasUsed(st.evm.Context.BlockNumber)
 			}
