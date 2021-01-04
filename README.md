@@ -11,7 +11,8 @@ Flare is a next-generation blockchain which enables smart contracts with multipl
 
 - Hardware per Flare node: 2 GHz or faster CPU, 4 GB RAM, 2 GB hard disk.
 - OS: Ubuntu >= 18.04 or Mac OS X >= Catalina.
-- Flare node software: [Go](https://golang.org/doc/install) version >= 1.13.X. Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
+- Flare node software: [Go](https://golang.org/doc/install) version >= 1.13.X.
+    - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version >= v10 LTS.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version >= v1.13.0.
 
