@@ -565,7 +565,7 @@ func (s *PublicBlockChainAPI) GetAssetBalance(ctx context.Context, address commo
 	if state == nil || err != nil {
 		return nil, err
 	}
-	return (*hexutil.Big)(state.GetBalanceMultiCoin(address, assetID.Key())), state.Error()
+	return (*hexutil.Big)(state.GetBalanceMultiCoin(address, common.Hash(assetID))), state.Error()
 }
 
 // Result structs for GetProof
@@ -1160,6 +1160,10 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	fields := RPCMarshalHeader(block.Header())
 	fields["size"] = hexutil.Uint64(block.Size())
+
+	if len(block.ExtraData()) != 0 {
+		fields["blockExtraData"] = hexutil.Encode(block.ExtraData())
+	}
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {

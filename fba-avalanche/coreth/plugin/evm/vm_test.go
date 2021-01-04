@@ -23,22 +23,20 @@ import (
 
 var (
 	testNetworkID    uint32 = 10
-	testCChainID            = ids.NewID([32]byte{'c', 'c', 'h', 'a', 'i', 'n', 't', 'e', 's', 't'})
-	testXChainID            = ids.NewID([32]byte{'t', 'e', 's', 't', 'x'})
-	nonExistentID           = ids.NewID([32]byte{'F'})
+	testCChainID            = ids.ID{'c', 'c', 'h', 'a', 'i', 'n', 't', 'e', 's', 't'}
+	testXChainID            = ids.ID{'t', 'e', 's', 't', 'x'}
+	nonExistentID           = ids.ID{'F'}
 	testTxFee               = uint64(1000)
-	startBalance            = uint64(50000)
 	testKeys         []*crypto.PrivateKeySECP256K1R
 	testEthAddrs     []common.Address // testEthAddrs[i] corresponds to testKeys[i]
 	testShortIDAddrs []ids.ShortID
-	testAvaxAssetID         = ids.NewID([32]byte{1, 2, 3})
-	username                = "Johns"
-	password                = "CjasdjhiPeirbSenfeI13" // #nosec G101
-	ethChainID       uint32 = 43112
+	testAvaxAssetID  = ids.ID{1, 2, 3}
+	username         = "Johns"
+	password         = "CjasdjhiPeirbSenfeI13" // #nosec G101
 )
 
 func init() {
-	cb58 := formatting.CB58{}
+	var b []byte
 	factory := crypto.FactorySECP256K1R{}
 
 	for _, key := range []string{
@@ -46,8 +44,8 @@ func init() {
 		"2MMvUMsxx6zsHSNXJdFD8yc5XkancvwyKPwpw4xUK3TCGDuNBY",
 		"cxb7KpGWhDMALTjNNSJ7UQkkomPesyWAPUaWRGdyeBNzR6f35",
 	} {
-		_ = cb58.FromString(key)
-		pk, _ := factory.ToPrivateKey(cb58.Bytes)
+		b, _ = formatting.Decode(formatting.CB58, key)
+		pk, _ := factory.ToPrivateKey(b)
 		secpKey := pk.(*crypto.PrivateKeySECP256K1R)
 		testKeys = append(testKeys, secpKey)
 		testEthAddrs = append(testEthAddrs, GetEthAddress(secpKey))
@@ -63,13 +61,17 @@ func BuildGenesisTest(t *testing.T) []byte {
 
 	genesis := &core.Genesis{}
 	if err := json.Unmarshal([]byte(genesisJSON), genesis); err != nil {
-		t.Fatalf("Problem unmarshaling genesis JSON: %w", err)
+		t.Fatalf("Problem unmarshaling genesis JSON: %s", err)
 	}
 	genesisReply, err := ss.BuildGenesis(nil, genesis)
 	if err != nil {
 		t.Fatalf("Failed to create test genesis")
 	}
-	return genesisReply.Bytes
+	genesisBytes, err := formatting.Decode(genesisReply.Encoding, genesisReply.Bytes)
+	if err != nil {
+		t.Fatalf("Failed to decode genesis bytes: %s", err)
+	}
+	return genesisBytes
 }
 
 func NewContext() *snow.Context {
@@ -79,10 +81,10 @@ func NewContext() *snow.Context {
 	ctx.AVAXAssetID = testAvaxAssetID
 	ctx.XChainID = ids.Empty.Prefix(0)
 	aliaser := ctx.BCLookup.(*ids.Aliaser)
-	aliaser.Alias(testCChainID, "C")
-	aliaser.Alias(testCChainID, testCChainID.String())
-	aliaser.Alias(testXChainID, "X")
-	aliaser.Alias(testXChainID, testXChainID.String())
+	_ = aliaser.Alias(testCChainID, "C")
+	_ = aliaser.Alias(testCChainID, testCChainID.String())
+	_ = aliaser.Alias(testXChainID, "X")
+	_ = aliaser.Alias(testXChainID, testXChainID.String())
 
 	// SNLookup might be required here???
 	return ctx
@@ -104,7 +106,10 @@ func GenesisVM(t *testing.T, finishBootstrapping bool) (chan engCommon.Message, 
 	// The caller of this function is responsible for unlocking.
 	ctx.Lock.Lock()
 
-	userKeystore := keystore.CreateTestKeystore()
+	userKeystore, err := keystore.CreateTestKeystore()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := userKeystore.AddUser(username, password); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +119,7 @@ func GenesisVM(t *testing.T, finishBootstrapping bool) (chan engCommon.Message, 
 	vm := &VM{
 		txFee: testTxFee,
 	}
-	err := vm.Initialize(
+	err = vm.Initialize(
 		ctx,
 		prefixdb.New([]byte{1}, baseDB),
 		genesisBytes,

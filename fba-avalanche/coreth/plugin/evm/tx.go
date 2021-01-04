@@ -23,10 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// Max size of memo field
-// Don't change without also changing avm.maxMemoSize
-const maxMemoSize = 256
-
 var (
 	errWrongBlockchainID = errors.New("wrong blockchain ID provided")
 	errWrongNetworkID    = errors.New("tx was issued with a different network ID")
@@ -93,8 +89,8 @@ type Tx struct {
 // (*secp256k1fx.Credential)
 
 // Sign this transaction with the provided signers
-func (tx *Tx) Sign(c codec.Codec, signers [][]*crypto.PrivateKeySECP256K1R) error {
-	unsignedBytes, err := c.Marshal(&tx.UnsignedTx)
+func (tx *Tx) Sign(c codec.Manager, signers [][]*crypto.PrivateKeySECP256K1R) error {
+	unsignedBytes, err := c.Marshal(codecVersion, &tx.UnsignedTx)
 	if err != nil {
 		return fmt.Errorf("couldn't marshal UnsignedTx: %w", err)
 	}
@@ -115,9 +111,9 @@ func (tx *Tx) Sign(c codec.Codec, signers [][]*crypto.PrivateKeySECP256K1R) erro
 		tx.Creds = append(tx.Creds, cred) // Attach credential
 	}
 
-	signedBytes, err := c.Marshal(tx)
+	signedBytes, err := c.Marshal(codecVersion, tx)
 	if err != nil {
-		return fmt.Errorf("couldn't marshal ProposalTx: %w", err)
+		return fmt.Errorf("couldn't marshal Tx: %w", err)
 	}
 	tx.Initialize(unsignedBytes, signedBytes)
 	return nil
@@ -134,7 +130,7 @@ func (ins *innerSortInputsAndSigners) Less(i, j int) bool {
 	if addrComp != 0 {
 		return addrComp < 0
 	}
-	return bytes.Compare(ins.inputs[i].AssetID.Bytes(), ins.inputs[j].AssetID.Bytes()) < 0
+	return bytes.Compare(ins.inputs[i].AssetID[:], ins.inputs[j].AssetID[:]) < 0
 }
 
 func (ins *innerSortInputsAndSigners) Len() int { return len(ins.inputs) }
@@ -165,7 +161,7 @@ func (outs *innerSortEVMOutputs) Less(i, j int) bool {
 	if addrComp != 0 {
 		return addrComp < 0
 	}
-	return bytes.Compare(outs.outputs[i].AssetID.Bytes(), outs.outputs[j].AssetID.Bytes()) < 0
+	return bytes.Compare(outs.outputs[i].AssetID[:], outs.outputs[j].AssetID[:]) < 0
 }
 
 func (outs *innerSortEVMOutputs) Len() int { return len(outs.outputs) }

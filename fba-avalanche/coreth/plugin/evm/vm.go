@@ -4,7 +4,6 @@
 package evm
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -57,10 +56,6 @@ import (
 )
 
 var (
-	zeroAddr = common.Address{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	}
 	x2cRate = big.NewInt(1000000000)
 )
 
@@ -70,21 +65,18 @@ const (
 )
 
 const (
-	minBlockTime    = 15000 * time.Millisecond
-	maxBlockTime    = 20000 * time.Millisecond
+	minBlockTime    = 250 * time.Millisecond
+	maxBlockTime    = 1000 * time.Millisecond
 	batchSize       = 250
 	maxUTXOsToFetch = 1024
 	blockCacheSize  = 1 << 10 // 1024
+	codecVersion    = uint16(0)
 )
 
 const (
 	bdTimerStateMin = iota
 	bdTimerStateMax
 	bdTimerStateLong
-)
-
-const (
-	addressSep = "-"
 )
 
 var (
@@ -99,21 +91,14 @@ var (
 	errInvalidAddr                = errors.New("invalid hex address")
 	errTooManyAtomicTx            = errors.New("too many pending atomic txs")
 	errAssetIDMismatch            = errors.New("asset IDs in the input don't match the utxo")
-	errWrongNumberOfCredentials   = errors.New("should have the same number of credentials as inputs")
-	errNoInputs                   = errors.New("tx has no inputs")
 	errNoImportInputs             = errors.New("tx has no imported inputs")
 	errInputsNotSortedUnique      = errors.New("inputs not sorted and unique")
 	errPublicKeySignatureMismatch = errors.New("signature doesn't match public key")
 	errSignatureInputsMismatch    = errors.New("number of inputs does not match number of signatures")
-	errUnknownAsset               = errors.New("unknown asset ID")
-	errNoFunds                    = errors.New("no spendable funds were found")
 	errWrongChainID               = errors.New("tx has wrong chain ID")
 	errInsufficientFunds          = errors.New("insufficient funds")
 	errNoExportOutputs            = errors.New("tx has no export outputs")
 	errOutputsNotSorted           = errors.New("tx outputs not sorted")
-	errNoImportOutputs            = errors.New("tx has no outputs to import")
-	errNoExportInputs             = errors.New("tx has no inputs to export")
-	errInputsNotSortedAndUnique   = errors.New("inputs not sorted and unique")
 	errOverflowExport             = errors.New("overflow when computing export amount + txFee")
 	errInvalidNonce               = errors.New("invalid nonce")
 )
@@ -126,26 +111,29 @@ func maxDuration(x, y time.Duration) time.Duration {
 }
 
 // Codec does serialization and deserialization
-var Codec codec.Codec
+var Codec codec.Manager
 
 func init() {
-	Codec = codec.NewDefault()
+	Codec = codec.NewDefaultManager()
+	c := codec.NewDefault()
 
 	errs := wrappers.Errs{}
 	errs.Add(
-		Codec.RegisterType(&UnsignedImportTx{}),
-		Codec.RegisterType(&UnsignedExportTx{}),
+		c.RegisterType(&UnsignedImportTx{}),
+		c.RegisterType(&UnsignedExportTx{}),
 	)
-	Codec.Skip(3)
+	c.Skip(3)
 	errs.Add(
-		Codec.RegisterType(&secp256k1fx.TransferInput{}),
-		Codec.RegisterType(&secp256k1fx.MintOutput{}),
-		Codec.RegisterType(&secp256k1fx.TransferOutput{}),
-		Codec.RegisterType(&secp256k1fx.MintOperation{}),
-		Codec.RegisterType(&secp256k1fx.Credential{}),
-		Codec.RegisterType(&secp256k1fx.Input{}),
-		Codec.RegisterType(&secp256k1fx.OutputOwners{}),
+		c.RegisterType(&secp256k1fx.TransferInput{}),
+		c.RegisterType(&secp256k1fx.MintOutput{}),
+		c.RegisterType(&secp256k1fx.TransferOutput{}),
+		c.RegisterType(&secp256k1fx.MintOperation{}),
+		c.RegisterType(&secp256k1fx.Credential{}),
+		c.RegisterType(&secp256k1fx.Input{}),
+		c.RegisterType(&secp256k1fx.OutputOwners{}),
+		Codec.RegisterCodec(codecVersion, c),
 	)
+
 	if errs.Errored() {
 		panic(errs.Err)
 	}
@@ -188,7 +176,8 @@ type VM struct {
 	txSubmitChan          <-chan struct{}
 	atomicTxSubmitChan    chan struct{}
 	shutdownSubmitChan    chan struct{}
-	codec                 codec.Codec
+	baseCodec             codec.Codec
+	codec                 codec.Manager
 	clock                 timer.Clock
 	txFee                 uint64
 	pendingAtomicTxs      chan *Tx
@@ -202,7 +191,7 @@ type VM struct {
 func (vm *VM) getAtomicTx(block *types.Block) *Tx {
 	extdata := block.ExtraData()
 	atx := new(Tx)
-	if err := vm.codec.Unmarshal(extdata, atx); err != nil {
+	if _, err := vm.codec.Unmarshal(extdata, atx); err != nil {
 		return nil
 	}
 	atx.Sign(vm.codec, nil)
@@ -210,7 +199,10 @@ func (vm *VM) getAtomicTx(block *types.Block) *Tx {
 }
 
 // Codec implements the secp256k1fx interface
-func (vm *VM) Codec() codec.Codec { return codec.NewDefault() }
+func (vm *VM) Codec() codec.Manager { return vm.codec }
+
+// CodecRegistry implements the secp256k1fx interface
+func (vm *VM) CodecRegistry() codec.Registry { return vm.baseCodec }
 
 // Clock implements the secp256k1fx interface
 func (vm *VM) Clock() *timer.Clock { return &vm.clock }
@@ -235,6 +227,7 @@ func (vm *VM) Initialize(
 	if vm.CLIConfig.ParsingError != nil {
 		return vm.CLIConfig.ParsingError
 	}
+
 	if len(fxs) > 0 {
 		return errUnsupportedFXs
 	}
@@ -242,8 +235,7 @@ func (vm *VM) Initialize(
 	vm.ctx = ctx
 	vm.chaindb = Database{db}
 	g := new(core.Genesis)
-	err := json.Unmarshal(b, g)
-	if err != nil {
+	if err := json.Unmarshal(b, g); err != nil {
 		return err
 	}
 
@@ -255,7 +247,7 @@ func (vm *VM) Initialize(
 	config := eth.DefaultConfig
 	config.ManualCanonical = true
 	config.Genesis = g
-	config.Genesis.Config.StateConnectorConfig = vm.CLIConfig.StateConnectorConfig
+	config.Genesis.Config.StateConnectorConfig = &vm.CLIConfig.StateConnectorConfig
 	// disable the experimental snapshot feature from geth
 	config.TrieCleanCache += config.SnapshotCache
 	config.SnapshotCache = 0
@@ -294,7 +286,7 @@ func (vm *VM) Initialize(
 				vm.newBlockChan <- nil
 				return nil, err
 			}
-			raw, _ := vm.codec.Marshal(atx)
+			raw, _ := vm.codec.Marshal(codecVersion, atx)
 			return raw, nil
 		default:
 			if len(txs) == 0 {
@@ -309,7 +301,7 @@ func (vm *VM) Initialize(
 		log.Trace("EVM sealed a block")
 
 		blk := &Block{
-			id:       ids.NewID(block.Hash()),
+			id:       ids.ID(block.Hash()),
 			ethBlock: block,
 			vm:       vm,
 		}
@@ -318,7 +310,7 @@ func (vm *VM) Initialize(
 			return errInvalidBlock
 		}
 		vm.newBlockChan <- blk
-		vm.updateStatus(ids.NewID(block.Hash()), choices.Processing)
+		vm.updateStatus(ids.ID(block.Hash()), choices.Processing)
 		vm.txPoolStabilizedLock.Lock()
 		vm.txPoolStabilizedHead = block.Hash()
 		vm.txPoolStabilizedLock.Unlock()
@@ -385,17 +377,21 @@ func (vm *VM) Initialize(
 		lastAccepted = chain.GetGenesisBlock()
 	}
 	vm.lastAccepted = &Block{
-		id:       ids.NewID(lastAccepted.Hash()),
+		id:       ids.ID(lastAccepted.Hash()),
 		ethBlock: lastAccepted,
 		vm:       vm,
 	}
 	vm.genesisHash = chain.GetGenesisBlock().Hash()
 	log.Info(fmt.Sprintf("lastAccepted = %s", vm.lastAccepted.ethBlock.Hash().Hex()))
 
-	// TODO: shutdown this go routine
 	vm.shutdownWg.Add(1)
 	go vm.ctx.Log.RecoverAndPanic(vm.awaitSubmittedTxs)
 	vm.codec = Codec
+	// The Codec explicitly registers the types it requires from the secp256k1fx
+	// so [vm.baseCodec] is a dummy codec use to fulfill the secp256k1fx VM
+	// interface. The fx will register all of its types, which can be safely
+	// ignored by the VM's codec.
+	vm.baseCodec = codec.NewDefault()
 
 	return vm.fx.Initialize(vm)
 }
@@ -437,7 +433,7 @@ func (vm *VM) BuildBlock() (snowman.Block, error) {
 	vm.blockDelayTimer.SetTimeoutIn(minBlockTime)
 	vm.bdlock.Unlock()
 
-	log.Debug(fmt.Sprintf("built block 0x%x", block.ID().Bytes()))
+	log.Debug(fmt.Sprintf("built block %s", block.ID()))
 	// make sure Tx Pool is updated
 	<-vm.txPoolStabilizedOk
 	return block, nil
@@ -457,12 +453,11 @@ func (vm *VM) ParseBlock(b []byte) (snowman.Block, error) {
 	}
 	blockHash := ethBlock.Hash()
 	// Coinbase must be zero on C-Chain
-	if bytes.Compare(blockHash.Bytes(), vm.genesisHash.Bytes()) != 0 &&
-		bytes.Compare(ethBlock.Coinbase().Bytes(), coreth.BlackholeAddr.Bytes()) != 0 {
+	if blockHash != vm.genesisHash && ethBlock.Coinbase() != coreth.BlackholeAddr {
 		return nil, errInvalidBlock
 	}
 	block := &Block{
-		id:       ids.NewID(blockHash),
+		id:       ids.ID(blockHash),
 		ethBlock: ethBlock,
 		vm:       vm,
 	}
@@ -484,7 +479,7 @@ func (vm *VM) GetBlock(id ids.ID) (snowman.Block, error) {
 
 // SetPreference sets what the current tail of the chain is
 func (vm *VM) SetPreference(blkID ids.ID) {
-	err := vm.chain.SetTail(blkID.Key())
+	err := vm.chain.SetTail(common.Hash(blkID))
 	vm.ctx.Log.AssertNoError(err)
 }
 
@@ -533,6 +528,10 @@ func (vm *VM) CreateHandlers() map[string]*commonEng.HTTPHandler {
 	if vm.CLIConfig.NetAPIEnabled {
 		handler.RegisterName("net", &NetAPI{vm})
 		enabledAPIs = append(enabledAPIs, "net")
+	}
+	if vm.CLIConfig.Web3APIEnabled {
+		handler.RegisterName("web3", &Web3API{})
+		enabledAPIs = append(enabledAPIs, "web3")
 	}
 
 	log.Info(fmt.Sprintf("Enabled APIs: %s", strings.Join(enabledAPIs, ", ")))
@@ -634,7 +633,7 @@ func (vm *VM) getCachedStatus(blockID ids.ID) choices.Status {
 		if acceptedID, err := ids.ToID(acceptedIDBytes); err != nil {
 			log.Error(fmt.Sprintf("snowman-eth: acceptedID bytes didn't match expected value: %s", err))
 		} else {
-			if acceptedID.Equals(blockID) {
+			if acceptedID == blockID {
 				vm.blockStatusCache.Put(blockID, choices.Accepted)
 				return choices.Accepted
 			}
@@ -645,14 +644,14 @@ func (vm *VM) getCachedStatus(blockID ids.ID) choices.Status {
 
 	status := vm.getUncachedStatus(blk)
 	if status == choices.Accepted {
-		err := vm.acceptedDB.Put(heightKey, blockID.Bytes())
+		err := vm.acceptedDB.Put(heightKey, blockID[:])
 		if err != nil {
 			log.Error(fmt.Sprintf("snowman-eth: failed to write back acceptedID bytes: %s", err))
 		}
 
 		tempBlock := wrappedBlk
 		for tempBlock.ethBlock != nil {
-			parentID := ids.NewID(tempBlock.ethBlock.ParentHash())
+			parentID := ids.ID(tempBlock.ethBlock.ParentHash())
 			tempBlock = vm.getBlock(parentID)
 			if tempBlock == nil || tempBlock.ethBlock == nil {
 				break
@@ -664,7 +663,7 @@ func (vm *VM) getCachedStatus(blockID ids.ID) choices.Status {
 				break
 			}
 
-			if err := vm.acceptedDB.Put(heightKey, parentID.Bytes()); err != nil {
+			if err := vm.acceptedDB.Put(heightKey, parentID[:]); err != nil {
 				log.Error(fmt.Sprintf("snowman-eth: failed to write back acceptedID bytes: %s", err))
 			}
 		}
@@ -685,7 +684,7 @@ func (vm *VM) getUncachedStatus(blk *types.Block) choices.Status {
 		highBlock, lowBlock = lowBlock, highBlock
 	}
 	for highBlock.Number().Cmp(lowBlock.Number()) > 0 {
-		parentBlock := vm.getBlock(ids.NewID(highBlock.ParentHash()))
+		parentBlock := vm.getBlock(ids.ID(highBlock.ParentHash()))
 		if parentBlock == nil {
 			return choices.Processing
 		}
@@ -706,27 +705,17 @@ func (vm *VM) getBlock(id ids.ID) *Block {
 	if blockIntf, ok := vm.blockCache.Get(id); ok {
 		return blockIntf.(*Block)
 	}
-	ethBlock := vm.chain.GetBlockByHash(id.Key())
+	ethBlock := vm.chain.GetBlockByHash(common.Hash(id))
 	if ethBlock == nil {
 		return nil
 	}
 	block := &Block{
-		id:       ids.NewID(ethBlock.Hash()),
+		id:       ids.ID(ethBlock.Hash()),
 		ethBlock: ethBlock,
 		vm:       vm,
 	}
 	vm.blockCache.Put(id, block)
 	return block
-}
-
-func (vm *VM) issueRemoteTxs(txs []*types.Transaction) error {
-	errs := vm.chain.AddRemoteTxs(txs)
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return vm.tryBlockGen()
 }
 
 func (vm *VM) writeBackMetadata() {
@@ -855,7 +844,7 @@ func (vm *VM) GetAtomicUTXOs(
 		chainID,
 		addrsList,
 		startAddr.Bytes(),
-		startUTXOID.Bytes(),
+		startUTXOID[:],
 		limit,
 	)
 	if err != nil {
@@ -874,7 +863,7 @@ func (vm *VM) GetAtomicUTXOs(
 	utxos := make([]*avax.UTXO, len(allUTXOBytes))
 	for i, utxoBytes := range allUTXOBytes {
 		utxo := &avax.UTXO{}
-		if err := vm.codec.Unmarshal(utxoBytes, utxo); err != nil {
+		if _, err := vm.codec.Unmarshal(utxoBytes, utxo); err != nil {
 			return nil, ids.ShortID{}, ids.ID{}, fmt.Errorf("error parsing UTXO: %w", err)
 		}
 		utxos[i] = utxo
@@ -902,10 +891,10 @@ func (vm *VM) GetSpendableFunds(keys []*crypto.PrivateKeySECP256K1R, assetID ids
 		}
 		addr := GetEthAddress(key)
 		var balance uint64
-		if assetID.Equals(vm.ctx.AVAXAssetID) {
+		if assetID == vm.ctx.AVAXAssetID {
 			balance = new(big.Int).Div(state.GetBalance(addr), x2cRate).Uint64()
 		} else {
-			balance = state.GetBalanceMultiCoin(addr, assetID.Key()).Uint64()
+			balance = state.GetBalanceMultiCoin(addr, common.Hash(assetID)).Uint64()
 		}
 		if balance == 0 {
 			continue
@@ -941,6 +930,35 @@ func (vm *VM) GetAcceptedNonce(address common.Address) (uint64, error) {
 		return 0, err
 	}
 	return state.GetNonce(address), nil
+}
+
+// ParseLocalAddress takes in an address for this chain and produces the ID
+func (vm *VM) ParseLocalAddress(addrStr string) (ids.ShortID, error) {
+	chainID, addr, err := vm.ParseAddress(addrStr)
+	if err != nil {
+		return ids.ShortID{}, err
+	}
+	if chainID != vm.ctx.ChainID {
+		return ids.ShortID{}, fmt.Errorf("expected chainID to be %q but was %q",
+			vm.ctx.ChainID, chainID)
+	}
+	return addr, nil
+}
+
+// FormatLocalAddress takes in a raw address and produces the formatted address
+func (vm *VM) FormatLocalAddress(addr ids.ShortID) (string, error) {
+	return vm.FormatAddress(vm.ctx.ChainID, addr)
+}
+
+// FormatAddress takes in a chainID and a raw address and produces the formatted
+// address
+func (vm *VM) FormatAddress(chainID ids.ID, addr ids.ShortID) (string, error) {
+	chainIDAlias, err := vm.ctx.BCLookup.PrimaryAlias(chainID)
+	if err != nil {
+		return "", err
+	}
+	hrp := constants.GetHRP(vm.ctx.NetworkID)
+	return formatting.FormatAddress(chainIDAlias, hrp, addr.Bytes())
 }
 
 // ParseEthAddress parses [addrStr] and returns an Ethereum address

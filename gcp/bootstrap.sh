@@ -6,8 +6,8 @@ BOOTSTRAP_IPS="${2:- }"
 STATE_CONNECTOR_IPS="${3:- }"
 
 # Pre-defined vars
-NODE_VERSION=@v1.0.4
-CORETH_VERSION=@v0.3.12
+NODE_VERSION=@v1.0.5
+CORETH_VERSION=@v0.3.14
 LOG_DIR=$(pwd)/logs
 CONFIG_DIR=$(pwd)/config
 DB_DIR=$(pwd)/db
@@ -38,7 +38,7 @@ $NODE_DIR/scripts/build.sh
 start_node () {
     printf "Launching $NODE_NAME at $PIP:9650\n"
     nohup $NODE_DIR/build/avalanchego --http-host=  --http-port=$4 --public-ip=$PIP --staking-port=$5  \
-    --staking-enabled=true --p2p-tls-enabled=true --log-level=debug --network-id=flare \
+    --staking-enabled=true --p2p-tls-enabled=true --log-level=info --network-id=flare \
     --db-dir=$DB_DIR \
     --staking-tls-cert-file=$(pwd)/keys/$NODE_NAME/staker.crt  \
     --staking-tls-key-file=$(pwd)/keys/$NODE_NAME/staker.key \
@@ -199,4 +199,4 @@ node deploy.js
 
 printf "\n\n\n"
 printf "To kill the node and client run bash gcp/stop.sh script \x1b[0m"
-
+printf "\n\n"

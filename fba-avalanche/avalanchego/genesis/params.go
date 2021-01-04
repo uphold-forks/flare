@@ -35,6 +35,9 @@ type Params struct {
 	MaxStakeDuration time.Duration
 	// StakeMintingPeriod is the amount of time for a consumption period.
 	StakeMintingPeriod time.Duration
+
+	// Time that Apricot phase 0 rules go into effect
+	ApricotPhase0Time time.Time
 }
 
 // GetParams ...
@@ -46,6 +49,10 @@ func GetParams(networkID uint32) *Params {
 		return &FujiParams
 	case constants.LocalID:
 		return &LocalParams
+	case constants.FlareID:
+		return &FlareParams
+	case constants.CostonID:
+		return &CostonParams
 	default:
 		return &LocalParams
 	}

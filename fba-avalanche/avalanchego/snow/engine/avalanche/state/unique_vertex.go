@@ -32,7 +32,7 @@ type uniqueVertex struct {
 // and then parsing the vertex bytes on a cache miss.
 func newUniqueVertex(s *Serializer, b []byte) (*uniqueVertex, error) {
 	vtx := &uniqueVertex{
-		vtxID:      ids.NewID(hashing.ComputeHash256Array(b)),
+		vtxID:      hashing.ComputeHash256Array(b),
 		serializer: s,
 	}
 	vtx.shallowRefresh()
@@ -210,6 +210,16 @@ func (vtx *uniqueVertex) Height() (uint64, error) {
 	}
 
 	return vtx.v.vtx.height, nil
+}
+
+func (vtx *uniqueVertex) Epoch() (uint32, error) {
+	vtx.refresh()
+
+	if vtx.v.vtx == nil {
+		return 0, fmt.Errorf("failed to get epoch for vertex with status: %s", vtx.v.status)
+	}
+
+	return vtx.v.vtx.epoch, nil
 }
 
 func (vtx *uniqueVertex) Txs() ([]snowstorm.Tx, error) {
