@@ -4,9 +4,9 @@
   "license": "MIT",
   "private": true,
   "dependencies": {
-    "ripple-keypairs": "^1.0.0",
+    "ripple-keypairs": "1.0.0",
     "ripple-lib": "*",
-    "solc": "^0.6.12",
+    "solc": "0.6.12",
     "web3": "*",
     "web3-eth-accounts": "*",
     "merkletreejs": "*"

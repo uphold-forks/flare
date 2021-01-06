@@ -117,12 +117,12 @@ async function sendPayment(account, paymentsNum) {
 					if (paymentsNum > 1) {
 						setTimeout(() => {
 							return sendPayment(account, paymentsNum-1);
-						}, 500);
+						}, 2000);
 					} else {
 						return xrplAPI.disconnect().catch(xrplDisconnectRetry);
 					}
 				})
-			}, 500);
+			}, 2000);
 		}
  	})
 }

@@ -298,7 +298,11 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 	.then(result => {
 		console.log('Claim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
 		if (result == true) {
-			return xrplClaimProcessingCompleted('Latest claim period already registered, waiting for new ledgers.');
+			if (chainId == 0) {
+				return xrplClaimProcessingCompleted('Latest claim period already registered, waiting for new ledgers.');
+			} else {
+				return processFailure('Invalid chainId.');
+			}
 		} else {
 			web3.eth.getTransactionCount(config.stateConnector.address)
 			.then(nonce => {

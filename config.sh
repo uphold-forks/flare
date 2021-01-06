@@ -1,11 +1,8 @@
 #!/bin/bash
-
+if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit;
+fi
 NODE_VERSION=@v1.1.0
 CORETH_VERSION=@v0.3.16
-
-cd solidity
-./compile.sh stateConnector
-cd -
 
 rm -rf logs
 mkdir logs
@@ -76,46 +73,6 @@ $(cat $(pwd)/keys/node03/nodeID.txt) \
 --coreth-config=$(cat $(pwd)/keys/node03/scID.txt) &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
 NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
 sleep 5
-
-printf "\nNode 1 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9650/ext/P | jq '.result'
-
-printf "\nNode 2 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9652/ext/P | jq '.result'
-
-printf "\nNode 3 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9654/ext/P | jq '.result'
-
-printf "\nNode 4 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9656/ext/P | jq '.result'
 
 cd - &>/dev/null
 printf "\nNetwork launched, deploying state-connector system..."

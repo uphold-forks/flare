@@ -135,6 +135,7 @@ contract stateConnector {
     function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public payable returns (bool finality) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(msg.value == registrationFee, 'msg.value != registrationFee');
+        governanceContract.transfer(registrationFee);
         require(Chains[chainId].exists == true, 'chainId does not exist');
         bytes32 locationHash =  keccak256(abi.encodePacked(
                                     keccak256(abi.encodePacked('chainId', chainId)),

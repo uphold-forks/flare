@@ -51,46 +51,6 @@ $(cat $(pwd)/keys/node03/nodeID.txt) \
 NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
 sleep 5
 
-printf "\nNode 1 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9650/ext/P | jq '.result'
-
-printf "\nNode 2 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9652/ext/P | jq '.result'
-
-printf "\nNode 3 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9654/ext/P | jq '.result'
-
-printf "\nNode 4 UNL:\n"
-curl -sX POST --data '{
-    "jsonrpc":"2.0",
-    "id"     :1,
-    "method": "platform.sampleValidators",
-    "params" :{
-        "size":4
-    }
-}' -H 'content-type:application/json;' 127.0.0.1:9656/ext/P | jq '.result'
-
 printf "\n\n"
 read -p "Press enter to stop background node processes"
 kill $NODE_00_PID
