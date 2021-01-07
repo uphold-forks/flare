@@ -47,6 +47,8 @@ func GetFeePoolContractAddr(BlockNumber *big.Int) (string) {
 
 const (
 
+  StateConnectorCacheFilename = "flare/VerifiedStateConnectorHashes.json"
+
   CostonGenesis = `{
     "config": {
       "chainId": 16,

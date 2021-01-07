@@ -384,7 +384,7 @@ async function sleep(ms) {
 }
 
 app.get('/stateConnector', (req, res) => {
-	setTimeout(() => {return processFailure("Request timed out after 5 minutes.")}, 300000);
+	// setTimeout(() => {return processFailure("Request timed out after 5 minutes.")}, 300000);
 	if (claimsInProgress == true) {
 		res.status(200).send('Claims already being processed.').end();
 	} else {

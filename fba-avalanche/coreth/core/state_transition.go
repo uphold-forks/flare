@@ -20,7 +20,6 @@ import (
 	"math"
 	"math/big"
 	"bytes"
-	"encoding/hex"
 
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/params"
@@ -272,7 +271,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 					if (vmerr == nil) {
 						chainConfig := st.evm.ChainConfig()
 						stateConnectorConfig := *chainConfig.StateConnectorConfig
-						if (flare.VerifyClaimPeriod("0x" + hex.EncodeToString(st.data[4:33]), "0x" + hex.EncodeToString(st.data[33:65]), "0x" + hex.EncodeToString(st.data[65:97]), "0x" + hex.EncodeToString(st.data[97:len(st.data)]), stateConnectorConfig) == true) {
+						if (flare.VerifyClaimPeriod(st.data, stateConnectorConfig) == true) {
 							originalCoinbase := st.evm.Context.Coinbase
 							defer func() {
 								st.evm.Context.Coinbase = originalCoinbase
