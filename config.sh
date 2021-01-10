@@ -1,6 +1,7 @@
 #!/bin/bash
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit;
 fi
+EXEC_DIR=$(pwd)
 NODE_VERSION=@v1.1.0
 CORETH_VERSION=@v0.3.16
 
@@ -25,6 +26,11 @@ rm -rf $NODE_DIR/db/
 printf "\x1b[34mFlare Network 5-Node Local Deployment\x1b[0m\n\n"
 printf "Building Flare Core...\n"
 ./scripts/build.sh
+
+printf "Downloading NodeJS dependencies..."
+cd flare/
+yarn --silent
+cd -
 
 # NODE 1
 printf "\nLaunching Node 1 at 127.0.0.1:9650\n"
@@ -74,7 +80,7 @@ $(cat $(pwd)/keys/node03/nodeID.txt) \
 NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
 sleep 5
 
-cd - &>/dev/null
+cd $EXEC_DIR &>/dev/null
 printf "\nNetwork launched, deploying state-connector system..."
 node deploy.js
 printf "\nNode endpoints configured, stopping network...\n"

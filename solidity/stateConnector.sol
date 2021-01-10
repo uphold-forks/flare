@@ -99,20 +99,20 @@ contract stateConnector {
         return computedHash == root;
     }
 
-    function provePaymentFinality(uint256 chainId, uint256 ledger, uint32 indexInLedger, string memory txId, string memory source, string memory destination, string memory currency, uint256 value, bytes32 memo, bytes32[] memory proof, bytes32 root) public view returns (bool success) {
+    function provePaymentFinality(uint256 chainId, uint256 ledger, string memory txId, string memory source, string memory destination, uint256 destinationTag, uint256 amount, bytes32[] memory proof, bytes32 root) public view returns (bool success) {
         require(Chains[chainId].exists == true, 'chainId does not exist');
         require(checkRootFinality(root, chainId, ledger) == true, 'Claim period not finalised');
-        bytes32 leaf = sha256(abi.encodePacked(
-            keccak256(abi.encodePacked('chainId', chainId)),
-            keccak256(abi.encodePacked('ledger', ledger)),
-            keccak256(abi.encodePacked('indexInLedger', indexInLedger)),
-            keccak256(abi.encodePacked('txId', txId)),
-            keccak256(abi.encodePacked('source', source)),
-            keccak256(abi.encodePacked('destination', destination)),
-            keccak256(abi.encodePacked('currency', currency)),
-            keccak256(abi.encodePacked('value', value)),
-            keccak256(abi.encodePacked('memo', memo)))
-        );
+        bytes32 leaf = sha256(abi.encodePacked(keccak256(
+            abi.encodePacked(
+                keccak256(abi.encodePacked(chainId)),
+                keccak256(abi.encodePacked(ledger)),
+                keccak256(abi.encodePacked(txId)),
+                keccak256(abi.encodePacked(source)),
+                keccak256(abi.encodePacked(destination)),
+                keccak256(abi.encodePacked(destinationTag)),
+                keccak256(abi.encodePacked(amount))
+            )
+        )));
         require(verifyMerkleProof(root, leaf, proof) == true, 'Payment not verified');
         return true;
     }
@@ -143,6 +143,14 @@ contract stateConnector {
                                     keccak256(abi.encodePacked('claimPeriodIndex', claimPeriodIndex)))
                                 );
         require(finalisedClaimPeriods[locationHash].exists == false, 'claimPeriodHash already finalised');
+        if (claimPeriodIndex > 0) {
+            bytes32 prevLocationHash =  keccak256(abi.encodePacked(
+                                        keccak256(abi.encodePacked('chainId', chainId)),
+                                        keccak256(abi.encodePacked('ledger', ledger-Chains[chainId].claimPeriodLength)),
+                                        keccak256(abi.encodePacked('claimPeriodIndex', claimPeriodIndex-1)))
+                                    );
+            require(finalisedClaimPeriods[prevLocationHash].exists == true, 'previous claim period not yet finalised');
+        }
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid

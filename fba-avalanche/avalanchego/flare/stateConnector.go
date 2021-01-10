@@ -1,18 +1,19 @@
 package flare
 
 import (
-	"time"
 	"encoding/json"
 	"encoding/hex"
 	"crypto/sha256"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"sync"
+	"strings"
 )
 
 var fileMutex sync.Mutex
 
-type ClaimPeriod struct {
+type VerifiedStateConnectorHashes struct {
 	Hashes	[]string 	`json:"hashes"`
 }
 
@@ -29,7 +30,7 @@ func contains(slice []string, item string) bool {
 func VerifyClaimPeriod(stData []byte, nodeUrl []string) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
-	var data ClaimPeriod
+	var data VerifiedStateConnectorHashes
 	rawHash := sha256.Sum256(stData)
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(StateConnectorCacheFilename)
@@ -39,16 +40,25 @@ func VerifyClaimPeriod(stData []byte, nodeUrl []string) (bool) {
         }
     } else {
     	file, _ := ioutil.ReadFile(StateConnectorCacheFilename)
-		data = ClaimPeriod{}
+		data = VerifiedStateConnectorHashes{}
 		json.Unmarshal(file, &data)
     }
 
     if (contains(data.Hashes, hexHash) == false) {
+    	// Independent verification calling StateConnector
+		parts := strings.Fields(VerificationCommand+hex.EncodeToString(stData))        
+		byteResponse, _ := exec.Command(parts[0], parts[1:]...).Output()
+		// if err != nil {
+		//     panic(err)
+		// }
+		stringReponse := string(byteResponse)
+
+    	// If it's valid, cache stData
+    	// data.Hashes = append(data.Hashes, hexHash)
     	data.Hashes = append(data.Hashes, hexHash)
+    	data.Hashes = append(data.Hashes, stringReponse)
 		jsonData, _ := json.Marshal(data)
 		ioutil.WriteFile(StateConnectorCacheFilename, jsonData, 0644)
-		// Temporary delay for testing cache efficacy
-		time.Sleep(30*time.Second)
     }
     return true;
 }

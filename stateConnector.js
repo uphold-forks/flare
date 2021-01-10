@@ -27,194 +27,103 @@ const RippleKeys = require('ripple-keypairs');
 
 async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, registrationFee) {
 	console.log('\nRetrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
-	const command = 'account_tx';
-	const params = {
-		'account': config.chains[0].signal,
-		'ledger_index_min': ledger,
-		'ledger_index_max': genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1,
-		'binary': false,
-		'forward': true
-	};
-
-	return chainAPI.request(command, params)
-	.then(response => {
-		async function responseIterate(response) {
-			async function transactionIterate(item, i, numTransactions) {
-				if (item.meta.TransactionResult != 'tesSUCCESS') {
-					console.error("ErrorCode001 - Unsuccessful transaction (Pointer): ", item.tx.hash);
-					if (i+1 < numTransactions) {
-						return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-					} else {
-						return checkResponseCompletion(response);
-					}
-				} else if (item.tx.TransactionType != 'Payment') {
-					console.error("ErrorCode002 - Invalid transaction type (Pointer): ", item.tx.hash);
-					if (i+1 < numTransactions) {
-						return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-					} else {
-						return checkResponseCompletion(response);
-					}
-				} else if (item.tx.Amount < minFee) {
-					console.error("ErrorCode003 - Invalid payment amount (Pointer): ", item.tx.hash);
-					if (i+1 < numTransactions) {
-						return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-					} else {
-						return checkResponseCompletion(response);
-					}
-				} else if (!("Memos" in item.tx)) {
-					console.error("ErrorCode004 - No memo (Pointer): ", item.tx.hash);
-					if (i+1 < numTransactions) {
-						return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-					} else {
-						return checkResponseCompletion(response);
-					}
-				} else if (!("MemoData" in item.tx.Memos[0].Memo)) {
-					console.error("ErrorCode005 - Invalid memo data type (Pointer): ", item.tx.hash);
-					if (i+1 < numTransactions) {
-						return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-					} else {
-						return checkResponseCompletion(response);
-					}
-				} else {
-					// Memo is a tx hash pointing to another transaction -> take that transaction's details
-					const memo = Buffer.from(item.tx.Memos[0].Memo.MemoData, "hex").toString("utf-8");
-					if (web3.utils.isHex(memo) == true && memo.length == 64) {
-						chainAPI.getTransaction(memo).then(tx => {
-							async function processPayload(tx) {
-								if (tx.outcome.result != 'tesSUCCESS') {
-									console.error("ErrorCode008 - Unsuccessful transaction (Payload): ", tx.id);
-									if (i+1 < numTransactions) {
-										return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-									} else {
-										return checkResponseCompletion(response);
-									}
-								} else if (tx.type != 'payment') {
-									console.error("ErrorCode009 - Invalid transaction type (Payload): ", tx.id);
-									if (i+1 < numTransactions) {
-										return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-									} else {
-										return checkResponseCompletion(response);
-									}
-								} else if (!("memos" in tx.specification)) {
-									console.error("ErrorCode010 - No memo (Payload): ", tx.id);
-									if (i+1 < numTransactions) {
-										return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-									} else {
-										return checkResponseCompletion(response);
-									}
-								} else if (!("data" in tx.specification.memos[0])) {
-									console.error("ErrorCode011 - Invalid memo data type (Payload): ", tx.id);
-									if (i+1 < numTransactions) {
-										return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-									} else {
-										return checkResponseCompletion(response);
-									}
-								} else {
-									if (web3.utils.isHexStrict(tx.specification.memos[0].data) == true && tx.specification.memos[0].data.length == 66) {
-										const prevLength = payloads.length;
-										const payloadPromise = new Promise((resolve, reject) => {
-											const value = parseFloat(tx.outcome.deliveredAmount.value) / Math.pow(10, -6);
-											const newPayload = SHA256(
-												web3.utils.soliditySha3('chainId', 0),
-												web3.utils.soliditySha3('ledger', tx.outcome.ledgerVersion),
-												web3.utils.soliditySha3('indexInLedger', tx.outcome.indexInLedger),
-												web3.utils.soliditySha3('txId', tx.id),
-												web3.utils.soliditySha3('source', tx.specification.source.address),
-												web3.utils.soliditySha3('destination', tx.specification.destination.address),
-												web3.utils.soliditySha3('currency', tx.outcome.deliveredAmount.currency),
-												web3.utils.soliditySha3('value', value),
-												web3.utils.soliditySha3('memo', tx.specification.memos[0].data));
-											console.log('chainId: ', 0, '\n',
-												'ledger: ', tx.outcome.ledgerVersion, '\n',
-												'indexInLedger: ', tx.outcome.indexInLedger, '\n',
-												'txId: ', tx.id, '\n',
-												'source: ', tx.specification.source.address, '\n',
-												'destination: ', tx.specification.destination.address, '\n',
-												'currency: ', tx.outcome.deliveredAmount.currency, '\n',
-												'value: ', value, '\n',
-												'memo: ', tx.specification.memos[0].data, '\n');
-											payloads[payloads.length] = newPayload;
-											const currLength = payloads.length;
-											resolve(currLength);
-										})
-
-										return await payloadPromise.then(currLength => {
-											if (currLength == prevLength + 1) {
-												if (i+1 < numTransactions) {
-													return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-												} else {
-													return checkResponseCompletion(response);
-												}
-											} else {
-												return processFailure("ErrorCode015 - Unable to append payload:", tx.id);
-											}
-										}).catch(err => {
-											return processFailure("ErrorCode014 - Unable to intepret payload:", err, tx.id);
-										})
-									} else {
-										console.error("ErrorCode012 - Memo not a correctly formatted and pre-fixed bytes32 hash (Payload): ", tx.specification.memos[0].data);
-										if (i+1 < numTransactions) {
-											return transactionIterate(response.transactions[i+1], i+1, numTransactions);
-										} else {
-											return checkResponseCompletion(response);
-										}
-									}
-								}
-							}
-							return processPayload(tx);
-						}).catch((error) => {
-							const errorMessage = EvalError(error);
-							if (errorMessage.message == '[DisconnectedError(websocket was closed)]') {
-								processFailure("ErrorCode007 - ", error, ": ", memo);
+	async function xrplProcessLedger(currLedger) {
+		const command = 'ledger';
+		const params = {
+			'ledger_index': currLedger,
+			'binary': false,
+			'full': false,
+			'accounts': false,
+			'transactions': true,
+			'expand': true,
+			'owner_funds': false
+		};
+		return chainAPI.request(command, params)
+		.then(response => {
+			async function responseIterate(response) {
+				async function transactionIterate(item, i, numTransactions) {
+					if (item.TransactionType == 'Payment' && typeof item.Amount == 'string' && item.metaData.TransactionResult == 'tesSUCCESS') {
+						const prevLength = payloads.length;
+						const payloadPromise = new Promise((resolve, reject) => {
+							var destinationTag;
+							if (!("DestinationTag" in item)) {
+								destinationTag = 0;
 							} else {
-								console.error("ErrorCode013 - ", error, ": ", memo);
+								destinationTag = item.DestinationTag;
+							}
+							console.log('chainId: \t\t', '0', '\n',
+								'ledger: \t\t', response.ledger.seqNum, '\n',
+								'txId: \t\t\t', item.hash, '\n',
+								'source: \t\t', item.Account, '\n',
+								'destination: \t\t', item.Destination, '\n',
+								'destinationTag: \t', String(destinationTag), '\n',
+								'amount: \t\t', parseInt(item.Amount), '\n');
+							const chainIdHash 			= web3.utils.soliditySha3('0');
+							const ledgerHash 			= web3.utils.soliditySha3(String(response.ledger.seqNum));
+							const txIdHash				= web3.utils.soliditySha3(item.hash);
+							const sourceHash			= web3.utils.soliditySha3(item.Account);
+							const destinationHash		= web3.utils.soliditySha3(item.Destination);
+							const destinationTagHash	= web3.utils.soliditySha3(String(destinationTag));
+							const amountHash			= web3.utils.soliditySha3(String(item.Amount));
+							const preImage				= chainIdHash + ledgerHash + txIdHash + sourceHash + destinationHash + destinationTagHash + amountHash;
+							resolve(web3.utils.soliditySha3(preImage));
+						})
+						return await payloadPromise.then(newPayload => {
+							payloads[payloads.length] = newPayload;
+							if (payloads.length == prevLength + 1) {
 								if (i+1 < numTransactions) {
-									return transactionIterate(response.transactions[i+1], i+1, numTransactions);
+									return transactionIterate(response.ledger.transactions[i+1], i+1, numTransactions);
 								} else {
 									return checkResponseCompletion(response);
 								}
+							} else {
+								return processFailure("Unable to append payload:", tx.hash);
 							}
+						}).catch(err => {
+							return processFailure("Unable to intepret payload:", err, tx.hash);
 						})
 					} else {
-						console.error("ErrorCode006 - Memo not a correctly formatted bytes32 hash (Pointer): ", memo);
 						if (i+1 < numTransactions) {
-							return transactionIterate(response.transactions[i+1], i+1, numTransactions);
+							return transactionIterate(response.ledger.transactions[i+1], i+1, numTransactions);
 						} else {
 							return checkResponseCompletion(response);
 						}
 					}
 				}
-			}
-			async function checkResponseCompletion(response) {
-				if (chainAPI.hasNextPage(response) == true) {
-					chainAPI.requestNextPage(command, params, response)
-					.then(next_response => {
-						responseIterate(next_response);
-					})
-				} else {
-					var root;
-					if (payloads.length > 0) {
-						const tree = new MerkleTree(payloads, SHA256, {sort: true});
-						root = tree.getHexRoot();
+				async function checkResponseCompletion(response) {
+					if (chainAPI.hasNextPage(response) == true) {
+						chainAPI.requestNextPage(command, params, response)
+						.then(next_response => {
+							responseIterate(next_response);
+						})
+					} else if (parseInt(currLedger)+1 < genesisLedger + (claimPeriodIndex+1)*claimPeriodLength) {
+						return xrplProcessLedger(parseInt(currLedger)+1);
 					} else {
-						root = "0x0000000000000000000000000000000000000000000000000000000000000000";
+						var root;
+						if (payloads.length > 0) {
+							const leaves = payloads.map(x => SHA256(x));
+							const tree = new MerkleTree(leaves, SHA256, {sort: true});
+							root = tree.getHexRoot();
+						} else {
+							root = "0x0000000000000000000000000000000000000000000000000000000000000000";
+						}
+						console.log('Num Payloads:\t\t', payloads.length);
+						return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root, registrationFee);
 					}
-					console.log('Num Payloads:\t\t', payloads.length);
-					return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root, registrationFee);
+				}
+				if (response.ledger.transactions.length > 0) {
+					return transactionIterate(response.ledger.transactions[0], 0, response.ledger.transactions.length);
+				} else {
+					return checkResponseCompletion(response);
 				}
 			}
-			const numTransactions = response.transactions.length;
-			if (numTransactions > 0) {
-				return transactionIterate(response.transactions[0], 0, numTransactions);
-			} else {
-				return checkResponseCompletion(response);
-			}
-		}
-		responseIterate(response);
-	})
-	.catch(error => {
-		processFailure(error);
-	})
+			responseIterate(response);
+		})
+		.catch(error => {
+			processFailure(error);
+		})
+	}
+	return xrplProcessLedger(ledger);
 }
 
 async function xrplConfig() {
@@ -384,7 +293,6 @@ async function sleep(ms) {
 }
 
 app.get('/stateConnector', (req, res) => {
-	// setTimeout(() => {return processFailure("Request timed out after 5 minutes.")}, 300000);
 	if (claimsInProgress == true) {
 		res.status(200).send('Claims already being processed.').end();
 	} else {
