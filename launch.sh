@@ -14,7 +14,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s.altnet.rippletest.net:51233" &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
+--coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
 NODE_00_PID=`cat $LOG_DIR/node00/ava.pid`
 sleep 5
 
@@ -25,7 +25,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s.altnet.rippletest.net:51233" &> $LOG_DIR/node01/nohup.out & echo $! > $LOG_DIR/node01/ava.pid
+--coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node01/nohup.out & echo $! > $LOG_DIR/node01/ava.pid
 NODE_01_PID=`cat $LOG_DIR/node01/ava.pid`
 sleep 5
 
@@ -36,7 +36,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s.altnet.rippletest.net:51233" &> $LOG_DIR/node02/nohup.out & echo $! > $LOG_DIR/node02/ava.pid
+--coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node02/nohup.out & echo $! > $LOG_DIR/node02/ava.pid
 NODE_02_PID=`cat $LOG_DIR/node02/ava.pid`
 sleep 5
 
@@ -47,7 +47,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s.altnet.rippletest.net:51233" &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
+--coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
 NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
 sleep 5
 

@@ -9,7 +9,7 @@ const fs = require('fs');
 const express = require('express');
 const app = express();
 const { MerkleTree } = require('merkletreejs');
-const SHA256 = require('crypto-js/sha256');
+const keccak256 = require('keccak256');
 
 const minFee = 1;
 var config;
@@ -57,16 +57,21 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 								'source: \t\t', item.Account, '\n',
 								'destination: \t\t', item.Destination, '\n',
 								'destinationTag: \t', String(destinationTag), '\n',
-								'amount: \t\t', parseInt(item.Amount), '\n');
-							const chainIdHash 			= web3.utils.soliditySha3('0');
-							const ledgerHash 			= web3.utils.soliditySha3(String(response.ledger.seqNum));
-							const txIdHash				= web3.utils.soliditySha3(item.hash);
-							const sourceHash			= web3.utils.soliditySha3(item.Account);
-							const destinationHash		= web3.utils.soliditySha3(item.Destination);
-							const destinationTagHash	= web3.utils.soliditySha3(String(destinationTag));
-							const amountHash			= web3.utils.soliditySha3(String(item.Amount));
-							const preImage				= chainIdHash + ledgerHash + txIdHash + sourceHash + destinationHash + destinationTagHash + amountHash;
-							resolve(web3.utils.soliditySha3(preImage));
+								'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
+							stateConnector.methods.constructLeaf(
+									'0',
+									response.ledger.seqNum,
+									item.hash,
+									item.Account,
+									item.Destination,
+									destinationTag,
+									item.metaData.delivered_amount).call({
+								from: config.stateConnector.address,
+								gas: config.flare.gas,
+								gasPrice: config.flare.gasPrice})
+							.then(result => {
+								resolve(result);
+							});
 						})
 						return await payloadPromise.then(newPayload => {
 							payloads[payloads.length] = newPayload;
@@ -101,8 +106,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 					} else {
 						var root;
 						if (payloads.length > 0) {
-							const leaves = payloads.map(x => SHA256(x));
-							const tree = new MerkleTree(leaves, SHA256, {sort: true});
+							const tree = new MerkleTree(payloads, keccak256, {sort: true});
 							root = tree.getHexRoot();
 						} else {
 							root = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -178,27 +182,26 @@ async function run(chainId) {
 		parseInt(result.finalisedLedgerIndex), parseInt(result._registrationFee)];
 	})
 	.then(result => {
-		chainAPI.getLedgerVersion().catch(processFailure)
-		.then(sampledLedger => {
-			console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
-				"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", result[3], '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
-			if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
-				if (chainId == 0) {
+		if (chainId == 0) {
+			chainAPI.getLedgerVersion().catch(processFailure)
+			.then(sampledLedger => {
+				console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
+					"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", result[3], '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
+				if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
 					return xrplProcessLedgers([], result[0], result[1], result[2], result[3], result[4]);
 				} else {
-					return processFailure('Invalid chainId.')
+					return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');
 				}
-			} else {
-				return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');
-			}
-		})
+			})
+		} else {
+			return processFailure('Invalid chainId.');
+		}
 	})
 }
 
 async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPeriodHash, registrationFee) {
 	stateConnector.methods.checkFinality(
 					parseInt(chainId),
-					ledger,
 					claimPeriodIndex).call({
 		from: config.stateConnector.address,
 		gas: config.flare.gas,

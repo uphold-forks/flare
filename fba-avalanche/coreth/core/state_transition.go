@@ -267,8 +267,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			} else {
 				var functionSelector []byte = st.data[0:4]
 				if (bytes.Compare(functionSelector, flare.GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0) {
-					ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
-					if (vmerr == nil) {
+					// ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
+					// if (vmerr == nil) {
 						chainConfig := st.evm.ChainConfig()
 						stateConnectorConfig := *chainConfig.StateConnectorConfig
 						if (flare.VerifyClaimPeriod(st.data, stateConnectorConfig) == true) {
@@ -278,7 +278,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 							}()
 							st.evm.Context.Coinbase = st.msg.From()
 						}
-					}
+					// }
 				}
 				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
 				st.gas = st.gas + gas - flare.GetFixedGasUsed(st.evm.Context.BlockNumber)
@@ -288,7 +288,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		}
 	}
 	st.refundGas()
-	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 	feePoolContractAddr := flare.GetFeePoolContractAddr(st.evm.Context.BlockNumber)
 	st.state.AddBalance(common.HexToAddress(feePoolContractAddr), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
