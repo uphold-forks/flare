@@ -82,6 +82,19 @@ contract stateConnector {
         return finalisedClaimPeriods[locationHash].claimPeriodHash == root;
     }
 
+    function constructLeaf(uint256 chainId, uint256 ledger, bytes32 txHash, bytes32 accountsHash, uint256 amount) public pure returns (bytes32 leaf) {
+        bytes32 constructedLeaf = keccak256(
+            abi.encode(
+                keccak256(abi.encode(chainId)),
+                keccak256(abi.encode(ledger)),
+                txHash,
+                accountsHash,
+                keccak256(abi.encode(amount))
+            )
+        );
+        return constructedLeaf;
+    }
+
     function verifyMerkleProof(bytes32 root, bytes32 leaf, bytes32[] memory proof) private pure returns (bool verified) {
         bytes32 computedHash = leaf;
         for (uint256 i = 0; i < proof.length; i++) {
@@ -95,25 +108,10 @@ contract stateConnector {
         return computedHash == root;
     }
 
-    function constructLeaf(uint256 chainId, uint256 ledger, string memory txId, string memory source, string memory destination, uint256 destinationTag, uint256 amount) public pure returns (bytes32 leaf) {
-        bytes32 constructedLeaf = keccak256(
-            abi.encode(
-                keccak256(abi.encode(chainId)),
-                keccak256(abi.encode(ledger)),
-                keccak256(abi.encode(txId)),
-                keccak256(abi.encode(source)),
-                keccak256(abi.encode(destination)),
-                keccak256(abi.encode(destinationTag)),
-                keccak256(abi.encode(amount))
-            )
-        );
-        return constructedLeaf;
-    }
-
-    function provePaymentFinality(uint256 chainId, uint256 claimPeriodIndex, uint256 ledger, string memory txId, string memory source, string memory destination, uint256 destinationTag, uint256 amount, bytes32 root, bytes32 leaf, bytes32[] memory proof) public view returns (bool success) {
+    function provePaymentFinality(uint256 chainId, uint256 claimPeriodIndex, uint256 ledger, bytes32 txHash, bytes32 accountsHash, uint256 amount, bytes32 root, bytes32 leaf, bytes32[] memory proof) public view returns (bool success) {
         require(Chains[chainId].exists == true, 'chainId does not exist');
         require(checkRootFinality(root, chainId, claimPeriodIndex) == true, 'Claim period not finalised');
-        require(constructLeaf(chainId, ledger, txId, source, destination, destinationTag, amount) == leaf, 'constructedLeaf != leaf');
+        require(constructLeaf(chainId, ledger, txHash, accountsHash, amount) == leaf, 'constructedLeaf != leaf');
         require(verifyMerkleProof(root, leaf, proof) == true, 'Payment not verified');
         return true;
     }
@@ -132,7 +130,7 @@ contract stateConnector {
         return (finalisedClaimPeriods[locationHash].exists);
     }
 
-    function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public payable returns (bool finality) {
+    function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public payable returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(msg.value == registrationFee, 'msg.value != registrationFee');
         governanceContract.transfer(registrationFee);
@@ -149,7 +147,7 @@ contract stateConnector {
                                         ));
             require(finalisedClaimPeriods[prevLocationHash].exists == true, 'previous claim period not yet finalised');
         }
-        require(block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
+        require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
             registrationFeesDue[msg.sender] = registrationFeesDue[msg.sender] + registrationFee;
@@ -158,10 +156,10 @@ contract stateConnector {
             Chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             Chains[chainId].finalisedLedgerIndex = ledger;
             Chains[chainId].finalisedTimestamp = block.timestamp;
-            return true;
+            return (true, chainId, ledger, Chains[chainId].claimPeriodLength);
         } else {
             // Invalid claimPeriodHash
-            return false;
+            return (false, chainId, ledger, Chains[chainId].claimPeriodLength);
         }
     }
 

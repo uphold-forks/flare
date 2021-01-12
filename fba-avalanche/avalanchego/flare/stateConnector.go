@@ -27,11 +27,11 @@ func contains(slice []string, item string) bool {
 }
 
 // Verify claim period 
-func VerifyClaimPeriod(stData []byte, nodeUrl []string) (bool) {
+func VerifyClaimPeriod(nodeUrl []string, cacheRet []byte) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
-	rawHash := sha256.Sum256(stData)
+	rawHash := sha256.Sum256(cacheRet)
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(StateConnectorCacheFilename)
     if os.IsNotExist(err) {
@@ -46,7 +46,7 @@ func VerifyClaimPeriod(stData []byte, nodeUrl []string) (bool) {
 
     if (contains(data.Hashes, hexHash) == false) {
     	// Independent verification calling StateConnector
-		parts := strings.Fields(VerificationCommand+hex.EncodeToString(stData))        
+		parts := strings.Fields(VerificationCommand+nodeUrl+hex.EncodeToString(cacheRet[:]))        
 		byteResponse, _ := exec.Command(parts[0], parts[1:]...).Output()
 		// if err != nil {
 		//     panic(err)

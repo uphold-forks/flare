@@ -267,18 +267,18 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			} else {
 				var functionSelector []byte = st.data[0:4]
 				if (bytes.Compare(functionSelector, flare.GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0) {
-					// ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
-					// if (vmerr == nil) {
+					cacheRet, _, cacheVmerr := st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
+					if (cacheVmerr == nil) {
 						chainConfig := st.evm.ChainConfig()
 						stateConnectorConfig := *chainConfig.StateConnectorConfig
-						if (flare.VerifyClaimPeriod(st.data, stateConnectorConfig) == true) {
+						if (flare.VerifyClaimPeriod(stateConnectorConfig, cacheRet) == true) {
 							originalCoinbase := st.evm.Context.Coinbase
 							defer func() {
 								st.evm.Context.Coinbase = originalCoinbase
 							}()
 							st.evm.Context.Coinbase = st.msg.From()
 						}
-					// }
+					}
 				}
 				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
 				st.gas = st.gas + gas - flare.GetFixedGasUsed(st.evm.Context.BlockNumber)

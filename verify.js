@@ -116,8 +116,7 @@ async function xrplConfig() {
 
 function verificationMessage(message) {
 	chainAPI.disconnect().catch(error => {
-		process.stdout.write(message);
-		setTimeout(() => {return process.exit()}, 2500);
+		verificationMessage('error');
 	})
 	.then(() => {
 		process.stdout.write(message);
@@ -144,19 +143,19 @@ async function run(chainId) {
 		return verificationMessage('error');
 	}
 }
-process.stdout.write(process.argv[2]);
-// const chainUrl = process.argv[2];
-// const chainId = parseInt(process.argv[3]);
-// const minLedger = parseInt(process.argv[4]);
-// const claimPeriodLength = parseInt(process.argv[5]);
-// setTimeout(() => {return process.exit()}, 60000);
-// if (chainId == 0) {
-// 	xrplConfig().catch(error => {
-// 		verificationMessage('error');
-// 	})
-// 	.then(() => {
-// 		return chainAPI.connect().catch(xrplConnectRetry);
-// 	})
-// } else {
-// 	verificationMessage('error');
-// }
+
+const chainUrl = process.argv[2];
+const chainId = parseInt(process.argv[3]);
+const minLedger = parseInt(process.argv[4]);
+const claimPeriodLength = parseInt(process.argv[5]);
+setTimeout(() => {return process.exit()}, 60000);
+if (chainId == 0) {
+	xrplConfig().catch(error => {
+		verificationMessage('error');
+	})
+	.then(() => {
+		return chainAPI.connect().catch(xrplConnectRetry);
+	})
+} else {
+	verificationMessage('error');
+}

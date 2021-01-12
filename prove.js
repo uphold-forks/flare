@@ -4,10 +4,7 @@ const Web3 = require('web3');
 const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
 const Common = require('ethereumjs-common').default;
-const request = require('request');
 const fs = require('fs');
-const express = require('express');
-const app = express();
 const { MerkleTree } = require('merkletreejs');
 const keccak256 = require('keccak256');
 
@@ -44,29 +41,22 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 				async function transactionIterate(item, i, numTransactions) {
 					if (item.TransactionType == 'Payment' && typeof item.Amount == 'string' && item.metaData.TransactionResult == 'tesSUCCESS') {
 						const prevLength = payloads.length;
-						const payloadPromise = new Promise((resolve, reject) => {
+						const leafPromise = new Promise((resolve, reject) => {
 							var destinationTag;
 							if (!("DestinationTag" in item)) {
 								destinationTag = 0;
 							} else {
 								destinationTag = item.DestinationTag;
 							}
-							stateConnector.methods.constructLeaf(
-									'0',
-									response.ledger.seqNum,
-									item.hash,
-									item.Account,
-									item.Destination,
-									destinationTag,
-									item.metaData.delivered_amount).call({
-								from: config.stateConnector.address,
-								gas: config.flare.gas,
-								gasPrice: config.flare.gasPrice})
-							.then(result => {
-								resolve(result);
-							});
+							const chainIdHash = web3.utils.soliditySha3('0');
+							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
+							const txHash = web3.utils.soliditySha3(item.hash);
+							const accountsHash = web3.utils.soliditySha3(item.Account, item.Destination, destinationTag);
+							const amountHash = web3.utils.soliditySha3(item.metaData.delivered_amount);
+							const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
+							resolve(leafHash);
 						})
-						return await payloadPromise.then(newPayload => {
+						return await leafPromise.then(newPayload => {
 							payloads[payloads.length] = newPayload;
 							if (payloads.length == prevLength + 1) {
 								if (i+1 < numTransactions) {
@@ -77,8 +67,8 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							} else {
 								return processFailure("Unable to append payload:", item.hash);
 							}
-						}).catch(err => {
-							return processFailure("Unable to intepret payload:", err, item.hash);
+						}).catch(error => {
+							return processFailure("Unable to intepret payload:", error, item.hash);
 						})
 					} else {
 						if (i+1 < numTransactions) {
@@ -198,30 +188,21 @@ async function run(chainId) {
 						'destination: \t\t', tx.specification.destination.address, '\n',
 						'destinationTag: \t', destinationTag, '\n',
 						'amount: \t\t', amount, '\n');
-					stateConnector.methods.constructLeaf(
-							'0',
-							tx.outcome.ledgerVersion,
-							tx.id,
-							tx.specification.source.address,
-							tx.specification.destination.address,
-							destinationTag,
-							amount).call({
-						from: config.stateConnector.address,
-						gas: config.flare.gas,
-						gasPrice: config.flare.gasPrice})
-					.then(result => {
-						const leaf = {
-							"leafHash": 			result,
-							"chainId": 				'0',
-							"ledger": 				tx.outcome.ledgerVersion,
-							"txId": 				tx.id,
-							"source": 				tx.specification.source.address,
-							"destination": 			tx.specification.destination.address,
-							"destinationTag": 		destinationTag,
-							"amount": 				amount,
-						}
-						resolve(leaf);
-					})
+					const chainIdHash = web3.utils.soliditySha3('0');
+					const ledgerHash = web3.utils.soliditySha3(tx.outcome.ledgerVersion);
+					const txHash = web3.utils.soliditySha3(tx.id);
+					const accountsHash = web3.utils.soliditySha3(tx.specification.source.address, tx.specification.destination.address, destinationTag);
+					const amountHash = web3.utils.soliditySha3(amount);
+					const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
+					const leaf = {
+						"leafHash": 			leafHash,
+						"chainId": 				'0',
+						"ledger": 				tx.outcome.ledgerVersion,
+						"txHash": 				txHash,
+						"accountsHash": 		accountsHash,
+						"amount": 				amount,
+					}
+					resolve(leaf);
 				})
 				leafPromise.then(leaf => {
 					if (parseInt(tx.outcome.ledgerVersion) >= result[0] || parseInt(tx.outcome.ledgerVersion) < result[3]) {
@@ -243,17 +224,12 @@ async function provePaymentFinality(claimPeriodIndex, proof, leaf, root) {
 					leaf.chainId,
 					claimPeriodIndex,
 					leaf.ledger,
-					leaf.txId,
-					leaf.source,
-					leaf.destination,
-					leaf.destinationTag,
+					leaf.txHash,
+					leaf.accountsHash,
 					leaf.amount,
 					root,
-					web3.utils.toHex(leaf.leafHash),
-					proof).call({
-		from: config.stateConnector.address,
-		gas: config.flare.gas,
-		gasPrice: config.flare.gasPrice})
+					leaf.leafHash,
+					proof).call().catch(processFailure)
 	.then(result => {
 		if (result == true) {
 			return xrplClaimProcessingCompleted('\nPayment verified.\n');

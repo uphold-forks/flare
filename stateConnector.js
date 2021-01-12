@@ -4,7 +4,6 @@ const Web3 = require('web3');
 const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
 const Common = require('ethereumjs-common').default;
-const request = require('request');
 const fs = require('fs');
 const express = require('express');
 const app = express();
@@ -44,7 +43,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 				async function transactionIterate(item, i, numTransactions) {
 					if (item.TransactionType == 'Payment' && typeof item.Amount == 'string' && item.metaData.TransactionResult == 'tesSUCCESS') {
 						const prevLength = payloads.length;
-						const payloadPromise = new Promise((resolve, reject) => {
+						const leafPromise = new Promise((resolve, reject) => {
 							var destinationTag;
 							if (!("DestinationTag" in item)) {
 								destinationTag = 0;
@@ -58,22 +57,15 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 								'destination: \t\t', item.Destination, '\n',
 								'destinationTag: \t', String(destinationTag), '\n',
 								'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
-							stateConnector.methods.constructLeaf(
-									'0',
-									response.ledger.seqNum,
-									item.hash,
-									item.Account,
-									item.Destination,
-									destinationTag,
-									item.metaData.delivered_amount).call({
-								from: config.stateConnector.address,
-								gas: config.flare.gas,
-								gasPrice: config.flare.gasPrice})
-							.then(result => {
-								resolve(result);
-							});
-						})
-						return await payloadPromise.then(newPayload => {
+							const chainIdHash = web3.utils.soliditySha3('0');
+							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
+							const txHash = web3.utils.soliditySha3(item.hash);
+							const accountsHash = web3.utils.soliditySha3(item.Account, item.Destination, destinationTag);
+							const amountHash = web3.utils.soliditySha3(item.metaData.delivered_amount);
+							const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
+							resolve(leafHash);
+						}).catch(processFailure)
+						return await leafPromise.then(newPayload => {
 							payloads[payloads.length] = newPayload;
 							if (payloads.length == prevLength + 1) {
 								if (i+1 < numTransactions) {
@@ -84,8 +76,8 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							} else {
 								return processFailure("Unable to append payload:", tx.hash);
 							}
-						}).catch(err => {
-							return processFailure("Unable to intepret payload:", err, tx.hash);
+						}).catch(error => {
+							return processFailure("Unable to intepret payload:", error, tx.hash);
 						})
 					} else {
 						if (i+1 < numTransactions) {
