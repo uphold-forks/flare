@@ -13,11 +13,11 @@ func GetFixedGasUsed(BlockNumber *big.Int) (uint64) {
     }
 }
 
-// Fixed gas ceiling for custom block.coinbase operations
-func GetFixedGasCeil(BlockNumber *big.Int) (uint64) {
+// Fixed gas used for custom block.coinbase operations
+func GetDataFee(BlockNumber *big.Int) (uint64) {
     switch {
         default:
-            return 200000000000000000
+            return 10000000
     }
 }
 
@@ -29,8 +29,16 @@ func GetStateConnectorContractAddr(BlockNumber *big.Int) (string) {
     }
 }
 
-// State-connector smart contract
+// State-connector smart contract function selectors
+
 func GetRegisterClaimPeriodSelector(BlockNumber *big.Int) ([]byte) {
+    switch {
+        default:
+            return []byte{0x76,0x0f,0x6a,0x5a}
+    }
+}
+
+func GetProvePaymentFinalitySelector(BlockNumber *big.Int) ([]byte) {
     switch {
         default:
             return []byte{0x76,0x0f,0x6a,0x5a}

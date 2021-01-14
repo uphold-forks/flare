@@ -1,5 +1,6 @@
 'use strict';
 process.env.NODE_ENV = 'production';
+
 const Web3 = require('web3');
 const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
@@ -7,15 +8,30 @@ const Common = require('ethereumjs-common').default;
 const fs = require('fs');
 const express = require('express');
 const app = express();
-const { MerkleTree } = require('merkletreejs');
+const {MerkleTree} = require('merkletreejs');
 const keccak256 = require('keccak256');
 
-const minFee = 1;
 var config;
 var customCommon;
-var chainAPI;
 var stateConnector;
-var claimsInProgress = false;
+
+var chains = {
+	'xrp': {
+		api: null,
+		chainId: 0,
+		claimsInProgress: false
+	},
+	'ltc': {
+		api: null,
+		chainId: 1,
+		claimsInProgress: false
+	},
+	'xlm': {
+		api: null,
+		chainId: 2,
+		claimsInProgress: false
+	}
+}
 
 // ===============================================================
 // XRPL Specific Functions
@@ -37,7 +53,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 			'expand': true,
 			'owner_funds': false
 		};
-		return chainAPI.request(command, params)
+		return xrpAPI.request(command, params)
 		.then(response => {
 			async function responseIterate(response) {
 				async function transactionIterate(item, i, numTransactions) {
@@ -88,8 +104,8 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 					}
 				}
 				async function checkResponseCompletion(response) {
-					if (chainAPI.hasNextPage(response) == true) {
-						chainAPI.requestNextPage(command, params, response)
+					if (xrpAPI.hasNextPage(response) == true) {
+						xrpAPI.requestNextPage(command, params, response)
 						.then(next_response => {
 							responseIterate(next_response);
 						})
@@ -122,29 +138,8 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 	return xrplProcessLedger(ledger);
 }
 
-async function xrplConfig() {
-	let rawConfig = fs.readFileSync('config/config.json');
-	config = JSON.parse(rawConfig);
-	chainAPI = new RippleAPI({
-	  server: config.chains[0].url,
-	  timeout: 60000
-	});
-	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
-	web3.eth.handleRevert = true;
-	customCommon = Common.forCustomChain('ropsten',
-						{
-							name: 'coston',
-							networkId: config.flare.chainId,
-							chainId: config.flare.chainId,
-						},
-        				'petersburg',);
-	chainAPI.on('connected', () => {
-		return run(0);
-	})
-}
-
 function xrplClaimProcessingCompleted(message) {
-	chainAPI.disconnect().catch(processFailure)
+	xrpAPI.disconnect().catch(processFailure)
 	.then(() => {
 		console.log(message);
 		setTimeout(() => {return process.exit()}, 2500);
@@ -154,7 +149,7 @@ function xrplClaimProcessingCompleted(message) {
 async function xrplConnectRetry(error) {
 	console.log('XRPL connecting...')
 	sleep(1000).then(() => {
-		chainAPI.connect().catch(xrplConnectRetry);
+		xrpAPI.connect().catch(xrplConnectRetry);
 	})
 }
 
@@ -175,7 +170,7 @@ async function run(chainId) {
 	})
 	.then(result => {
 		if (chainId == 0) {
-			chainAPI.getLedgerVersion().catch(processFailure)
+			xrpAPI.getLedgerVersion().catch(processFailure)
 			.then(sampledLedger => {
 				console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
 					"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", result[3], '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
@@ -257,7 +252,41 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 	})
 }
 
-async function contract() {
+async function configure(chainId) {
+	web3Config().catch(processFailure)
+	.then(chainConfig(chainId).catch(processFailure))
+	.then(() => {
+		console.log('Done.');
+		// return xrpAPI.connect().catch(xrplConnectRetry);
+	})
+}
+
+async function chainConfig(chainId) {
+	if (chainId == chains.xrp.chainId) {
+		chains.xrp.api = new RippleAPI({
+		  server: config.chains[chainId].url,
+		  timeout: 60000
+		});
+		chains.xrp.api.on('connected', () => {
+			return run(chainId);
+		})
+	} else {
+		processFailure('Invalid chainId.');
+	}
+}
+
+async function web3Config() {
+	let rawConfig = fs.readFileSync('config/config.json');
+	config = JSON.parse(rawConfig);
+	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
+	web3.eth.handleRevert = true;
+	customCommon = Common.forCustomChain('ropsten',
+		{
+			name: 'coston',
+			networkId: config.flare.chainId,
+			chainId: config.flare.chainId,
+		},
+		'petersburg',);
 	// Read the compiled contract code
 	let source = fs.readFileSync("solidity/stateConnector.json");
 	let contracts = JSON.parse(source)["contracts"];
@@ -276,9 +305,9 @@ async function processFailure(error) {
 	setTimeout(() => {return process.exit()}, 2500);
 }
 
-async function updateClaimsInProgress(status) {
-	claimsInProgress = status;
-	return claimsInProgress;
+async function updateClaimsInProgress(chain, status) {
+	chains[chain].claimsInProgress = status;
+	return chains[chain].claimsInProgress;
 }
 
 async function sleep(ms) {
@@ -287,34 +316,33 @@ async function sleep(ms) {
 	});
 }
 
-app.get('/stateConnector', (req, res) => {
-	if (claimsInProgress == true) {
-		res.status(200).send('Claims already being processed.').end();
-	} else {
-		updateClaimsInProgress(true)
-		.then(result => {
-			if (result == true) {
-				res.status(200).send('State Connector initiated.').end();
-				const chainId = parseInt(process.argv[2]);
-				if (chainId == 0) {
-					xrplConfig().catch(processFailure)
-					.then(() => {
-						return contract().catch(processFailure);
-					})
-					.then(() => {
-						return chainAPI.connect().catch(xrplConnectRetry);
-					})
-				} else {
-					processFailure('Invalid chainId');
-				}
+app.get('/', (req, res) => {
+	if ("verify" in req.query) {
+		res.status(200).send(req.query.verify);
+	} else if ("prove" in req.query) {
+		if (req.query.prove in chains) {
+			if (chains[req.query.prove].claimsInProgress == true) {
+				res.status(200).send('Claims already being processed.').end();
 			} else {
-				return processFailure('Error updating claimsInProgress.');
+				updateClaimsInProgress(req.query.prove, true)
+				.then(result => {
+					if (result == true) {
+						res.status(200).send('State Connector initiated.').end();
+						return configure(chains[req.query.prove].chainId);
+					} else {
+						return processFailure('Error updating claimsInProgress.');
+					}
+				})
 			}
-		})
+		} else {
+			res.status(404).send('Unknown chain.');
+		}
+	} else {
+		res.status(404).send('Unknown command.');
 	}
 });
 // Start the server
-const PORT = process.env.PORT || 8080+parseInt(process.argv[2]);
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
 });
 module.exports = app;

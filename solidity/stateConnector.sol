@@ -8,8 +8,7 @@ contract stateConnector {
 // Data Structures
 //====================================================================
     
-    address payable public governanceContract;
-    uint256 public registrationFee;
+    address payable private governanceContract;
 
     struct Chain {
         bool    exists;
@@ -26,12 +25,11 @@ contract stateConnector {
     }
 
     // Chain ID mapping to Chain struct
-    mapping(uint256 => Chain) public Chains;
+    mapping(uint256 => Chain) private Chains;
     // Location hash => claim period
-    mapping(bytes32 => ClaimPeriodHash) public finalisedClaimPeriods;
-    // Mapping of how much value is owed back to addresses that successfully registered claim periods
-    // They can claim this later on at any time from the governance contract
-    mapping(address => uint256) public registrationFeesDue;
+    mapping(bytes32 => ClaimPeriodHash) private finalisedClaimPeriods;
+    // Mapping of how many claim periods an address has successfully mined
+    mapping(address => uint256) private claimPeriodsMined;
     
 //====================================================================
 // Constructor
@@ -59,18 +57,9 @@ contract stateConnector {
         return true;
     }
 
-    function setRegistrationFee(uint256 _registrationFee) public returns (bool success) {
-        require(msg.sender == governanceContract, 'msg.sender != governanceContract');
-        require(_registrationFee > 0);
-        registrationFee = _registrationFee;
-        return true;
+    function getClaimPeriodsMined(address miner) public view returns (uint256 numMined) {
+        return claimPeriodsMined[miner];
     }
-
-    function resetRegistrationFeesDue(address recipient) public returns (bool success) {
-        require(msg.sender == governanceContract, 'msg.sender != governanceContract');
-        registrationFeesDue[recipient] = 0;
-        return true;
-    } 
 
     function checkRootFinality(bytes32 root, uint256 chainId, uint256 claimPeriodIndex) private view returns (bool finality) {
         require(Chains[chainId].exists == true, 'chainId does not exist');
@@ -82,7 +71,7 @@ contract stateConnector {
         return finalisedClaimPeriods[locationHash].claimPeriodHash == root;
     }
 
-    function constructLeaf(uint256 chainId, uint256 ledger, bytes32 txHash, bytes32 accountsHash, uint256 amount) public pure returns (bytes32 leaf) {
+    function constructLeaf(uint256 chainId, uint256 ledger, bytes32 txHash, bytes32 accountsHash, uint256 amount) private pure returns (bytes32 leaf) {
         bytes32 constructedLeaf = keccak256(
             abi.encode(
                 keccak256(abi.encode(chainId)),
@@ -116,9 +105,9 @@ contract stateConnector {
         return true;
     }
 
-    function getlatestIndex(uint256 chainId) public view returns (uint256 genesisLedger, uint256 finalisedClaimPeriodIndex, uint256 claimPeriodLength, uint256 finalisedLedgerIndex, uint256 finalisedTimestamp, uint256 _registrationFee) {
+    function getlatestIndex(uint256 chainId) public view returns (uint256 genesisLedger, uint256 finalisedClaimPeriodIndex, uint256 claimPeriodLength, uint256 finalisedLedgerIndex, uint256 finalisedTimestamp) {
         require(Chains[chainId].exists == true, 'chainId does not exist');
-        return (Chains[chainId].genesisLedger, Chains[chainId].finalisedClaimPeriodIndex, Chains[chainId].claimPeriodLength, Chains[chainId].finalisedLedgerIndex, Chains[chainId].finalisedTimestamp, registrationFee);
+        return (Chains[chainId].genesisLedger, Chains[chainId].finalisedClaimPeriodIndex, Chains[chainId].claimPeriodLength, Chains[chainId].finalisedLedgerIndex, Chains[chainId].finalisedTimestamp);
     }
 
     function checkFinality(uint256 chainId, uint256 claimPeriodIndex) public view returns (bool finality) {
@@ -130,10 +119,8 @@ contract stateConnector {
         return (finalisedClaimPeriods[locationHash].exists);
     }
 
-    function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public payable returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength) {
+    function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength, bytes32 claimPeriodHash) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
-        require(msg.value == registrationFee, 'msg.value != registrationFee');
-        governanceContract.transfer(registrationFee);
         require(Chains[chainId].exists == true, 'chainId does not exist');
         bytes32 locationHash =  keccak256(abi.encodePacked(
                                     keccak256(abi.encodePacked(chainId)),
@@ -150,16 +137,15 @@ contract stateConnector {
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
-            registrationFeesDue[msg.sender] = registrationFeesDue[msg.sender] + registrationFee;
-            require(registrationFeesDue[msg.sender] > 0, 'Invalid registration fee');
+            claimPeriodsMined[msg.sender] = registrationFeesDue[msg.sender] + 1;
             finalisedClaimPeriods[locationHash] = ClaimPeriodHash(true, claimPeriodHash);
             Chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             Chains[chainId].finalisedLedgerIndex = ledger;
             Chains[chainId].finalisedTimestamp = block.timestamp;
-            return (true, chainId, ledger, Chains[chainId].claimPeriodLength);
+            return (true, chainId, ledger, Chains[chainId].claimPeriodLength, claimPeriodHash);
         } else {
             // Invalid claimPeriodHash
-            return (false, chainId, ledger, Chains[chainId].claimPeriodLength);
+            return (false, chainId, ledger, Chains[chainId].claimPeriodLength, claimPeriodHash);
         }
     }
 

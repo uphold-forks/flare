@@ -2,7 +2,7 @@
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit;
 fi
 EXEC_DIR=$(pwd)
-NODE_VERSION=@v1.1.0
+AVALANCHEGO_VERSION=@v1.1.0
 CORETH_VERSION=@v0.3.16
 
 rm -rf logs
@@ -10,7 +10,7 @@ mkdir logs
 LOG_DIR=$(pwd)/logs
 CONFIG_DIR=$(pwd)/config
 PKG_DIR=$GOPATH/pkg/mod/github.com/ava-labs
-NODE_DIR=$PKG_DIR/avalanchego$NODE_VERSION
+NODE_DIR=$PKG_DIR/avalanchego$AVALANCHEGO_VERSION
 CORETH_DIR=$PKG_DIR/coreth$CORETH_VERSION
 
 rm -rf $NODE_DIR
@@ -26,11 +26,7 @@ rm -rf $NODE_DIR/db/
 printf "\x1b[34mFlare Network 5-Node Local Deployment\x1b[0m\n\n"
 printf "Building Flare Core...\n"
 ./scripts/build.sh
-
-printf "Downloading NodeJS dependencies..."
-cd flare/
-yarn --silent
-cd -
+exit
 
 # NODE 1
 printf "\nLaunching Node 1 at 127.0.0.1:9650\n"
@@ -40,7 +36,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
+--state-connector-config="http://127.0.0.1:8080" &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
 NODE_00_PID=`cat $LOG_DIR/node00/ava.pid`
 sleep 5
 
@@ -52,7 +48,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node01/nohup.out & echo $! > $LOG_DIR/node01/ava.pid
+--state-connector-config="http://127.0.0.1:8080" &> $LOG_DIR/node01/nohup.out & echo $! > $LOG_DIR/node01/ava.pid
 NODE_01_PID=`cat $LOG_DIR/node01/ava.pid`
 sleep 5
 
@@ -64,7 +60,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node02/nohup.out & echo $! > $LOG_DIR/node02/ava.pid
+--state-connector-config="http://127.0.0.1:8080" &> $LOG_DIR/node02/nohup.out & echo $! > $LOG_DIR/node02/ava.pid
 NODE_02_PID=`cat $LOG_DIR/node02/ava.pid`
 sleep 5
 
@@ -76,7 +72,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config="wss://s2.ripple.com" &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
+--state-connector-config="http://127.0.0.1:8080" &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
 NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
 sleep 5
 

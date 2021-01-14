@@ -6,9 +6,7 @@ import (
 	"crypto/sha256"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"sync"
-	"strings"
 )
 
 var fileMutex sync.Mutex
@@ -27,7 +25,7 @@ func contains(slice []string, item string) bool {
 }
 
 // Verify claim period 
-func VerifyClaimPeriod(nodeUrl []string, cacheRet []byte) (bool) {
+func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
@@ -45,18 +43,9 @@ func VerifyClaimPeriod(nodeUrl []string, cacheRet []byte) (bool) {
     }
 
     if (contains(data.Hashes, hexHash) == false) {
-    	// Independent verification calling StateConnector
-		parts := strings.Fields(VerificationCommand+nodeUrl+hex.EncodeToString(cacheRet[:]))        
-		byteResponse, _ := exec.Command(parts[0], parts[1:]...).Output()
-		// if err != nil {
-		//     panic(err)
-		// }
-		stringReponse := string(byteResponse)
-
-    	// If it's valid, cache stData
-    	// data.Hashes = append(data.Hashes, hexHash)
+    	// Perform off-chain check
+    	// If valid, store hash
     	data.Hashes = append(data.Hashes, hexHash)
-    	data.Hashes = append(data.Hashes, stringReponse)
 		jsonData, _ := json.Marshal(data)
 		ioutil.WriteFile(StateConnectorCacheFilename, jsonData, 0644)
     }
