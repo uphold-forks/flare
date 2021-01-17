@@ -1,8 +1,7 @@
 #!/bin/bash
 
-PORT=$((8080+$1))
-while true; do 
-	nohup $(sleep 2; curl -s http://localhost:$PORT/stateConnector) >& /dev/null &
+PORT=$1
+while true; do
 	if ! lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
 	    node stateConnector $1 --unhandled-rejections=strict
 	else

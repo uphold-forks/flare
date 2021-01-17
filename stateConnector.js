@@ -34,13 +34,13 @@ var chains = {
 }
 
 // ===============================================================
-// XRPL Specific Functions
+// XRP Specific Items
 // ===============================================================
 
 const RippleAPI = require('ripple-lib').RippleAPI;
 const RippleKeys = require('ripple-keypairs');
 
-async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, registrationFee) {
+async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger) {
 	console.log('\nRetrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
 	async function xrplProcessLedger(currLedger) {
 		const command = 'ledger';
@@ -53,7 +53,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 			'expand': true,
 			'owner_funds': false
 		};
-		return xrpAPI.request(command, params)
+		return chains.xrp.api.request(command, params)
 		.then(response => {
 			async function responseIterate(response) {
 				async function transactionIterate(item, i, numTransactions) {
@@ -104,8 +104,8 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 					}
 				}
 				async function checkResponseCompletion(response) {
-					if (xrpAPI.hasNextPage(response) == true) {
-						xrpAPI.requestNextPage(command, params, response)
+					if (chains.xrp.api.hasNextPage(response) == true) {
+						chains.xrp.api.requestNextPage(command, params, response)
 						.then(next_response => {
 							responseIterate(next_response);
 						})
@@ -120,7 +120,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							root = "0x0000000000000000000000000000000000000000000000000000000000000000";
 						}
 						console.log('Num Payloads:\t\t', payloads.length);
-						return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root, registrationFee);
+						return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root);
 					}
 				}
 				if (response.ledger.transactions.length > 0) {
@@ -139,7 +139,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 }
 
 function xrplClaimProcessingCompleted(message) {
-	xrpAPI.disconnect().catch(processFailure)
+	chains.xrp.api.disconnect().catch(processFailure)
 	.then(() => {
 		console.log(message);
 		setTimeout(() => {return process.exit()}, 2500);
@@ -149,7 +149,7 @@ function xrplClaimProcessingCompleted(message) {
 async function xrplConnectRetry(error) {
 	console.log('XRPL connecting...')
 	sleep(1000).then(() => {
-		xrpAPI.connect().catch(xrplConnectRetry);
+		chains.xrp.api.connect().catch(xrplConnectRetry);
 	})
 }
 
@@ -159,23 +159,20 @@ async function xrplConnectRetry(error) {
 
 async function run(chainId) {
 	console.log('\n\x1b[34mState Connector System connected at', Date(Date.now()).toString(), '\x1b[0m' );
-	stateConnector.methods.getlatestIndex(parseInt(chainId)).call({
-		from: config.stateConnector.address,
-		gas: config.flare.gas,
-		gasPrice: config.flare.gasPrice
-	}).catch(processFailure)
+	console.log(stateConnector.methods.getlatestIndex);
+	stateConnector.methods.getlatestIndex(parseInt(chainId)).call().catch(processFailure)
 	.then(result => {
 		return [parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), 
-		parseInt(result.finalisedLedgerIndex), parseInt(result._registrationFee)];
+		parseInt(result.finalisedLedgerIndex)];
 	})
 	.then(result => {
 		if (chainId == 0) {
-			xrpAPI.getLedgerVersion().catch(processFailure)
+			chains.xrp.api.getLedgerVersion().catch(processFailure)
 			.then(sampledLedger => {
 				console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
 					"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", result[3], '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
 				if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
-					return xrplProcessLedgers([], result[0], result[1], result[2], result[3], result[4]);
+					return xrplProcessLedgers([], result[0], result[1], result[2], result[3]);
 				} else {
 					return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');
 				}
@@ -186,7 +183,7 @@ async function run(chainId) {
 	})
 }
 
-async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPeriodHash, registrationFee) {
+async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPeriodHash) {
 	stateConnector.methods.checkFinality(
 					parseInt(chainId),
 					claimPeriodIndex).call({
@@ -198,7 +195,8 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 		console.log('Claim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
 		if (result == true) {
 			if (chainId == 0) {
-				return xrplClaimProcessingCompleted('Latest claim period already registered, waiting for new ledgers.');
+				console.log('This claim period already registered.');
+				return setTimeout(() => {return run(0)}, 5000);
 			} else {
 				return processFailure('Invalid chainId.');
 			}
@@ -218,7 +216,6 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 					gas: web3.utils.toHex(config.flare.gas),
 					to: stateConnector.options.address,
 					from: config.stateConnector.address,
-					value: parseInt(registrationFee),
 					data: txData[0]
 				};
 				var tx = new Tx(rawTx, {common: customCommon});
@@ -256,8 +253,7 @@ async function configure(chainId) {
 	web3Config().catch(processFailure)
 	.then(chainConfig(chainId).catch(processFailure))
 	.then(() => {
-		console.log('Done.');
-		// return xrpAPI.connect().catch(xrplConnectRetry);
+		return chains.xrp.api.connect().catch(xrplConnectRetry);
 	})
 }
 
@@ -278,6 +274,7 @@ async function chainConfig(chainId) {
 async function web3Config() {
 	let rawConfig = fs.readFileSync('config/config.json');
 	config = JSON.parse(rawConfig);
+	console.log(config);
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;
 	customCommon = Common.forCustomChain('ropsten',
@@ -318,7 +315,8 @@ async function sleep(ms) {
 
 app.get('/', (req, res) => {
 	if ("verify" in req.query) {
-		res.status(200).send(req.query.verify);
+		console.log(req.query.verify);
+		res.status(200).send(req.query.verify).end();
 	} else if ("prove" in req.query) {
 		if (req.query.prove in chains) {
 			if (chains[req.query.prove].claimsInProgress == true) {
@@ -338,11 +336,11 @@ app.get('/', (req, res) => {
 			res.status(404).send('Unknown chain.');
 		}
 	} else {
-		res.status(404).send('Unknown command.');
+		res.status(200).send('Alive.');
 	}
 });
 // Start the server
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || parseInt(process.argv[2]);
 app.listen(PORT, () => {
 });
 module.exports = app;

@@ -1,8 +1,8 @@
 {
   "stateConnector": {
-    "contract": "0x9679c89C54245C100fe5196C07ebeF5176d74735",
-    "address": "0xc2058730Cd09E1CF095ECBe8265Ba29A75004974",
-    "privateKey": "af891a28f7ab98620377719073751901ae52827fab7e77f32ce06ed3d93f2be7"
+    "contract": "0xFFff000000000000000000000000000000000001",
+    "address": "0x9b200C53C8635a3d5972e1Dc5a7661713143987C",
+    "privateKey": "653cf330f6af563bc209892c752ef975c616e862762a3d97f55bdfc41428b90b"
   },
   "chains": [
     {

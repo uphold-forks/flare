@@ -8,7 +8,8 @@ contract stateConnector {
 // Data Structures
 //====================================================================
     
-    address payable private governanceContract;
+    address public governanceContract;
+    bool public initialised;
 
     struct Chain {
         bool    exists;
@@ -32,17 +33,27 @@ contract stateConnector {
     mapping(address => uint256) private claimPeriodsMined;
     
 //====================================================================
-// Constructor
+// Constructor for pre-compiled code
 //====================================================================
 
-    constructor(address payable _governanceContract, uint256 _registrationFee) {
-        governanceContract = _governanceContract;
-        registrationFee = _registrationFee;
+    constructor() {
+    } 
+
+    function initialiseChains() public returns (bool success) {
+        require(initialised == false, 'initialised != false');
+        governanceContract = 0xffFf000000000000000000000000000000000000;
+        Chains[0] = Chain(true, 60155580, 30, 0, 60155580, 0); //XRP
+        initialised = true;
+        return true;
     }
 
 //====================================================================
 // Functions
 //====================================================================  
+
+    function getGovernanceContract() public view returns (address _governanceContract) {
+        return governanceContract;
+    }
 
     function setGovernanceContract(address payable _governanceContract) public returns (bool success) {
         require(msg.sender == governanceContract, 'msg.sender != governanceContract');
@@ -119,7 +130,7 @@ contract stateConnector {
         return (finalisedClaimPeriods[locationHash].exists);
     }
 
-    function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength, bytes32 claimPeriodHash) {
+    function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength, bytes32 _claimPeriodHash) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(Chains[chainId].exists == true, 'chainId does not exist');
         bytes32 locationHash =  keccak256(abi.encodePacked(
@@ -137,7 +148,7 @@ contract stateConnector {
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
-            claimPeriodsMined[msg.sender] = registrationFeesDue[msg.sender] + 1;
+            claimPeriodsMined[msg.sender] = claimPeriodsMined[msg.sender] + 1;
             finalisedClaimPeriods[locationHash] = ClaimPeriodHash(true, claimPeriodHash);
             Chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             Chains[chainId].finalisedLedgerIndex = ledger;
