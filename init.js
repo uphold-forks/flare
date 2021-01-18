@@ -37,44 +37,5 @@ async function config() {
 }
 
 config().then(() => {
-	web3.eth.getTransactionCount(config.stateConnector.address)
-	.then(nonce => {
-		return [stateConnector.methods.initialiseChains().encodeABI(), nonce];
-	})
-	.then(contractData => {
-		var rawTx = {
-			nonce: contractData[1],
-			gasPrice: web3.utils.toHex(config.flare.gasPrice),
-			gas: web3.utils.toHex(config.flare.contractGas),
-			chainId: config.flare.chainId,
-			from: config.stateConnector.address,
-			to: config.stateConnector.contract,
-			data: contractData[0]
-		}
-		var tx = new Tx(rawTx, {common: customCommon});
-		var key = Buffer.from(config.stateConnector.privateKey, 'hex');
-		tx.sign(key);
-		var serializedTx = tx.serialize();
-		
-		web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
-		.on('receipt', receipt => {
-			console.log(receipt);
-			console.log("State-connector contract initialised.");
-			setTimeout(() => {
-				stateConnector.methods.getGovernanceContract().call({
-					from: config.stateConnector.address,
-					to: config.stateConnector.contract,
-					gas: config.flare.gas,
-					gasPrice: config.flare.gasPrice})
-				.then(result => {
-					console.log(result);
-					setTimeout(() => {return process.exit()}, 2500);
-				})
-				//
-			}, 5000);
-		})
-		.on('error', error => {
-			console.log(error);
-		});
-	}).catch(console.error);
+	
 })

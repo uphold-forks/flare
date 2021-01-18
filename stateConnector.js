@@ -1,6 +1,5 @@
 'use strict';
 process.env.NODE_ENV = 'production';
-
 const Web3 = require('web3');
 const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
@@ -159,27 +158,24 @@ async function xrplConnectRetry(error) {
 
 async function run(chainId) {
 	console.log('\n\x1b[34mState Connector System connected at', Date(Date.now()).toString(), '\x1b[0m' );
-	console.log(stateConnector.methods.getlatestIndex);
-	stateConnector.methods.getlatestIndex(parseInt(chainId)).call().catch(processFailure)
+	stateConnector.methods.getlatestIndex(parseInt(chainId)).call().catch(initialiseChains)
 	.then(result => {
-		return [parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), 
-		parseInt(result.finalisedLedgerIndex)];
-	})
-	.then(result => {
-		if (chainId == 0) {
-			chains.xrp.api.getLedgerVersion().catch(processFailure)
-			.then(sampledLedger => {
-				console.log("Finalised claim period:\t\x1b[33m", result[1]-1, 
-					"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", result[3], '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
-				if (sampledLedger > result[0] + (result[1]+1)*result[2]) {
-					return xrplProcessLedgers([], result[0], result[1], result[2], result[3]);
-				} else {
-					return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');
-				}
-			})
-		} else {
-			return processFailure('Invalid chainId.');
-		}
+		if (result != undefined) {
+			if (chainId == 0) {
+				chains.xrp.api.getLedgerVersion().catch(processFailure)
+				.then(sampledLedger => {
+					console.log("Finalised claim period:\t\x1b[33m", parseInt(result.finalisedClaimPeriodIndex)-1, 
+						"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", parseInt(result.finalisedLedgerIndex), '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
+					if (sampledLedger > parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
+						return xrplProcessLedgers([], parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), parseInt(result.finalisedLedgerIndex));
+					} else {
+						return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');
+					}
+				})
+			} else {
+				return processFailure('Invalid chainId.');
+			}
+		}	
 	})
 }
 
@@ -195,8 +191,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 		console.log('Claim period:\t\t\x1b[33m', claimPeriodIndex, '\x1b[0m\nclaimPeriodHash:\t\x1b[33m', claimPeriodHash, '\x1b[0m');
 		if (result == true) {
 			if (chainId == 0) {
-				console.log('This claim period already registered.');
-				return setTimeout(() => {return run(0)}, 5000);
+				return xrplClaimProcessingCompleted('This claim period already registered.');
 			} else {
 				return processFailure('Invalid chainId.');
 			}
@@ -233,8 +228,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 							if (receipt.status == false) {
 								return processFailure('receipt.status == false');
 							} else {
-								console.log('Transaction finalised:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
-								return setTimeout(() => {return run(0)}, 5000);
+								return xrplClaimProcessingCompleted('Transaction finalised:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
 							}
 						})
 						.on('error', error => {
@@ -247,6 +241,42 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 			})
 		}
 	})
+}
+
+async function initialiseChains() {
+	console.log('Initialising chains');
+	web3.eth.getTransactionCount(config.stateConnector.address)
+	.then(nonce => {
+		return [stateConnector.methods.initialiseChains().encodeABI(), nonce];
+	})
+	.then(contractData => {
+		var rawTx = {
+			nonce: contractData[1],
+			gasPrice: web3.utils.toHex(config.flare.gasPrice),
+			gas: web3.utils.toHex(config.flare.contractGas),
+			chainId: config.flare.chainId,
+			from: config.stateConnector.address,
+			to: config.stateConnector.contract,
+			data: contractData[0]
+		}
+		var tx = new Tx(rawTx, {common: customCommon});
+		var key = Buffer.from(config.stateConnector.privateKey, 'hex');
+		tx.sign(key);
+		var serializedTx = tx.serialize();
+		
+		web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+		.on('receipt', receipt => {
+			if (receipt.status == false) {
+				return processFailure('receipt.status == false');
+			} else {
+				console.log("State-connector chains initialised.");
+				setTimeout(() => {return run(0)}, 5000);
+			}
+		})
+		.on('error', error => {
+			processFailure(error);
+		});
+	}).catch(processFailure);
 }
 
 async function configure(chainId) {
@@ -313,6 +343,7 @@ async function sleep(ms) {
 	});
 }
 
+// setTimeout(() => {return process.exit()}, 300000);
 app.get('/', (req, res) => {
 	if ("verify" in req.query) {
 		console.log(req.query.verify);

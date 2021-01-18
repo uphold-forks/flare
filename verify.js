@@ -6,8 +6,8 @@ const Tx = require('ethereumjs-tx').Transaction;
 const Common = require('ethereumjs-common').default;
 const { MerkleTree } = require('merkletreejs');
 const keccak256 = require('keccak256');
-
-var chainAPI;
+const express = require('express');
+const app = express();
 
 // ===============================================================
 // XRPL Specific Functions
@@ -16,11 +16,11 @@ var chainAPI;
 const RippleAPI = require('ripple-lib').RippleAPI;
 const RippleKeys = require('ripple-keypairs');
 
-async function xrplProcessLedgers(payloads) {
+async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash, payloads) {
 	async function xrplProcessLedger(currLedger) {
 		const command = 'ledger';
 		const params = {
-			'ledger_index': currLedger,
+			'ledger_index': parseInt(currLedger),
 			'binary': false,
 			'full': false,
 			'accounts': false,
@@ -41,6 +41,13 @@ async function xrplProcessLedgers(payloads) {
 							} else {
 								destinationTag = item.DestinationTag;
 							}
+							console.log('chainId: \t\t', '0', '\n',
+								'ledger: \t\t', response.ledger.seqNum, '\n',
+								'txId: \t\t\t', item.hash, '\n',
+								'source: \t\t', item.Account, '\n',
+								'destination: \t\t', item.Destination, '\n',
+								'destinationTag: \t', String(destinationTag), '\n',
+								'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
 							const chainIdHash = web3.utils.soliditySha3('0');
 							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
 							const txHash = web3.utils.soliditySha3(item.hash);
@@ -58,10 +65,10 @@ async function xrplProcessLedgers(payloads) {
 									return checkResponseCompletion(response);
 								}
 							} else {
-								return verificationMessage('error');
+								return verificationComplete(chainAPI, chainId, "Unable to append to payloads[].");
 							}
 						}).catch(error => {
-							return verificationMessage('error');
+							return verificationComplete(chainAPI, chainId, error);
 						})
 					} else {
 						if (i+1 < numTransactions) {
@@ -83,9 +90,12 @@ async function xrplProcessLedgers(payloads) {
 						if (payloads.length > 0) {
 							const tree = new MerkleTree(payloads, keccak256, {sort: true});
 							const root = tree.getHexRoot();
-							return verificationMessage(root);
+							console.log('Num Payloads:\t\t', payloads.length);
+							console.log(root);
+							console.log(claimPeriodHash);
+							return verificationComplete(chainAPI, chainId, "Verification complete.");
 						} else {
-							return verificationMessage('error');
+							return verificationComplete(chainAPI, chainId, "payloads.length == 0");
 						}
 					}
 				}
@@ -98,64 +108,70 @@ async function xrplProcessLedgers(payloads) {
 			responseIterate(response);
 		})
 		.catch(error => {
-			verificationMessage('error');
+			return verificationComplete(chainAPI, chainId, error);
 		})
 	}
 	return xrplProcessLedger(minLedger);
 }
 
-async function xrplConfig() {
-	chainAPI = new RippleAPI({
-	  server: chainUrl,
-	  timeout: 60000
-	});
-	chainAPI.on('connected', () => {
-		return run(0);
-	})
+function verificationComplete(chainAPI, chainId, message) {
+	console.log(message);
+	if (parseInt(chainId) == 0) {
+		chainAPI.disconnect().catch(process.exit());
+	}
+	setTimeout(() => {return process.exit()}, 5000);
 }
 
-function verificationMessage(message) {
-	chainAPI.disconnect().catch(error => {
-		verificationMessage('error');
-	})
-	.then(() => {
-		process.stdout.write(message);
-		setTimeout(() => {return process.exit()}, 2500);
-	})
-}
-
-async function xrplConnectRetry(error) {
-	sleep(1000).then(() => {
-		chainAPI.connect().catch(xrplConnectRetry);
-	})
-}
-
-// ===============================================================
-// Chain Invariant Functions
-// ===============================================================
-
-async function run(chainId) {
-	if (chainId == 0) {
-		return xrplProcessLedgers([]).catch(error => {
-			verificationMessage('error');
+async function run(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash) {
+	if (parseInt(chainId) == 0) {
+		return xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash, []).catch(error => {
+			verificationComplete(chainAPI, chainId, error);
 		});
 	} else {
-		return verificationMessage('error');
+		return verificationComplete(chainAPI, chainId, "Invalid chainId.");
 	}
 }
 
-const chainUrl = process.argv[2];
-const chainId = parseInt(process.argv[3]);
-const minLedger = parseInt(process.argv[4]);
-const claimPeriodLength = parseInt(process.argv[5]);
-setTimeout(() => {return process.exit()}, 60000);
-if (chainId == 0) {
-	xrplConfig().catch(error => {
-		verificationMessage('error');
+async function xrpVerify(res, url, chainId, minLedger, claimPeriodLength, claimPeriodHash) {
+	var chainAPI = new RippleAPI({
+	  server: url,
+	  timeout: 60000
+	});
+	chainAPI.on('connected', () => {
+		return run(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash);
 	})
-	.then(() => {
-		return chainAPI.connect().catch(xrplConnectRetry);
-	})
-} else {
-	verificationMessage('error');
+	async function xrplConnectRetry(error) {
+		sleep(1000).then(() => {
+			chainAPI.connect().catch(xrplConnectRetry);
+		})
+	}
+	return chainAPI.connect().catch(xrplConnectRetry);
 }
+
+setTimeout(() => {return process.exit()}, 300000);
+app.get('/', (req, res) => {
+	if ("verify" in req.query) {
+		if (req.query.verify.length == 256) {
+			var chainId = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(0,64));
+			var maxLedger = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(64,128));
+			var claimPeriodLength = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(128,192));
+			var minLedger = parseInt(maxLedger)-parseInt(claimPeriodLength);
+			var claimPeriodHash = web3.eth.abi.decodeParameter('bytes32', req.query.verify.substring(192,256));
+			var url = process.argv[3+parseInt(chainId)];
+			if (chainId == 0) {
+				return xrpVerify(res, url, chainId, minLedger, claimPeriodLength, claimPeriodHash);
+			} else {
+				res.status(404).send('Chain not found.').end();
+			}
+		} else {
+			res.status(500).send("Invalid request.").end();
+		}
+	} else {
+		res.status(200).send("Alive.").end();
+	}
+});
+// Start the server
+const PORT = process.env.PORT || parseInt(process.argv[2]);
+app.listen(PORT, () => {
+});
+module.exports = app;

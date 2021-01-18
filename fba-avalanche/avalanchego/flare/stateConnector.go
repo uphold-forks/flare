@@ -53,8 +53,7 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
-	stateConnectorCacheFilePath := stateConnectorConfig[1]
-	// stateConnectorPort := stateConnectorConfig[1]
+	stateConnectorCacheFilePath := "flare/verifiedHashes"+stateConnectorConfig[0]+".json"
 	rawHash := sha256.Sum256(cacheRet)
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateConnectorCacheFilePath)
@@ -86,13 +85,12 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 		// }
     	// If valid, store hash
     	data.Hashes = append(data.Hashes, hexHash)
-    	data.Hashes = append(data.Hashes, stateConnectorConfig[0])
-    	data.Hashes = append(data.Hashes, stateConnectorConfig[1])
-    	data.Hashes = append(data.Hashes, stateConnectorConfig[2])
-    	data.Hashes = append(data.Hashes, stateConnectorConfig[3])
+    	data.Hashes = append(data.Hashes, hex.EncodeToString(cacheRet[:]))
+    	// data.Hashes = append(data.Hashes, stateConnectorConfig[1])
+    	// data.Hashes = append(data.Hashes, stateConnectorConfig[2])
+    	// data.Hashes = append(data.Hashes, stateConnectorConfig[3])
 		jsonData, _ := json.Marshal(data)
 		ioutil.WriteFile(stateConnectorCacheFilePath, jsonData, 0644)
-    	
     }
     return true;
 }
