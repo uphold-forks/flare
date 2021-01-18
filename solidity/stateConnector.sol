@@ -18,6 +18,7 @@ contract stateConnector {
         uint256     finalisedClaimPeriodIndex;
         uint256     finalisedLedgerIndex;
         uint256     finalisedTimestamp;
+        uint256     timeDiffExpected;
         uint256     timeDiffAvg;
     }
 
@@ -43,7 +44,7 @@ contract stateConnector {
     function initialiseChains() public returns (bool success) {
         require(initialised == false, 'initialised != false');
         governanceContract = 0x1000000000000000000000000000000000000000;
-        Chains[0] = Chain(true, 60155580, 30, 0, 60155580, block.timestamp, 0); //XRP
+        Chains[0] = Chain(true, 60155580, 30, 0, 60155580, block.timestamp, 60, 0); //XRP
         initialised = true;
         return true;
     }
@@ -62,10 +63,10 @@ contract stateConnector {
         return true;
     }
 
-    function addChain(uint256 chainId, uint256 genesisLedger, uint256 claimPeriodLength) public returns (bool success) {
+    function addChain(uint256 chainId, uint256 genesisLedger, uint256 claimPeriodLength, uint256 timeDiffExpected) public returns (bool success) {
         require(msg.sender == governanceContract, 'msg.sender != governanceContract');
         require(Chains[chainId].exists == false, 'chainId already exists');
-        Chains[chainId] = Chain(true, genesisLedger, claimPeriodLength, 0, genesisLedger, block.timestamp, 0);
+        Chains[chainId] = Chain(true, genesisLedger, claimPeriodLength, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
         return true;
     }
 
@@ -134,7 +135,10 @@ contract stateConnector {
     function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength, bytes32 _claimPeriodHash) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(Chains[chainId].exists == true, 'chainId does not exist');
-        require(2*(block.timestamp-Chains[chainId].finalisedTimestamp) > Chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
+
+        if (block.timestamp >= Chains[chainId].finalisedTimestamp) {
+            require(2*(block.timestamp-Chains[chainId].finalisedTimestamp) > Chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
+        }
         bytes32 locationHash =  keccak256(abi.encodePacked(
                                     keccak256(abi.encodePacked(chainId)),
                                     keccak256(abi.encodePacked(claimPeriodIndex))
@@ -154,8 +158,17 @@ contract stateConnector {
             finalisedClaimPeriods[locationHash] = ClaimPeriodHash(true, claimPeriodHash);
             Chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             Chains[chainId].finalisedLedgerIndex = ledger;
-            Chains[chainId].timeDiffAvg = (block.timestamp-Chains[chainId].finalisedTimestamp)/2;
-            Chains[chainId].finalisedTimestamp = block.timestamp;
+            if (block.timestamp >= Chains[chainId].finalisedTimestamp) {
+                uint256 actualTimeDiffAvg = (block.timestamp-Chains[chainId].finalisedTimestamp)/2;
+                if (actualTimeDiffAvg > Chains[chainId].timeDiffExpected) {
+                    Chains[chainId].timeDiffAvg = Chains[chainId].timeDiffExpected;
+                } else {
+                    Chains[chainId].timeDiffAvg = actualTimeDiffAvg;
+                }
+                Chains[chainId].finalisedTimestamp = block.timestamp;
+            } else {
+                Chains[chainId].timeDiffAvg = Chains[chainId].timeDiffExpected;
+            }
             return (true, chainId, ledger, Chains[chainId].claimPeriodLength, claimPeriodHash);
         } else {
             // Invalid claimPeriodHash
