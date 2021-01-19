@@ -51,7 +51,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							const chainIdHash = web3.utils.soliditySha3('0');
 							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
 							const txHash = web3.utils.soliditySha3(item.hash);
-							const accountsHash = web3.utils.soliditySha3(item.Account, item.Destination, destinationTag);
+							const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(item.Account, item.Destination), destinationTag);
 							const amountHash = web3.utils.soliditySha3(item.metaData.delivered_amount);
 							const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
 							resolve(leafHash);

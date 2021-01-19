@@ -44,7 +44,7 @@ contract stateConnector {
     function initialiseChains() public returns (bool success) {
         require(initialised == false, 'initialised != false');
         governanceContract = 0x1000000000000000000000000000000000000000;
-        Chains[0] = Chain(true, 60155580, 30, 0, 60155580, block.timestamp, 60, 0); //XRP
+        Chains[0] = Chain(true, 60155580, 60, 0, 60155580, block.timestamp, 60, 0); //XRP
         initialised = true;
         return true;
     }
@@ -118,9 +118,9 @@ contract stateConnector {
         return true;
     }
 
-    function getlatestIndex(uint256 chainId) public view returns (uint256 genesisLedger, uint256 finalisedClaimPeriodIndex, uint256 claimPeriodLength, uint256 finalisedLedgerIndex, uint256 finalisedTimestamp) {
+    function getlatestIndex(uint256 chainId) public view returns (uint256 genesisLedger, uint256 finalisedClaimPeriodIndex, uint256 claimPeriodLength, uint256 finalisedLedgerIndex, uint256 finalisedTimestamp, uint256 timeDiffAvg) {
         require(Chains[chainId].exists == true, 'chainId does not exist');
-        return (Chains[chainId].genesisLedger, Chains[chainId].finalisedClaimPeriodIndex, Chains[chainId].claimPeriodLength, Chains[chainId].finalisedLedgerIndex, Chains[chainId].finalisedTimestamp);
+        return (Chains[chainId].genesisLedger, Chains[chainId].finalisedClaimPeriodIndex, Chains[chainId].claimPeriodLength, Chains[chainId].finalisedLedgerIndex, Chains[chainId].finalisedTimestamp, Chains[chainId].timeDiffAvg);
     }
 
     function checkFinality(uint256 chainId, uint256 claimPeriodIndex) public view returns (bool finality) {
@@ -159,11 +159,11 @@ contract stateConnector {
             Chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             Chains[chainId].finalisedLedgerIndex = ledger;
             if (block.timestamp >= Chains[chainId].finalisedTimestamp) {
-                uint256 actualTimeDiffAvg = (block.timestamp-Chains[chainId].finalisedTimestamp)/2;
-                if (actualTimeDiffAvg > Chains[chainId].timeDiffExpected) {
+                uint256 timeDiffAvgUpdate = (Chains[chainId].timeDiffAvg + (block.timestamp-Chains[chainId].finalisedTimestamp))/2;
+                if (timeDiffAvgUpdate > 2*Chains[chainId].timeDiffExpected) {
                     Chains[chainId].timeDiffAvg = Chains[chainId].timeDiffExpected;
                 } else {
-                    Chains[chainId].timeDiffAvg = actualTimeDiffAvg;
+                    Chains[chainId].timeDiffAvg = timeDiffAvgUpdate;
                 }
                 Chains[chainId].finalisedTimestamp = block.timestamp;
             } else {

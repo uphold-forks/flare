@@ -16,7 +16,7 @@ const app = express();
 const RippleAPI = require('ripple-lib').RippleAPI;
 const RippleKeys = require('ripple-keypairs');
 
-async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, payloads) {
+async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash, payloads) {
 	async function xrplProcessLedger(currLedger) {
 		const command = 'ledger';
 		const params = {
@@ -87,17 +87,23 @@ async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriod
 					} else if (parseInt(currLedger)+1 < parseInt(minLedger) + parseInt(claimPeriodLength)) {
 						return xrplProcessLedger(parseInt(currLedger)+1);
 					} else {
+						var root;
 						if (payloads.length > 0) {
 							const tree = new MerkleTree(payloads, keccak256, {sort: true});
-							const root = tree.getHexRoot();
+							root = tree.getHexRoot();
 							// console.log('Num Payloads:\t\t', payloads.length);
 							// console.log(root);
-							res.status(200).send(root).end()
+						} else {
+							root = "0x0000000000000000000000000000000000000000000000000000000000000000";
+						}
+						if (root == claimPeriodHash) {
+							res.status(200).send("Correct.").end()
 							.then(verificationComplete(chainAPI, chainId, "Verification complete."));
 						} else {
-							res.status(200).send("0x0000000000000000000000000000000000000000000000000000000000000000").end()
+							res.status(404).send("Incorrect.").end()
 							.then(verificationComplete(chainAPI, chainId, "Verification complete."));
 						}
+						
 					}
 				}
 				if (response.ledger.transactions.length > 0) {
@@ -123,9 +129,9 @@ function verificationComplete(chainAPI, chainId, message) {
 	setTimeout(() => {return process.exit()}, 5000);
 }
 
-async function run(res, chainAPI, chainId, minLedger, claimPeriodLength) {
+async function run(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash) {
 	if (parseInt(chainId) == 0) {
-		return xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, []).catch(error => {
+		return xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash, []).catch(error => {
 			verificationComplete(chainAPI, chainId, error);
 		});
 	} else {
@@ -133,13 +139,13 @@ async function run(res, chainAPI, chainId, minLedger, claimPeriodLength) {
 	}
 }
 
-async function xrpVerify(res, url, chainId, minLedger, claimPeriodLength) {
+async function xrpVerify(res, url, chainId, minLedger, claimPeriodLength, claimPeriodHash) {
 	var chainAPI = new RippleAPI({
 	  server: url,
 	  timeout: 60000
 	});
 	chainAPI.on('connected', () => {
-		return run(res, chainAPI, chainId, minLedger, claimPeriodLength);
+		return run(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash);
 	})
 	async function xrplConnectRetry(error) {
 		console.log('Connecting...');
@@ -148,22 +154,23 @@ async function xrpVerify(res, url, chainId, minLedger, claimPeriodLength) {
 	return chainAPI.connect().catch(xrplConnectRetry);
 }
 
-setTimeout(() => {return process.exit()}, 60000);
+setTimeout(() => {return process.exit()}, 300000);
 app.get('/', (req, res) => {
 	if ("verify" in req.query) {
-		if (req.query.verify.length == 192) {
+		if (req.query.verify.length == 256) {
 			var chainId = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(0,64));
 			var maxLedger = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(64,128));
 			var claimPeriodLength = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(128,192));
+			var claimPeriodHash = web3.eth.abi.decodeParameter('bytes32', req.query.verify.substring(192,256));
 			var minLedger = parseInt(maxLedger)-parseInt(claimPeriodLength);
 			var url = process.argv[3+parseInt(chainId)];
 			if (chainId == 0) {
-				return xrpVerify(res, url, chainId, minLedger, claimPeriodLength);
+				return xrpVerify(res, url, chainId, minLedger, claimPeriodLength, claimPeriodHash);
 			} else {
 				res.status(404).send('Chain not found.').end();
 			}
 		} else {
-			res.status(500).send("Invalid request.").end();
+			res.status(404).send("Invalid request.").end();
 		}
 	} else {
 		res.status(200).send("Alive.").end();

@@ -6,10 +6,10 @@ import (
 	"crypto/sha256"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"sync"
-	// "net/http"
-	// "time"
-	// "strings"
+	"net/http"
+	"time"
 )
 
 var fileMutex sync.Mutex
@@ -27,70 +27,63 @@ func contains(slice []string, item string) bool {
     return ok
 }
 
-// func checkAlive(stateConnectorPort string) (bool) {
-// 	resp, err := client.Get("http://localhost"+stateConnectorPort)
-// 	defer resp.Body.Close()
-// 	startRequired := false
-// 	if err != nil {
-// 		startRequired = true
-// 	} else if resp.StatusCode != http.StatusOK {
-// 		startRequired = true
-// 	} 
-// 	if startRequired {
-// 		// Report to monitoring system here
-// 		startCommand := "nohup node stateConnector " + stateConnectorPort + " &>/dev/null"
-// 		parts := strings.Fields(startCommand)
-// 		exec.Command(parts[0], parts[1:]...).Output()
-// 		time.Sleep(5*time.Second)
-// 		return checkAlive(stateConnectorPort)
-// 	} else {
-// 		return true
-// 	}
-// }
+func CheckAlive(stateConnectorPort string, chainURLs []string) (bool) {
+	go func(stateConnectorPort string, chainURLs []string) {
+			startCommand := []string{"nohup", "node", "flare/verify.js", stateConnectorPort}
+			startCommand = append(startCommand, chainURLs[:]...)
+			startCommand = append(startCommand, "&>/dev/null")
+			exec.Command(startCommand[0], startCommand[1:]...).Output()
+		}(stateConnectorPort, chainURLs)
+	time.Sleep(1*time.Second)
+	resp, err := client.Get("http://localhost:"+stateConnectorPort)
+	if (err != nil) {
+		return CheckAlive(stateConnectorPort, chainURLs)
+	} else {
+		if resp.StatusCode == http.StatusOK {
+			return true
+		} else {
+			return CheckAlive(stateConnectorPort, chainURLs)
+		}
+	}
+}
 
 // Verify claim period 
 func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
-	stateConnectorCacheFilePath := "flare/verifiedHashes"+stateConnectorConfig[0]+".json"
+	stateConnectorPort := stateConnectorConfig[0]
+	stateConnectorCacheFilePath := "flare/verifiedHashes"+stateConnectorPort+".json"
 	rawHash := sha256.Sum256(cacheRet)
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateConnectorCacheFilePath)
     if os.IsNotExist(err) {
         _, err := os.Create(stateConnectorCacheFilePath)
         if err != nil {
+        	time.Sleep(1*time.Second)
+        	return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
         }
     } else {
     	file, _ := ioutil.ReadFile(stateConnectorCacheFilePath)
 		data = VerifiedStateConnectorHashes{}
 		json.Unmarshal(file, &data)
     }
-
     if (contains(data.Hashes, hexHash) == false) {
-    	// Check if state-connector is alive; if not, start it
-  //   	checkAlive(stateConnectorPort)
-		// resp, err := client.Get("http://localhost"+stateConnectorPort+"?verify="+hex.EncodeToString(cacheRet[:]))
-  //   	defer resp.Body.Close()
-		// if err != nil {
-		// 	data.Hashes = append(data.Hashes, err.Error())
-		// }
-		// if resp.StatusCode == http.StatusOK {
-		//     bodyBytes, err := ioutil.ReadAll(resp.Body)
-		//     if err != nil {
-		//         data.Hashes = append(data.Hashes, err.Error())
-		//     }
-		//     bodyString := string(bodyBytes)
-		//     data.Hashes = append(data.Hashes, bodyString)
-		// }
-    	// If valid, store hash
-    	data.Hashes = append(data.Hashes, hexHash)
-    	data.Hashes = append(data.Hashes, hex.EncodeToString(cacheRet[:]))
-    	// data.Hashes = append(data.Hashes, stateConnectorConfig[1])
-    	// data.Hashes = append(data.Hashes, stateConnectorConfig[2])
-    	// data.Hashes = append(data.Hashes, stateConnectorConfig[3])
-		jsonData, _ := json.Marshal(data)
-		ioutil.WriteFile(stateConnectorCacheFilePath, jsonData, 0644)
+    	if (CheckAlive(stateConnectorPort, stateConnectorConfig[1:])) {
+    		resp, err := client.Get("http://localhost:"+stateConnectorPort+"/?verify="+hex.EncodeToString(cacheRet[:]))
+    		if (err != nil) {
+    			return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
+    		} else {
+    			if resp.StatusCode == http.StatusOK {
+			    	data.Hashes = append(data.Hashes, hexHash)
+					jsonData, _ := json.Marshal(data)
+					ioutil.WriteFile(stateConnectorCacheFilePath, jsonData, 0644)
+					return true
+				} else {
+					return false
+				}
+    		}
+    	}
     }
-    return true;
+    return true
 }

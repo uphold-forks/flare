@@ -31,9 +31,9 @@ else
 	mkdir -p $LOG_DIR/node03
 	printf "Building Flare Core...\n"
 	./scripts/build.sh
-	# cd flare
-	# yarn
-	# cd -
+	cd flare
+	yarn --silent
+	cd -
 fi
 
 # NODE 1

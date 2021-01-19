@@ -1,16 +1,12 @@
 {
-  "stateConnector": {
-    "contract": "0x1000000000000000000000000000000000000001",
+  "account": {
     "address": "0x9b200C53C8635a3d5972e1Dc5a7661713143987C",
     "privateKey": "653cf330f6af563bc209892c752ef975c616e862762a3d97f55bdfc41428b90b"
   },
   "chains": [
     {
       "name": "XRPL",
-      "url": "wss://s2.ripple.com",
-      "genesisLedger": 60155580,
-      "claimPeriodLength": 30,
-      "blockTime": 3
+      "url": "wss://s2.ripple.com"
     }
   ],
   "flare": {

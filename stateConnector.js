@@ -10,27 +10,28 @@ const app = express();
 const {MerkleTree} = require('merkletreejs');
 const keccak256 = require('keccak256');
 
-var config;
-var customCommon;
-var stateConnector;
+const stateConnectorContract = "0x1000000000000000000000000000000000000001";
+var config,
+	customCommon,
+	stateConnector,
+	chains = {
+		'xrp': {
+			api: null,
+			chainId: 0,
+			claimsInProgress: false
+		},
+		'ltc': {
+			api: null,
+			chainId: 1,
+			claimsInProgress: false
+		},
+		'xlm': {
+			api: null,
+			chainId: 2,
+			claimsInProgress: false
+		}
+	};
 
-var chains = {
-	'xrp': {
-		api: null,
-		chainId: 0,
-		claimsInProgress: false
-	},
-	'ltc': {
-		api: null,
-		chainId: 1,
-		claimsInProgress: false
-	},
-	'xlm': {
-		api: null,
-		chainId: 2,
-		claimsInProgress: false
-	}
-}
 
 // ===============================================================
 // XRP Specific Items
@@ -65,17 +66,17 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							} else {
 								destinationTag = item.DestinationTag;
 							}
-							console.log('chainId: \t\t', '0', '\n',
-								'ledger: \t\t', response.ledger.seqNum, '\n',
-								'txId: \t\t\t', item.hash, '\n',
-								'source: \t\t', item.Account, '\n',
-								'destination: \t\t', item.Destination, '\n',
-								'destinationTag: \t', String(destinationTag), '\n',
-								'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
+							// console.log('chainId: \t\t', '0', '\n',
+							// 	'ledger: \t\t', response.ledger.seqNum, '\n',
+							// 	'txId: \t\t\t', item.hash, '\n',
+							// 	'source: \t\t', item.Account, '\n',
+							// 	'destination: \t\t', item.Destination, '\n',
+							// 	'destinationTag: \t', String(destinationTag), '\n',
+							// 	'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
 							const chainIdHash = web3.utils.soliditySha3('0');
 							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
 							const txHash = web3.utils.soliditySha3(item.hash);
-							const accountsHash = web3.utils.soliditySha3(item.Account, item.Destination, destinationTag);
+							const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(item.Account, item.Destination), destinationTag);
 							const amountHash = web3.utils.soliditySha3(item.metaData.delivered_amount);
 							const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
 							resolve(leafHash);
@@ -141,7 +142,7 @@ function xrplClaimProcessingCompleted(message) {
 	chains.xrp.api.disconnect().catch(processFailure)
 	.then(() => {
 		console.log(message);
-		setTimeout(() => {return process.exit()}, 2500);
+		setTimeout(() => {return process.exit()}, 5000);
 	})
 }
 
@@ -165,7 +166,11 @@ async function run(chainId) {
 				chains.xrp.api.getLedgerVersion().catch(processFailure)
 				.then(sampledLedger => {
 					console.log("Finalised claim period:\t\x1b[33m", parseInt(result.finalisedClaimPeriodIndex)-1, 
-						"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", parseInt(result.finalisedLedgerIndex), '\n\x1b[0mCurrent Ledger Index:\t\x1b[33m', sampledLedger);
+						"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", parseInt(result.finalisedLedgerIndex),
+						"\n\x1b[0mCurrent Ledger Index:\t\x1b[33m", sampledLedger,
+						"\n\x1b[0mFinalised Timestamp:\t\x1b[33m", parseInt(result.finalisedTimestamp),
+						"\n\x1b[0mCurrent Timestamp:\t\x1b[33m", parseInt(Date.now()/1000),
+						"\n\x1b[0mDiff Avg (sec):\t\t\x1b[33m", parseInt(result.timeDiffAvg));
 					if (sampledLedger > parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
 						return xrplProcessLedgers([], parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), parseInt(result.finalisedLedgerIndex));
 					} else {
@@ -183,7 +188,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 	stateConnector.methods.checkFinality(
 					parseInt(chainId),
 					claimPeriodIndex).call({
-		from: config.stateConnector.address,
+		from: config.account.address,
 		gas: config.flare.gas,
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
@@ -196,7 +201,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 				return processFailure('Invalid chainId.');
 			}
 		} else {
-			web3.eth.getTransactionCount(config.stateConnector.address)
+			web3.eth.getTransactionCount(config.account.address)
 			.then(nonce => {
 				return [stateConnector.methods.registerClaimPeriod(
 							chainId,
@@ -210,11 +215,11 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 					gasPrice: web3.utils.toHex(parseInt(config.flare.gasPrice)),
 					gas: web3.utils.toHex(config.flare.gas),
 					to: stateConnector.options.address,
-					from: config.stateConnector.address,
+					from: config.account.address,
 					data: txData[0]
 				};
 				var tx = new Tx(rawTx, {common: customCommon});
-				var key = Buffer.from(config.stateConnector.privateKey, 'hex');
+				var key = Buffer.from(config.account.privateKey, 'hex');
 				tx.sign(key);
 				var serializedTx = tx.serialize();
 				const txHash = web3.utils.sha3(serializedTx);
@@ -245,7 +250,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 
 async function initialiseChains() {
 	console.log('Initialising chains');
-	web3.eth.getTransactionCount(config.stateConnector.address)
+	web3.eth.getTransactionCount(config.account.address)
 	.then(nonce => {
 		return [stateConnector.methods.initialiseChains().encodeABI(), nonce];
 	})
@@ -255,12 +260,12 @@ async function initialiseChains() {
 			gasPrice: web3.utils.toHex(config.flare.gasPrice),
 			gas: web3.utils.toHex(config.flare.contractGas),
 			chainId: config.flare.chainId,
-			from: config.stateConnector.address,
-			to: config.stateConnector.contract,
+			from: config.account.address,
+			to: stateConnector.options.address,
 			data: contractData[0]
 		}
 		var tx = new Tx(rawTx, {common: customCommon});
-		var key = Buffer.from(config.stateConnector.privateKey, 'hex');
+		var key = Buffer.from(config.account.privateKey, 'hex');
 		tx.sign(key);
 		var serializedTx = tx.serialize();
 		
@@ -281,10 +286,7 @@ async function initialiseChains() {
 
 async function configure(chainId) {
 	web3Config().catch(processFailure)
-	.then(chainConfig(chainId).catch(processFailure))
-	.then(() => {
-		return chains.xrp.api.connect().catch(xrplConnectRetry);
-	})
+	.then(chainConfig(chainId).catch(processFailure));
 }
 
 async function chainConfig(chainId) {
@@ -296,6 +298,7 @@ async function chainConfig(chainId) {
 		chains.xrp.api.on('connected', () => {
 			return run(chainId);
 		})
+		return chains.xrp.api.connect().catch(xrplConnectRetry);
 	} else {
 		processFailure('Invalid chainId.');
 	}
@@ -304,7 +307,7 @@ async function chainConfig(chainId) {
 async function web3Config() {
 	let rawConfig = fs.readFileSync('config/config.json');
 	config = JSON.parse(rawConfig);
-	console.log(config);
+	// console.log(config);
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;
 	customCommon = Common.forCustomChain('ropsten',
@@ -323,8 +326,8 @@ async function web3Config() {
 	stateConnector = new web3.eth.Contract(abi);
 	// Smart contract EVM bytecode as hex
 	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
-	stateConnector.options.from = config.stateConnector.address;
-	stateConnector.options.address = config.stateConnector.contract;
+	stateConnector.options.from = config.account.address;
+	stateConnector.options.address = stateConnectorContract;
 }
 
 async function processFailure(error) {
@@ -343,7 +346,7 @@ async function sleep(ms) {
 	});
 }
 
-// setTimeout(() => {return process.exit()}, 300000);
+setTimeout(() => {return process.exit()}, 300000);
 app.get('/', (req, res) => {
 	if ("verify" in req.query) {
 		console.log(req.query.verify);
