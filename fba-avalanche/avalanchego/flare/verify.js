@@ -41,13 +41,6 @@ async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriod
 							} else {
 								destinationTag = item.DestinationTag;
 							}
-							// console.log('chainId: \t\t', '0', '\n',
-							// 	'ledger: \t\t', response.ledger.seqNum, '\n',
-							// 	'txId: \t\t\t', item.hash, '\n',
-							// 	'source: \t\t', item.Account, '\n',
-							// 	'destination: \t\t', item.Destination, '\n',
-							// 	'destinationTag: \t', String(destinationTag), '\n',
-							// 	'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
 							const chainIdHash = web3.utils.soliditySha3('0');
 							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
 							const txHash = web3.utils.soliditySha3(item.hash);
@@ -65,10 +58,10 @@ async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriod
 									return checkResponseCompletion(response);
 								}
 							} else {
-								return verificationComplete(chainAPI, chainId, "Unable to append to payloads[].");
+								return res.status(500).send("Error.").end().then(process.exit());
 							}
 						}).catch(error => {
-							return verificationComplete(chainAPI, chainId, error);
+							return res.status(500).send("Error.").end().then(process.exit());
 						})
 					} else {
 						if (i+1 < numTransactions) {
@@ -91,17 +84,15 @@ async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriod
 						if (payloads.length > 0) {
 							const tree = new MerkleTree(payloads, keccak256, {sort: true});
 							root = tree.getHexRoot();
-							// console.log('Num Payloads:\t\t', payloads.length);
-							// console.log(root);
 						} else {
 							root = "0x0000000000000000000000000000000000000000000000000000000000000000";
 						}
 						if (root == claimPeriodHash) {
 							res.status(200).send("Correct.").end()
-							.then(verificationComplete(chainAPI, chainId, "Verification complete."));
+							.then(process.exit());
 						} else {
 							res.status(404).send("Incorrect.").end()
-							.then(verificationComplete(chainAPI, chainId, "Verification complete."));
+							.then(process.exit());
 						}
 						
 					}
@@ -115,27 +106,19 @@ async function xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriod
 			responseIterate(response);
 		})
 		.catch(error => {
-			return verificationComplete(chainAPI, chainId, error);
+			return res.status(500).send("Error.").end().then(process.exit());
 		})
 	}
 	return xrplProcessLedger(minLedger);
 }
 
-function verificationComplete(chainAPI, chainId, message) {
-	// console.log(message);
-	if (parseInt(chainId) == 0) {
-		chainAPI.disconnect().catch(process.exit());
-	}
-	setTimeout(() => {return process.exit()}, 5000);
-}
-
 async function run(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash) {
 	if (parseInt(chainId) == 0) {
 		return xrplProcessLedgers(res, chainAPI, chainId, minLedger, claimPeriodLength, claimPeriodHash, []).catch(error => {
-			verificationComplete(chainAPI, chainId, error);
+			res.status(500).send("Error.").end().then(process.exit());
 		});
 	} else {
-		return verificationComplete(chainAPI, chainId, "Invalid chainId.");
+		return res.status(500).send("Error.").end().then(process.exit());
 	}
 }
 
@@ -167,13 +150,13 @@ app.get('/', (req, res) => {
 			if (chainId == 0) {
 				return xrpVerify(res, url, chainId, minLedger, claimPeriodLength, claimPeriodHash);
 			} else {
-				res.status(404).send('Chain not found.').end();
+				res.status(500).send("Error.").end().then(process.exit());
 			}
 		} else {
-			res.status(404).send("Invalid request.").end();
+			res.status(500).send("Error.").end().then(process.exit());
 		}
 	} else {
-		res.status(200).send("Alive.").end();
+		res.status(204).send("Alive.").end();
 	}
 });
 // Start the server

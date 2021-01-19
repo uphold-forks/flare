@@ -7,12 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"sync"
-	"net/http"
 	"time"
 )
-
-var fileMutex sync.Mutex
 
 type VerifiedStateConnectorHashes struct {
 	Hashes	[]string 	`json:"hashes"`
@@ -39,7 +35,7 @@ func CheckAlive(stateConnectorPort string, chainURLs []string) (bool) {
 	if (err != nil) {
 		return CheckAlive(stateConnectorPort, chainURLs)
 	} else {
-		if resp.StatusCode == http.StatusOK {
+		if resp.StatusCode == 204 {
 			return true
 		} else {
 			return CheckAlive(stateConnectorPort, chainURLs)
@@ -49,8 +45,6 @@ func CheckAlive(stateConnectorPort string, chainURLs []string) (bool) {
 
 // Verify claim period 
 func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
 	stateConnectorPort := stateConnectorConfig[0]
 	stateConnectorCacheFilePath := "flare/verifiedHashes"+stateConnectorPort+".json"
@@ -58,11 +52,7 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateConnectorCacheFilePath)
     if os.IsNotExist(err) {
-        _, err := os.Create(stateConnectorCacheFilePath)
-        if err != nil {
-        	time.Sleep(1*time.Second)
-        	return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
-        }
+        os.Create(stateConnectorCacheFilePath)
     } else {
     	file, _ := ioutil.ReadFile(stateConnectorCacheFilePath)
 		data = VerifiedStateConnectorHashes{}
@@ -74,13 +64,15 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
     		if (err != nil) {
     			return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
     		} else {
-    			if resp.StatusCode == http.StatusOK {
+    			if resp.StatusCode == 200 {
 			    	data.Hashes = append(data.Hashes, hexHash)
 					jsonData, _ := json.Marshal(data)
 					ioutil.WriteFile(stateConnectorCacheFilePath, jsonData, 0644)
 					return true
-				} else {
+				} else if resp.StatusCode == 404 {
 					return false
+				} else {
+    				return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
 				}
     		}
     	}
