@@ -137,10 +137,10 @@ async function xrpVerify(res, url, chainId, minLedger, claimPeriodLength, claimP
 	return chainAPI.connect().catch(xrplConnectRetry);
 }
 
-setTimeout(() => {return process.exit()}, 300000);
 app.get('/', (req, res) => {
 	if ("verify" in req.query) {
 		if (req.query.verify.length == 256) {
+			setTimeout((res) => {res.status(500).send("Error.").end().then(process.exit());}, 60000);
 			var chainId = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(0,64));
 			var maxLedger = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(64,128));
 			var claimPeriodLength = web3.eth.abi.decodeParameter('uint256', req.query.verify.substring(128,192));
@@ -155,6 +155,8 @@ app.get('/', (req, res) => {
 		} else {
 			res.status(500).send("Error.").end().then(process.exit());
 		}
+	} else if ("stop" in req.query) {
+		res.status(205).send("Stopped.").end().then(process.exit());
 	} else {
 		res.status(204).send("Alive.").end();
 	}

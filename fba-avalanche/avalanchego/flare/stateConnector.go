@@ -8,7 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"sync"
 )
+
+var fileMutex sync.Mutex
 
 type VerifiedStateConnectorHashes struct {
 	Hashes	[]string 	`json:"hashes"`
@@ -24,27 +27,55 @@ func contains(slice []string, item string) bool {
 }
 
 func CheckAlive(stateConnectorPort string, chainURLs []string) (bool) {
-	go func(stateConnectorPort string, chainURLs []string) {
-			startCommand := []string{"nohup", "node", "flare/verify.js", stateConnectorPort}
-			startCommand = append(startCommand, chainURLs[:]...)
-			startCommand = append(startCommand, "&>/dev/null")
-			exec.Command(startCommand[0], startCommand[1:]...).Output()
-		}(stateConnectorPort, chainURLs)
+	go func(stateConnectorPort string) {client.Get("http://localhost:"+stateConnectorPort+"/?stop")}(stateConnectorPort)
 	time.Sleep(1*time.Second)
-	resp, err := client.Get("http://localhost:"+stateConnectorPort)
-	if (err != nil) {
-		return CheckAlive(stateConnectorPort, chainURLs)
-	} else {
-		if resp.StatusCode == 204 {
-			return true
+	go func(stateConnectorPort string, chainURLs []string) {
+		startCommand := []string{"nohup", "node", "flare/verify.js", stateConnectorPort}
+		startCommand = append(startCommand, chainURLs[:]...)
+		startCommand = append(startCommand, "&>/dev/null")
+		exec.Command(startCommand[0], startCommand[1:]...).Output()
+	}(stateConnectorPort, chainURLs)
+	alive := false
+	time.Sleep(1*time.Second)
+	for (alive == false) {
+		resp, err := client.Get("http://localhost:"+stateConnectorPort)
+		if (err != nil) {
+			time.Sleep(1*time.Second)
+		} else if (resp.StatusCode != 204) {
+			time.Sleep(1*time.Second)
 		} else {
-			return CheckAlive(stateConnectorPort, chainURLs)
+			alive = true
 		}
+	}
+	return true
+}
+
+func ReadChain(cacheRet string, stateConnectorPort string, chainURLs []string) (bool) {
+	if (CheckAlive(stateConnectorPort, chainURLs)) {
+		resp, err := client.Get("http://localhost:"+stateConnectorPort+"/?verify="+cacheRet)
+		if (err != nil) {
+			time.Sleep(1*time.Second)
+			return ReadChain(cacheRet, stateConnectorPort, chainURLs)
+		} else {
+			if resp.StatusCode == 200 {
+				return true
+			} else if resp.StatusCode == 404 {
+				return false
+			} else {
+				time.Sleep(1*time.Second)
+				return ReadChain(cacheRet, stateConnectorPort, chainURLs)
+			}
+		}
+	} else {
+		time.Sleep(1*time.Second)
+		return ReadChain(cacheRet, stateConnectorPort, chainURLs)
 	}
 }
 
 // Verify claim period 
 func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
 	stateConnectorPort := stateConnectorConfig[0]
 	stateConnectorCacheFilePath := "flare/verifiedHashes"+stateConnectorPort+".json"
@@ -59,22 +90,13 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 		json.Unmarshal(file, &data)
     }
     if (contains(data.Hashes, hexHash) == false) {
-    	if (CheckAlive(stateConnectorPort, stateConnectorConfig[1:])) {
-    		resp, err := client.Get("http://localhost:"+stateConnectorPort+"/?verify="+hex.EncodeToString(cacheRet[:]))
-    		if (err != nil) {
-    			return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
-    		} else {
-    			if resp.StatusCode == 200 {
-			    	data.Hashes = append(data.Hashes, hexHash)
-					jsonData, _ := json.Marshal(data)
-					ioutil.WriteFile(stateConnectorCacheFilePath, jsonData, 0644)
-					return true
-				} else if resp.StatusCode == 404 {
-					return false
-				} else {
-    				return VerifyClaimPeriod(stateConnectorConfig, cacheRet)
-				}
-    		}
+    	if (ReadChain(hex.EncodeToString(cacheRet[:]), stateConnectorPort, stateConnectorConfig[1:]) == true) {
+    		data.Hashes = append(data.Hashes, hexHash)
+			jsonData, _ := json.Marshal(data)
+			ioutil.WriteFile(stateConnectorCacheFilePath, jsonData, 0644)
+			return true
+    	} else {
+    		return false
     	}
     }
     return true
