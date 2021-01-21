@@ -20,7 +20,6 @@ import (
 	"math"
 	"math/big"
 	"bytes"
-	"encoding/hex"
 
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/params"
@@ -237,16 +236,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
 
-	// Check clauses 4-5, subtract intrinsic gas if everything is correct
-	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
-	if err != nil {
-		return nil, err
-	}
-	if st.gas < gas {
-		return nil, ErrIntrinsicGas
-	}
-	st.gas -= gas
-
 	// Check clause 6
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
 		return nil, ErrInsufficientFundsForTransfer
@@ -255,43 +244,52 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
-	if contractCreation {
-		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
-	} else {
+	if (contractCreation == false && *msg.To() == common.HexToAddress(flare.GetStateConnectorContractAddr(st.evm.Context.BlockNumber))) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		stateConnectorContractAddr := flare.GetStateConnectorContractAddr(st.evm.Context.BlockNumber)
-		if (*msg.To() == common.HexToAddress(stateConnectorContractAddr)) { 
-			floorgval := new(big.Int).Mul(new(big.Int).SetUint64(flare.GetFixedGasCeil(st.evm.Context.BlockNumber)), st.gasPrice)
-			if (st.state.GetBalance(st.msg.From()).Cmp(floorgval) < 0 || st.gas + gas < flare.GetFixedGasUsed(st.evm.Context.BlockNumber) || flare.GetFixedGasCeil(st.evm.Context.BlockNumber) < flare.GetFixedGasUsed(st.evm.Context.BlockNumber)) {
-				return nil, ErrInsufficientFunds
-			} else {
-				var functionSelector []byte = st.data[0:4]
-				if (bytes.Compare(functionSelector, flare.GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0) {
-					ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
-					if (vmerr == nil) {
-						chainConfig := st.evm.ChainConfig()
-						stateConnectorConfig := *chainConfig.StateConnectorConfig
-						if (flare.VerifyClaimPeriod("0x" + hex.EncodeToString(st.data[4:33]), "0x" + hex.EncodeToString(st.data[33:65]), "0x" + hex.EncodeToString(st.data[65:97]), "0x" + hex.EncodeToString(st.data[97:len(st.data)]), stateConnectorConfig) == true) {
-							originalCoinbase := st.evm.Context.Coinbase
-							defer func() {
-								st.evm.Context.Coinbase = originalCoinbase
-							}()
-							st.evm.Context.Coinbase = st.msg.From()
-						}
-					}
+		// Check if registerClaimPeriod() is being called in the stateConnector contract
+		dataFee := new(big.Int).Mul(new(big.Int).SetUint64(flare.GetDataFee(st.evm.Context.BlockNumber)*uint64((len(st.data)-4)/32)), st.gasPrice)
+		if st.state.GetBalance(st.msg.From()).Cmp(new(big.Int).Add(new(big.Int).SetUint64(flare.GetFixedGasUsed(st.evm.Context.BlockNumber)), dataFee)) < 0 {
+			return nil, ErrInsufficientFunds
+		}
+		st.state.SubBalance(st.msg.From(), dataFee)
+		st.state.AddBalance(common.HexToAddress(flare.GetGovernanceContractAddr(st.evm.Context.BlockNumber)), dataFee)
+
+		if (bytes.Compare(st.data[0:4], flare.GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0) {
+			cacheRet, _, cacheVmerr := st.evm.Call(sender, st.to(), st.data, ^uint64(0), st.value)
+			if (cacheVmerr == nil) {
+				chainConfig := st.evm.ChainConfig()
+				if (flare.VerifyClaimPeriod(*chainConfig.StateConnectorConfig, cacheRet[32:]) == true) {
+					originalCoinbase := st.evm.Context.Coinbase
+					defer func() {
+						st.evm.Context.Coinbase = originalCoinbase
+					}()
+					st.evm.Context.Coinbase = st.msg.From()
 				}
-				ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, flare.GetFixedGasCeil(st.evm.Context.BlockNumber), st.value)
-				st.gas = st.gas + gas - flare.GetFixedGasUsed(st.evm.Context.BlockNumber)
 			}
+		}
+		ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, ^uint64(0), st.value)
+		st.gas = st.gas - flare.GetFixedGasUsed(st.evm.Context.BlockNumber)
+	} else {
+		// Check clauses 4-5, subtract intrinsic gas if everything is correct
+		gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
+		if err != nil {
+			return nil, err
+		}
+		if st.gas < gas {
+			return nil, ErrIntrinsicGas
+		}
+		st.gas -= gas
+		if (contractCreation) {
+			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 		} else {
+			// Increment the nonce for the next transaction
+			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		}
 	}
 	st.refundGas()
-	// st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-	feePoolContractAddr := flare.GetFeePoolContractAddr(st.evm.Context.BlockNumber)
-	st.state.AddBalance(common.HexToAddress(feePoolContractAddr), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	st.state.AddBalance(common.HexToAddress(flare.GetGovernanceContractAddr(st.evm.Context.BlockNumber)), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),

@@ -1,21 +1,50 @@
 #!/bin/bash
+if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit;
+fi
+printf "\x1b[34mFlare Network 4-Node Local Deployment\x1b[0m\n\n"
+AVALANCHEGO_VERSION=@v1.1.0
+CORETH_VERSION=@v0.3.16
 
-NODE_VERSION=@v1.1.0
-
+EXEC_DIR=$(pwd)
 LOG_DIR=$(pwd)/logs
+CONFIG_DIR=$(pwd)/config
 PKG_DIR=$GOPATH/pkg/mod/github.com/ava-labs
-NODE_DIR=$PKG_DIR/avalanchego$NODE_VERSION
-cd $NODE_DIR
+NODE_DIR=$PKG_DIR/avalanchego$AVALANCHEGO_VERSION
+CORETH_DIR=$PKG_DIR/coreth$CORETH_VERSION
+
+if echo $1 | grep -e "--existing" -q
+then
+	cd $NODE_DIR
+else
+	rm -rf logs
+	mkdir logs
+	rm -rf $NODE_DIR
+	mkdir -p $PKG_DIR
+	cp -r fba-avalanche/avalanchego $NODE_DIR
+	rm -rf $CORETH_DIR
+	cp -r fba-avalanche/coreth $CORETH_DIR
+	cd $NODE_DIR
+	rm -rf $NODE_DIR/db/
+	mkdir -p $LOG_DIR/node00
+	mkdir -p $LOG_DIR/node01
+	mkdir -p $LOG_DIR/node02
+	mkdir -p $LOG_DIR/node03
+	printf "Building Flare Core...\n"
+	./scripts/build.sh
+	cd flare
+	yarn --silent
+	cd -
+fi
 
 # NODE 1
-printf "\nLaunching Node 1 at 127.0.0.1:9650\n"
+printf "Launching Node 1 at 127.0.0.1:9650\n"
 nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9650 --staking-port=9651 --db-dir=db/node00 --staking-enabled=true --network-id=coston --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/keys/node00/staker.crt --staking-tls-key-file=$(pwd)/keys/node00/staker.key --log-level=debug --unl-validators=\
 $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config=$(cat $(pwd)/keys/node00/scID.txt) &> $LOG_DIR/node00/nohup.out & echo $! > $LOG_DIR/node00/ava.pid
-NODE_00_PID=`cat $LOG_DIR/node00/ava.pid`
+--state-connector-config="8080,wss://s2.ripple.com" &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
+NODE_00_PID=`cat $LOG_DIR/node00/launch.pid`
 sleep 5
 
 # NODE 2
@@ -25,8 +54,8 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config=$(cat $(pwd)/keys/node01/scID.txt) &> $LOG_DIR/node01/nohup.out & echo $! > $LOG_DIR/node01/ava.pid
-NODE_01_PID=`cat $LOG_DIR/node01/ava.pid`
+--state-connector-config="8081,wss://s2.ripple.com" &> $LOG_DIR/node01/launch.out & echo $! > $LOG_DIR/node01/launch.pid
+NODE_01_PID=`cat $LOG_DIR/node01/launch.pid`
 sleep 5
 
 # NODE 3
@@ -36,8 +65,8 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config=$(cat $(pwd)/keys/node02/scID.txt) &> $LOG_DIR/node02/nohup.out & echo $! > $LOG_DIR/node02/ava.pid
-NODE_02_PID=`cat $LOG_DIR/node02/ava.pid`
+--state-connector-config="8082,wss://s2.ripple.com" &> $LOG_DIR/node02/launch.out & echo $! > $LOG_DIR/node02/launch.pid
+NODE_02_PID=`cat $LOG_DIR/node02/launch.pid`
 sleep 5
 
 # NODE 4
@@ -47,11 +76,11 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---coreth-config=$(cat $(pwd)/keys/node03/scID.txt) &> $LOG_DIR/node03/nohup.out & echo $! > $LOG_DIR/node03/ava.pid
-NODE_03_PID=`cat $LOG_DIR/node03/ava.pid`
+--state-connector-config="8083,wss://s2.ripple.com" &> $LOG_DIR/node03/launch.out & echo $! > $LOG_DIR/node03/launch.pid
+NODE_03_PID=`cat $LOG_DIR/node03/launch.pid`
 sleep 5
 
-printf "\n\n"
+printf "\n"
 read -p "Press enter to stop background node processes"
 kill $NODE_00_PID
 kill $NODE_01_PID

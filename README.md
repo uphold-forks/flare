@@ -19,29 +19,34 @@ Flare is a next-generation blockchain which enables smart contracts with multipl
 Clone Flare and use Yarn to install its dependencies:
 ```
 git clone https://gitlab.com/flarenetwork/flare
-cd flare
-yarn
 ```
 
 ## Deploy
 
-Configure a 4-node network and deploy the state-connector smart contract.
+Configure and launch a 4-node network and deploy the state-connector smart contract.
 
-```
-./config.sh
-```
-
-Once the above config script completes execution, launch the network using:
 ```
 ./launch.sh
 ```
 
+To restart a previously stopped network without resetting it, use the launch command above with the `--existing` flag.
+
 ## State-Connector System Operation
 
-In a new terminal window, the following command launches a state-connector instance that observes to the XRP Ledger by using the inputted chainId `0`. Future chains will use the same command, but with a different chainId. The system proves relevant payments from a set of ledgers on the underlying chain, known as a claim period in the Flare network whitepaper, as a single merkle tree hash. This allows one to prove to a contract on the Flare Network, such as the F-asset contract, that a payment exists on an underlying chain such as the XRP Ledger using an SPV proof as a separate transaction that references the merkle tree hash. 
+In a new terminal window, the following command launches a state-connector instance that observes to the XRP Ledger. The system proves relevant payments from a set of ledgers on the underlying chain, known as a claim period in the Flare network whitepaper, as a single merkle tree hash. This allows one to prove to a contract on the Flare Network, such as the F-asset contract, that a payment exists on an underlying chain such as the XRP Ledger using an SPV proof as a separate transaction that references the merkle tree hash. 
 
 ```
-./bridge.sh 0
+cd client
+yarn
+./bridge.sh xrp
+```
+
+## Verify an Underlying Chain Payment on Flare
+
+The state connector contract contains a public view function that allows any other contract to verify a merkle tree proof that proves/disproves whether a payment has occurred on any underlying chain. As an example, we will verify this transaction: https://livenet.xrpl.org/transactions/44B00358328BC6818212F91840C7A6E9EF8CB305FF3FF6E56422A6ADE6ACB08E. Run the following command in a separate terminal window once the state connector has finalised a few claim periods: 
+
+```
+node prove xrp 44B00358328BC6818212F91840C7A6E9EF8CB305FF3FF6E56422A6ADE6ACB08E
 ```
 
 (c) Flare Networks Ltd. 2020
