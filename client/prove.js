@@ -8,12 +8,27 @@ const fs = require('fs');
 const { MerkleTree } = require('merkletreejs');
 const keccak256 = require('keccak256');
 
-const minFee = 1;
-var config;
-var customCommon;
-var chainAPI;
-var stateConnector;
-var claimsInProgress = false;
+const stateConnectorContract = "0x1000000000000000000000000000000000000001";
+var config,
+	customCommon,
+	stateConnector,
+	chains = {
+		'xrp': {
+			api: null,
+			chainId: 0,
+			claimsInProgress: false
+		},
+		'ltc': {
+			api: null,
+			chainId: 1,
+			claimsInProgress: false
+		},
+		'xlm': {
+			api: null,
+			chainId: 2,
+			claimsInProgress: false
+		}
+	};
 
 // ===============================================================
 // XRPL Specific Functions
@@ -23,7 +38,7 @@ const RippleAPI = require('ripple-lib').RippleAPI;
 const RippleKeys = require('ripple-keypairs');
 
 async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, leaf) {
-	console.log('Retrieving XRPL state from ledgers:\t', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
+	console.log('Retrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
 	async function xrplProcessLedger(currLedger) {
 		const command = 'ledger';
 		const params = {
@@ -35,7 +50,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 			'expand': true,
 			'owner_funds': false
 		};
-		return chainAPI.request(command, params)
+		return chains.xrp.api.request(command, params)
 		.then(response => {
 			async function responseIterate(response) {
 				async function transactionIterate(item, i, numTransactions) {
@@ -79,8 +94,8 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 					}
 				}
 				async function checkResponseCompletion(response) {
-					if (chainAPI.hasNextPage(response) == true) {
-						chainAPI.requestNextPage(command, params, response)
+					if (chains.xrp.api.hasNextPage(response) == true) {
+						chains.xrp.api.requestNextPage(command, params, response)
 						.then(next_response => {
 							responseIterate(next_response);
 						})
@@ -92,7 +107,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							const root = tree.getHexRoot();
 							const proof = tree.getProof(leaf.leafHash);
 							const verification = tree.verify(proof, leaf.leafHash, root);
-							console.log('\nNumber of Merkle Tree Leaves:\t\t', payloads.length);
+							console.log('Number of Merkle Tree Leaves:', payloads.length, '\n');
 							if (verification == true) {
 								const hexProof = tree.getHexProof(leaf.leafHash);
 								return provePaymentFinality(claimPeriodIndex, hexProof, leaf, root);
@@ -122,7 +137,7 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 async function xrplConfig() {
 	let rawConfig = fs.readFileSync('config/config.json');
 	config = JSON.parse(rawConfig);
-	chainAPI = new RippleAPI({
+	chains.xrp.api = new RippleAPI({
 	  server: config.chains[0].url,
 	  timeout: 60000
 	});
@@ -135,13 +150,13 @@ async function xrplConfig() {
 							chainId: config.flare.chainId,
 						},
         				'petersburg',);
-	chainAPI.on('connected', () => {
+	chains.xrp.api.on('connected', () => {
 		return run(0);
 	})
 }
 
 function xrplClaimProcessingCompleted(message) {
-	chainAPI.disconnect().catch(processFailure)
+	chains.xrp.api.disconnect().catch(processFailure)
 	.then(() => {
 		console.log(message);
 		setTimeout(() => {return process.exit()}, 2500);
@@ -151,7 +166,7 @@ function xrplClaimProcessingCompleted(message) {
 async function xrplConnectRetry(error) {
 	console.log('XRPL connecting...')
 	sleep(1000).then(() => {
-		chainAPI.connect().catch(xrplConnectRetry);
+		chains.xrp.api.connect().catch(xrplConnectRetry);
 	})
 }
 
@@ -161,7 +176,7 @@ async function xrplConnectRetry(error) {
 
 async function run(chainId) {
 	stateConnector.methods.getlatestIndex(parseInt(chainId)).call({
-		from: config.stateConnector.address,
+		from: config.account.address,
 		gas: config.flare.gas,
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
@@ -171,7 +186,7 @@ async function run(chainId) {
 	})
 	.then(result => {
 		if (chainId == 0) {
-			chainAPI.getTransaction(txId).catch(processFailure)
+			chains.xrp.api.getTransaction(txId).catch(processFailure)
 			.then(tx => {
 				const leafPromise = new Promise((resolve, reject) => {
 					var destinationTag;
@@ -191,7 +206,7 @@ async function run(chainId) {
 					const chainIdHash = web3.utils.soliditySha3('0');
 					const ledgerHash = web3.utils.soliditySha3(tx.outcome.ledgerVersion);
 					const txHash = web3.utils.soliditySha3(tx.id);
-					const accountsHash = web3.utils.soliditySha3(tx.specification.source.address, tx.specification.destination.address, destinationTag);
+					const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(tx.specification.source.address, tx.specification.destination.address), destinationTag);
 					const amountHash = web3.utils.soliditySha3(amount);
 					const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
 					const leaf = {
@@ -231,17 +246,85 @@ async function provePaymentFinality(claimPeriodIndex, proof, leaf, root) {
 					leaf.leafHash,
 					proof).call().catch(processFailure)
 	.then(result => {
-		if (result == true) {
-			return xrplClaimProcessingCompleted('\nPayment verified.\n');
+		if (result.success == true) {
+			return xrplClaimProcessingCompleted('\nPayment verified.');
 		} else {
-			return xrplClaimProcessingCompleted('\nInvalid payment.\n');
+			return xrplClaimProcessingCompleted('\nInvalid payment.');
 		}
 	});
 }
 
-async function contract() {
+async function initialiseChains() {
+	console.log('Initialising chains');
+	web3.eth.getTransactionCount(config.account.address)
+	.then(nonce => {
+		return [stateConnector.methods.initialiseChains().encodeABI(), nonce];
+	})
+	.then(contractData => {
+		var rawTx = {
+			nonce: contractData[1],
+			gasPrice: web3.utils.toHex(config.flare.gasPrice),
+			gas: web3.utils.toHex(config.flare.contractGas),
+			chainId: config.flare.chainId,
+			from: config.account.address,
+			to: stateConnector.options.address,
+			data: contractData[0]
+		}
+		var tx = new Tx(rawTx, {common: customCommon});
+		var key = Buffer.from(config.account.privateKey, 'hex');
+		tx.sign(key);
+		var serializedTx = tx.serialize();
+		
+		web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+		.on('receipt', receipt => {
+			if (receipt.status == false) {
+				return processFailure('receipt.status == false');
+			} else {
+				console.log("State-connector chains initialised.");
+				setTimeout(() => {return run(0)}, 5000);
+			}
+		})
+		.on('error', error => {
+			processFailure(error);
+		});
+	}).catch(processFailure);
+}
+
+async function configure(chainId) {
+	web3Config().catch(processFailure)
+	.then(chainConfig(chainId).catch(processFailure));
+}
+
+async function chainConfig(chainId) {
+	if (chainId == chains.xrp.chainId) {
+		chains.xrp.api = new RippleAPI({
+		  server: config.chains[chainId].url,
+		  timeout: 60000
+		});
+		chains.xrp.api.on('connected', () => {
+			return run(chainId);
+		})
+		return chains.xrp.api.connect().catch(xrplConnectRetry);
+	} else {
+		processFailure('Invalid chainId.');
+	}
+}
+
+async function web3Config() {
+	let rawConfig = fs.readFileSync('config.json');
+	config = JSON.parse(rawConfig);
+	// console.log(config);
+	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
+	web3.eth.handleRevert = true;
+	customCommon = Common.forCustomChain('ropsten',
+		{
+			name: 'coston',
+			networkId: config.flare.chainId,
+			chainId: config.flare.chainId,
+		},
+		'petersburg',);
 	// Read the compiled contract code
-	let source = fs.readFileSync("solidity/stateConnector.json");
+	let source = fs.readFileSync("../contracts/stateConnector.json");
 	let contracts = JSON.parse(source)["contracts"];
 	// ABI description as JSON structure
 	let abi = JSON.parse(contracts['stateConnector.sol:stateConnector'].abi);
@@ -249,9 +332,10 @@ async function contract() {
 	stateConnector = new web3.eth.Contract(abi);
 	// Smart contract EVM bytecode as hex
 	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
-	stateConnector.options.from = config.stateConnector.address;
-	stateConnector.options.address = config.stateConnector.contract;
+	stateConnector.options.from = config.account.address;
+	stateConnector.options.address = stateConnectorContract;
 }
+
 
 async function processFailure(error) {
 	console.error('error:', error);
@@ -264,16 +348,10 @@ async function sleep(ms) {
 	});
 }
 
-const chainId = parseInt(process.argv[2]);
+const chainName = process.argv[2];
 const txId = process.argv[3];
-if (chainId == 0) {
-	xrplConfig().catch(processFailure)
-	.then(() => {
-		return contract().catch(processFailure);
-	})
-	.then(() => {
-		return chainAPI.connect().catch(xrplConnectRetry);
-	})
+if (chainName in chains) {
+	return configure(chains[chainName].chainId);
 } else {
-	processFailure('Invalid chainId');
+	processFailure('Invalid chainName');
 }

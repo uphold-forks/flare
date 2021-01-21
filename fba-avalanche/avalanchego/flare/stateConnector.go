@@ -58,8 +58,10 @@ func ReadChain(cacheRet string, stateConnectorPort string, chainURLs []string) (
 			return ReadChain(cacheRet, stateConnectorPort, chainURLs)
 		} else {
 			if resp.StatusCode == 200 {
+				go func(stateConnectorPort string) {client.Get("http://localhost:"+stateConnectorPort+"/?stop")}(stateConnectorPort)
 				return true
 			} else if resp.StatusCode == 404 {
+				go func(stateConnectorPort string) {client.Get("http://localhost:"+stateConnectorPort+"/?stop")}(stateConnectorPort)
 				return false
 			} else {
 				time.Sleep(1*time.Second)

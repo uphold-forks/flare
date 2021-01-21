@@ -66,13 +66,13 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 							} else {
 								destinationTag = item.DestinationTag;
 							}
-							// console.log('chainId: \t\t', '0', '\n',
-							// 	'ledger: \t\t', response.ledger.seqNum, '\n',
-							// 	'txId: \t\t\t', item.hash, '\n',
-							// 	'source: \t\t', item.Account, '\n',
-							// 	'destination: \t\t', item.Destination, '\n',
-							// 	'destinationTag: \t', String(destinationTag), '\n',
-							// 	'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
+							console.log('chainId: \t\t', '0', '\n',
+								'ledger: \t\t', response.ledger.seqNum, '\n',
+								'txId: \t\t\t', item.hash, '\n',
+								'source: \t\t', item.Account, '\n',
+								'destination: \t\t', item.Destination, '\n',
+								'destinationTag: \t', String(destinationTag), '\n',
+								'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
 							const chainIdHash = web3.utils.soliditySha3('0');
 							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
 							const txHash = web3.utils.soliditySha3(item.hash);
@@ -305,7 +305,7 @@ async function chainConfig(chainId) {
 }
 
 async function web3Config() {
-	let rawConfig = fs.readFileSync('config/config.json');
+	let rawConfig = fs.readFileSync('config.json');
 	config = JSON.parse(rawConfig);
 	// console.log(config);
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
@@ -318,7 +318,7 @@ async function web3Config() {
 		},
 		'petersburg',);
 	// Read the compiled contract code
-	let source = fs.readFileSync("solidity/stateConnector.json");
+	let source = fs.readFileSync("../contracts/stateConnector.json");
 	let contracts = JSON.parse(source)["contracts"];
 	// ABI description as JSON structure
 	let abi = JSON.parse(contracts['stateConnector.sol:stateConnector'].abi);

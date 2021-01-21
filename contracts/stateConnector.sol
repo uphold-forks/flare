@@ -110,12 +110,14 @@ contract stateConnector {
         return computedHash == root;
     }
 
-    function provePaymentFinality(uint256 chainId, uint256 claimPeriodIndex, uint256 ledger, bytes32 txHash, bytes32 accountsHash, uint256 amount, bytes32 root, bytes32 leaf, bytes32[] memory proof) public view returns (bool success) {
+    function provePaymentFinality(uint256 chainId, uint256 claimPeriodIndex, uint256 ledger, bytes32 txHash, bytes32 accountsHash, uint256 amount, bytes32 root, bytes32 leaf, bytes32[] memory proof) public view returns (bool success, uint256 finalisedLedgerIndex) {
         require(Chains[chainId].exists == true, 'chainId does not exist');
+        require(ledger >= Chains[chainId].genesisLedger + claimPeriodIndex*Chains[chainId].claimPeriodLength, 'ledger < claimPeriodIndex region');
+        require(ledger < Chains[chainId].genesisLedger + (claimPeriodIndex+1)*Chains[chainId].claimPeriodLength, 'ledger > claimPeriodIndex region');
         require(checkRootFinality(root, chainId, claimPeriodIndex) == true, 'Claim period not finalised');
         require(constructLeaf(chainId, ledger, txHash, accountsHash, amount) == leaf, 'constructedLeaf != leaf');
         require(verifyMerkleProof(root, leaf, proof) == true, 'Payment not verified');
-        return true;
+        return (true, Chains[chainId].finalisedLedgerIndex-1);
     }
 
     function getlatestIndex(uint256 chainId) public view returns (uint256 genesisLedger, uint256 finalisedClaimPeriodIndex, uint256 claimPeriodLength, uint256 finalisedLedgerIndex, uint256 finalisedTimestamp, uint256 timeDiffAvg) {
@@ -135,6 +137,7 @@ contract stateConnector {
     function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength, bytes32 _claimPeriodHash) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(Chains[chainId].exists == true, 'chainId does not exist');
+        require(ledger == Chains[chainId].genesisLedger + (claimPeriodIndex+1)*Chains[chainId].claimPeriodLength, 'invalid claimPeriodIndex');
 
         if (block.timestamp >= Chains[chainId].finalisedTimestamp) {
             require(2*(block.timestamp-Chains[chainId].finalisedTimestamp) > Chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
