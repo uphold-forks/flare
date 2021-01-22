@@ -1,6 +1,8 @@
-package flare
+package core
 
 import (
+	"sync"
+	"math/big"
 	"encoding/json"
 	"encoding/hex"
 	"crypto/sha256"
@@ -8,10 +10,56 @@ import (
 	"os"
 	"os/exec"
 	"time"
-	"sync"
+	"net/http"
 )
 
 var fileMutex sync.Mutex
+
+// Fixed gas used for custom block.coinbase operations
+func GetFixedGasUsed(BlockNumber *big.Int) (uint64) {
+    switch {
+        default:
+            return 100000
+    }
+}
+
+// Fixed gas used for custom block.coinbase operations
+func GetDataFee(BlockNumber *big.Int) (uint64) {
+    switch {
+        default:
+            return 10000000
+    }
+}
+
+func GetGovernanceContractAddr(BlockNumber *big.Int) (string) {
+    switch {
+        default:
+            return "0x1000000000000000000000000000000000000000"
+    }
+}
+
+func GetStateConnectorContractAddr(BlockNumber *big.Int) (string) {
+    switch {
+        default:
+            return "0x1000000000000000000000000000000000000001"
+    }
+}
+
+func GetRegisterClaimPeriodSelector(BlockNumber *big.Int) ([]byte) {
+    switch {
+        default:
+            return []byte{0x76,0x0f,0x6a,0x5a}
+    }
+}
+
+var (
+	tr = &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    60 * time.Second,
+		DisableCompression: true,
+	}
+	client = &http.Client{Transport: tr}
+)
 
 type VerifiedStateConnectorHashes struct {
 	Hashes	[]string 	`json:"hashes"`
@@ -30,7 +78,7 @@ func CheckAlive(stateConnectorPort string, chainURLs []string) (bool) {
 	go func(stateConnectorPort string) {client.Get("http://localhost:"+stateConnectorPort+"/?stop")}(stateConnectorPort)
 	time.Sleep(1*time.Second)
 	go func(stateConnectorPort string, chainURLs []string) {
-		startCommand := []string{"nohup", "node", "flare/verify.js", stateConnectorPort}
+		startCommand := []string{"nohup", "node", "verify/verify.js", stateConnectorPort}
 		startCommand = append(startCommand, chainURLs[:]...)
 		startCommand = append(startCommand, "&>/dev/null")
 		exec.Command(startCommand[0], startCommand[1:]...).Output()
@@ -80,7 +128,7 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 	defer fileMutex.Unlock()
 	var data VerifiedStateConnectorHashes
 	stateConnectorPort := stateConnectorConfig[0]
-	stateConnectorCacheFilePath := "flare/verifiedHashes"+stateConnectorPort+".json"
+	stateConnectorCacheFilePath := "verify/verifiedHashes"+stateConnectorPort+".json"
 	rawHash := sha256.Sum256(cacheRet)
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateConnectorCacheFilePath)

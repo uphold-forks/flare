@@ -31,7 +31,7 @@ else
 	mkdir -p $LOG_DIR/node03
 	printf "Building Flare Core...\n"
 	./scripts/build.sh
-	cd flare
+	cd verify
 	yarn --silent
 	cd -
 fi
@@ -43,7 +43,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="8080,wss://s2.ripple.com" &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
+--state-connector-config="8080,wss://xrpl.ws" &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
 NODE_00_PID=`cat $LOG_DIR/node00/launch.pid`
 sleep 5
 
@@ -54,7 +54,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="8081,wss://s2.ripple.com" &> $LOG_DIR/node01/launch.out & echo $! > $LOG_DIR/node01/launch.pid
+--state-connector-config="8081,wss://xrpl.ws" &> $LOG_DIR/node01/launch.out & echo $! > $LOG_DIR/node01/launch.pid
 NODE_01_PID=`cat $LOG_DIR/node01/launch.pid`
 sleep 5
 
@@ -65,7 +65,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="8082,wss://s2.ripple.com" &> $LOG_DIR/node02/launch.out & echo $! > $LOG_DIR/node02/launch.pid
+--state-connector-config="8082,wss://xrpl.ws" &> $LOG_DIR/node02/launch.out & echo $! > $LOG_DIR/node02/launch.pid
 NODE_02_PID=`cat $LOG_DIR/node02/launch.pid`
 sleep 5
 
@@ -76,7 +76,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="8083,wss://s2.ripple.com" &> $LOG_DIR/node03/launch.out & echo $! > $LOG_DIR/node03/launch.pid
+--state-connector-config="8083,wss://xrpl.ws" &> $LOG_DIR/node03/launch.out & echo $! > $LOG_DIR/node03/launch.pid
 NODE_03_PID=`cat $LOG_DIR/node03/launch.pid`
 sleep 5
 

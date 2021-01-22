@@ -6,7 +6,7 @@
   "chains": [
     {
       "name": "XRPL",
-      "url": "wss://s2.ripple.com"
+      "url": "wss://xrpl.ws"
     }
   ],
   "flare": {

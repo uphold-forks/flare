@@ -39,12 +39,12 @@ contract stateConnector {
 //====================================================================
 
     constructor() {
-    } 
+    }
 
     function initialiseChains() public returns (bool success) {
         require(initialised == false, 'initialised != false');
         governanceContract = 0x1000000000000000000000000000000000000000;
-        Chains[0] = Chain(true, 60155580, 10, 0, 60155580, block.timestamp, 30, 0); //XRP
+        Chains[0] = Chain(true, 61050250, 50, 0, 61050250, block.timestamp, 150, 0); //XRP
         initialised = true;
         return true;
     }
@@ -137,6 +137,7 @@ contract stateConnector {
     function registerClaimPeriod(uint256 chainId, uint256 ledger, uint256 claimPeriodIndex, bytes32 claimPeriodHash) public returns (bool finality, uint256 _chainId, uint256 _ledger, uint256 _claimPeriodLength, bytes32 _claimPeriodHash) {
         require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(Chains[chainId].exists == true, 'chainId does not exist');
+        require(ledger == Chains[chainId].finalisedLedgerIndex + Chains[chainId].claimPeriodLength, 'invalid ledger');
         require(ledger == Chains[chainId].genesisLedger + (claimPeriodIndex+1)*Chains[chainId].claimPeriodLength, 'invalid claimPeriodIndex');
 
         if (block.timestamp >= Chains[chainId].finalisedTimestamp) {
@@ -163,7 +164,7 @@ contract stateConnector {
             Chains[chainId].finalisedLedgerIndex = ledger;
             if (block.timestamp >= Chains[chainId].finalisedTimestamp) {
                 uint256 timeDiffAvgUpdate = (Chains[chainId].timeDiffAvg + (block.timestamp-Chains[chainId].finalisedTimestamp))/2;
-                if (timeDiffAvgUpdate > 2*Chains[chainId].timeDiffExpected) {
+                if (timeDiffAvgUpdate > Chains[chainId].timeDiffExpected) {
                     Chains[chainId].timeDiffAvg = Chains[chainId].timeDiffExpected;
                 } else {
                     Chains[chainId].timeDiffAvg = timeDiffAvgUpdate;

@@ -23,7 +23,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/propertyfx"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-	"github.com/ava-labs/avalanchego/flare"
 )
 
 const (
@@ -213,12 +212,12 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 	// Specify the chains that exist upon this network's creation
 	var genesisStr string
 	if (config.NetworkID == 14) {
-		genesisStr, err = formatting.Encode(defaultEncoding, []byte(flare.FlareGenesis))
+		genesisStr, err = formatting.Encode(defaultEncoding, []byte(FlareGenesis))
 		if err != nil {
 			return nil, ids.Empty, fmt.Errorf("couldn't encode message: %w", err)
 		}
 	} else if (config.NetworkID == 16) {
-		genesisStr, err = formatting.Encode(defaultEncoding, []byte(flare.CostonGenesis))
+		genesisStr, err = formatting.Encode(defaultEncoding, []byte(CostonGenesis))
 		if err != nil {
 			return nil, ids.Empty, fmt.Errorf("couldn't encode message: %w", err)
 		}
