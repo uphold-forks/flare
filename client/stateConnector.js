@@ -167,7 +167,7 @@ async function run(chainId, minLedger) {
 				.then(sampledLedger => {
 					if (parseInt(result.finalisedLedgerIndex) < parseInt(minLedger)) {
 						console.log("Waiting for network to independently verify prior claim period registration.");
-						setTimeout(() => {return run(chainId, minLedger)}, 5000);
+						return setTimeout(() => {run(chainId, minLedger)}, 5000);
 					} else {
 						console.log("Finalised claim period:\t\x1b[33m", parseInt(result.finalisedClaimPeriodIndex)-1, 
 							"\n\x1b[0mFinalised Ledger Index:\t\x1b[33m", parseInt(result.finalisedLedgerIndex),
@@ -179,7 +179,7 @@ async function run(chainId, minLedger) {
 						const deferTime = parseInt(parseInt(result.timeDiffAvg)/2) - (currTime-parseInt(result.finalisedTimestamp)) - 5;
 						if (deferTime > 5) {
 							console.log("Not enough time elapsed since prior finality, deferring for", deferTime, "seconds.");
-							setTimeout(() => {return run(chainId, minLedger)}, 1000*deferTime);
+							return setTimeout(() => {run(chainId, minLedger)}, 1000*deferTime);
 						} else if (sampledLedger > parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
 							return xrplProcessLedgers([], parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), parseInt(result.finalisedLedgerIndex));
 						} else {
@@ -235,7 +235,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 				const txHash = web3.utils.sha3(serializedTx);
 
 				console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
-				return web3.eth.getTransaction(txHash)
+				web3.eth.getTransaction(txHash)
 				.then(txResult => {
 					if (txResult == null) {
 						web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
@@ -244,7 +244,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 								return processFailure('receipt.status == false');
 							} else {
 								console.log('Transaction delivered:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
-								setTimeout(() => {return run(chainId, ledger)}, 15000);
+								return setTimeout(() => {run(chainId, ledger)}, 20000);
 							}
 						})
 						.on('error', error => {
@@ -252,7 +252,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 						});
 					} else {
 						console.log('Already waiting for this transaction to be delivered.');
-						setTimeout(() => {return run(chainId, ledger)}, 5000);
+						return setTimeout(() => {xrplClaimProcessingCompleted()}, 10000);
 					}
 				})
 			})
@@ -287,7 +287,7 @@ async function initialiseChains() {
 				return processFailure('receipt.status == false');
 			} else {
 				console.log("State-connector chains initialised.");
-				setTimeout(() => {return run(0, 0)}, 5000);
+				return setTimeout(() => {run(0, 0)}, 5000);
 			}
 		})
 		.on('error', error => {
