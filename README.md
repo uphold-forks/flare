@@ -16,7 +16,7 @@ Flare is a next-generation blockchain which enables smart contracts with multipl
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version >= v10 LTS.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version >= v1.13.0.
 
-Clone Flare and use Yarn to install its dependencies:
+Clone Flare:
 ```
 git clone https://gitlab.com/flarenetwork/flare
 ```
@@ -43,10 +43,10 @@ yarn
 
 ## Verify an Underlying Chain Payment on Flare
 
-The state connector contract contains a public view function that allows any other contract to verify a merkle tree proof that proves/disproves whether a payment has occurred on any underlying chain. As an example, we will verify this transaction: https://livenet.xrpl.org/transactions/44B00358328BC6818212F91840C7A6E9EF8CB305FF3FF6E56422A6ADE6ACB08E. Run the following command in a separate terminal window once the state connector has finalised a few claim periods: 
+The state connector contract contains a public view function that allows any other contract to verify a merkle tree proof that proves/disproves whether a payment has occurred on any underlying chain. As an example, we will verify this transaction: https://livenet.xrpl.org/transactions/9617C6513866328BF0C57746A0BF88F8752F2CF798ADAB121AA66770F3D040EF. Run the following command in a separate terminal window once the state connector has finalised a few claim periods: 
 
 ```
-node prove xrp 44B00358328BC6818212F91840C7A6E9EF8CB305FF3FF6E56422A6ADE6ACB08E
+node prove xrp 9617C6513866328BF0C57746A0BF88F8752F2CF798ADAB121AA66770F3D040EF
 ```
 
 (c) Flare Networks Ltd. 2020
