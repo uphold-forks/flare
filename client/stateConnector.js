@@ -244,7 +244,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 								return processFailure('receipt.status == false');
 							} else {
 								console.log('Transaction delivered:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
-								return setTimeout(() => {run(chainId, ledger)}, 20000);
+								return setTimeout(() => {run(chainId, ledger)}, 5000);
 							}
 						})
 						.on('error', error => {
@@ -252,7 +252,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 						});
 					} else {
 						console.log('Already waiting for this transaction to be delivered.');
-						return setTimeout(() => {xrplClaimProcessingCompleted()}, 10000);
+						return setTimeout(() => {xrplClaimProcessingCompleted()}, 5000);
 					}
 				})
 			})
