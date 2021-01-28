@@ -39,7 +39,7 @@ const RippleKeys = require('ripple-keypairs');
 
 async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger, leaf) {
 	console.log('Retrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
-	async function xrplProcessLedger(currLedger) {
+	async function xrplProcessLedger(payloads, currLedger) {
 		const command = 'ledger';
 		const params = {
 			'ledger_index': currLedger,
@@ -47,91 +47,49 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 			'full': false,
 			'accounts': false,
 			'transactions': true,
-			'expand': true,
+			'expand': false,
 			'owner_funds': false
 		};
 		return chains.xrp.api.request(command, params)
 		.then(response => {
-			async function responseIterate(response) {
-				async function transactionIterate(item, i, numTransactions) {
-					if (item.TransactionType == 'Payment' && typeof item.Amount == 'string' && item.metaData.TransactionResult == 'tesSUCCESS') {
-						const prevLength = payloads.length;
-						const leafPromise = new Promise((resolve, reject) => {
-							var destinationTag;
-							if (!("DestinationTag" in item)) {
-								destinationTag = 0;
-							} else {
-								destinationTag = item.DestinationTag;
-							}
-							const chainIdHash = web3.utils.soliditySha3('0');
-							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
-							const txHash = web3.utils.soliditySha3(item.hash);
-							const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(item.Account, item.Destination), destinationTag);
-							const amountHash = web3.utils.soliditySha3(item.metaData.delivered_amount);
-							const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
-							resolve(leafHash);
-						})
-						return await leafPromise.then(newPayload => {
-							payloads[payloads.length] = newPayload;
-							if (payloads.length == prevLength + 1) {
-								if (i+1 < numTransactions) {
-									return transactionIterate(response.ledger.transactions[i+1], i+1, numTransactions);
-								} else {
-									return checkResponseCompletion(response);
-								}
-							} else {
-								return processFailure("Unable to append payload:", item.hash);
-							}
-						}).catch(error => {
-							return processFailure("Unable to intepret payload:", error, item.hash);
-						})
-					} else {
-						if (i+1 < numTransactions) {
-							return transactionIterate(response.ledger.transactions[i+1], i+1, numTransactions);
-						} else {
-							return checkResponseCompletion(response);
-						}
-					}
-				}
-				async function checkResponseCompletion(response) {
-					if (chains.xrp.api.hasNextPage(response) == true) {
-						chains.xrp.api.requestNextPage(command, params, response)
-						.then(next_response => {
-							responseIterate(next_response);
-						})
-					} else if (parseInt(currLedger)+1 < genesisLedger + (claimPeriodIndex+1)*claimPeriodLength) {
-						return xrplProcessLedger(parseInt(currLedger)+1);
-					} else {
-						if (payloads.length > 0) {
-							const tree = new MerkleTree(payloads, keccak256, {sort: true});
-							const root = tree.getHexRoot();
-							const proof = tree.getProof(leaf.leafHash);
-							const verification = tree.verify(proof, leaf.leafHash, root);
-							console.log('Number of Merkle Tree Leaves:', payloads.length, '\n');
-							if (verification == true) {
-								const hexProof = tree.getHexProof(leaf.leafHash);
-								return provePaymentFinality(claimPeriodIndex, hexProof, leaf, root);
-							} else {
-								return processFailure('Invalid Merkle tree proof.');
-							}
-						} else {
-							return processFailure('payloads.length == 0');
-						}
-					}
-				}
-				if (response.ledger.transactions.length > 0) {
-					return transactionIterate(response.ledger.transactions[0], 0, response.ledger.transactions.length);
+			async function responseIterate(payloads, response) {
+				payloads = payloads.concat(response.ledger.transactions);
+				if (chains.xrp.api.hasNextPage(response) == true) {
+					chains.xrp.api.requestNextPage(command, params, response)
+					.then(next_response => {
+						responseIterate(payloads, next_response);
+					})
+					.catch(error => {
+						processFailure(error);
+					})
+				} else if (parseInt(currLedger)+1 < genesisLedger + (claimPeriodIndex+1)*claimPeriodLength) {
+					return xrplProcessLedger(payloads, parseInt(currLedger)+1);
 				} else {
-					return checkResponseCompletion(response);
-				}
+					if (payloads.length > 0) {
+						const leaves = payloads.map(x => keccak256(x));
+						const tree = new MerkleTree(leaves, keccak256, {sort: true});
+						const root = tree.getHexRoot();
+						const proof = tree.getProof(leaf.txHash);
+						const verification = tree.verify(proof, leaf.txHash, root);
+						console.log('Number of Merkle Tree Leaves:', payloads.length, '\n');
+						if (verification == true) {
+							const hexProof = tree.getHexProof(leaf.txHash);
+							return provePaymentFinality(claimPeriodIndex, hexProof, leaf, root);
+						} else {
+							return processFailure('Invalid Merkle tree proof.');
+						}
+					} else {
+						return processFailure('payloads.length == 0');
+					}
+				}	
 			}
-			responseIterate(response);
+			responseIterate(payloads, response);
 		})
 		.catch(error => {
 			processFailure(error);
 		})
 	}
-	return xrplProcessLedger(ledger);
+	return xrplProcessLedger(payloads, ledger);
 }
 
 async function xrplConfig() {
@@ -238,15 +196,11 @@ async function provePaymentFinality(claimPeriodIndex, proof, leaf, root) {
 	stateConnector.methods.provePaymentFinality(
 					leaf.chainId,
 					claimPeriodIndex,
-					leaf.ledger,
-					leaf.txHash,
-					leaf.accountsHash,
-					leaf.amount,
 					root,
-					leaf.leafHash,
+					leaf.txHash,
 					proof).call().catch(processFailure)
 	.then(result => {
-		if (result.success == true) {
+		if (result == true) {
 			return xrplClaimProcessingCompleted('\nPayment verified.');
 		} else {
 			return xrplClaimProcessingCompleted('\nInvalid payment.');

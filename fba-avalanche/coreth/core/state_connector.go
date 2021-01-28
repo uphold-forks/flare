@@ -41,7 +41,14 @@ func GetStateConnectorContractAddr(BlockNumber *big.Int) (string) {
 func GetRegisterClaimPeriodSelector(BlockNumber *big.Int) ([]byte) {
     switch {
         default:
-            return []byte{0x76,0x0f,0x6a,0x5a}
+            return []byte{0x54,0x65,0xdf,0xc4}
+    }
+}
+
+func GetProvePaymentFinalitySelector(BlockNumber *big.Int) ([]byte) {
+    switch {
+        default:
+            return []byte{0xf6,0xf5,0x6a,0xf7}
     }
 }
 
@@ -67,15 +74,19 @@ func contains(slice []string, item string) bool {
     return ok
 }
 
-type Payload struct {
-	Method string   `json:"method"`
-	Params []Params `json:"params"`
-}
-
-type Params struct {
-}
+// =======================================================
+// XRP
+// =======================================================
 
 func PingChain(chainURL string) (bool) {
+	
+	type Params struct {
+	}
+	type Payload struct {
+		Method string   `json:"method"`
+		Params []Params `json:"params"`
+	}
+
 	data := Payload{
 		Method: "ping",
 	}
@@ -102,24 +113,60 @@ func PingChain(chainURL string) (bool) {
 	}
 }
 
+// func GetXRPBlock(index int) (bool) {
+// 	type Payload struct {
+// 		Method string   `json:"method"`
+// 		Params []Params `json:"params"`
+// 	}
+// 	type Params struct {
+// 		LedgerIndex  string `json:"ledger_index"`
+// 		Full         bool   `json:"full"`
+// 		Accounts     bool   `json:"accounts"`
+// 		Transactions bool   `json:"transactions"`
+// 		Expand       bool   `json:"expand"`
+// 		OwnerFunds   bool   `json:"owner_funds"`
+// 	}
+// 	data := Payload{
+// 	// fill struct
+// 	}
+// 	payloadBytes, err := json.Marshal(data)
+// 	if err != nil {
+// 		// handle err
+// 	}
+// 	body := bytes.NewReader(payloadBytes)
+
+// 	req, err := http.NewRequest("POST", "https://s1.ripple.com:51234/", body)
+// 	if err != nil {
+// 		// handle err
+// 	}
+// 	req.Header.Set("Content-Type", "application/json")
+
+// 	resp, err := http.DefaultClient.Do(req)
+// 	if err != nil {
+// 		// handle err
+// 	}
+// 	defer resp.Body.Close()
+// }
+
 func ReadChain(cacheRet string, chainURLs []string) (bool) {
 	pong := false
 	for pong == false {
 		pong = PingChain(chainURLs[0])
 		if (pong == false) {
+			// Notify this validator's admin here
 			time.Sleep(1*time.Second)
 		}
 	}
 	return true
 }
 
-// Verify claim period 
-func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
+// Verify proof against underlying chain
+func StateConnectorCall(stateConnectorConfig []string, checkRet []byte, functionSelector []byte) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data StateHashes
 	stateCacheFilePath := "db/stateHashes"+strconv.Itoa(os.Getpid())+".json"
-	rawHash := sha256.Sum256(cacheRet)
+	rawHash := sha256.Sum256(checkRet)
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateCacheFilePath)
     if os.IsNotExist(err) {
@@ -130,7 +177,7 @@ func VerifyClaimPeriod(stateConnectorConfig []string, cacheRet []byte) (bool) {
 		json.Unmarshal(file, &data)
     }
     if (contains(data.Hashes, hexHash) == false) {
-    	if (ReadChain(hex.EncodeToString(cacheRet[:]), stateConnectorConfig[:]) == true) {
+    	if (ReadChain(hex.EncodeToString(checkRet[:]), stateConnectorConfig[:]) == true) {
     		data.Hashes = append(data.Hashes, hexHash)
 			jsonData, _ := json.Marshal(data)
 			ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)

@@ -42,7 +42,7 @@ const RippleKeys = require('ripple-keypairs');
 
 async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger) {
 	console.log('\nRetrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
-	async function xrplProcessLedger(currLedger) {
+	async function xrplProcessLedger(payloads, currLedger) {
 		const command = 'ledger';
 		const params = {
 			'ledger_index': currLedger,
@@ -50,92 +50,43 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 			'full': false,
 			'accounts': false,
 			'transactions': true,
-			'expand': true,
+			'expand': false,
 			'owner_funds': false
 		};
 		return chains.xrp.api.request(command, params)
 		.then(response => {
-			async function responseIterate(response) {
-				async function transactionIterate(item, i, numTransactions) {
-					if (item.TransactionType == 'Payment' && typeof item.Amount == 'string' && item.metaData.TransactionResult == 'tesSUCCESS') {
-						const prevLength = payloads.length;
-						const leafPromise = new Promise((resolve, reject) => {
-							var destinationTag;
-							if (!("DestinationTag" in item)) {
-								destinationTag = 0;
-							} else {
-								destinationTag = item.DestinationTag;
-							}
-							// console.log('chainId: \t\t', '0', '\n',
-							// 	'ledger: \t\t', response.ledger.seqNum, '\n',
-							// 	'txId: \t\t\t', item.hash, '\n',
-							// 	'source: \t\t', item.Account, '\n',
-							// 	'destination: \t\t', item.Destination, '\n',
-							// 	'destinationTag: \t', String(destinationTag), '\n',
-							// 	'amount: \t\t', parseInt(item.metaData.delivered_amount), '\n');
-							const chainIdHash = web3.utils.soliditySha3('0');
-							const ledgerHash = web3.utils.soliditySha3(response.ledger.seqNum);
-							const txHash = web3.utils.soliditySha3(item.hash);
-							const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(item.Account, item.Destination), destinationTag);
-							const amountHash = web3.utils.soliditySha3(item.metaData.delivered_amount);
-							const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
-							resolve(leafHash);
-						}).catch(processFailure)
-						return await leafPromise.then(newPayload => {
-							payloads[payloads.length] = newPayload;
-							if (payloads.length == prevLength + 1) {
-								if (i+1 < numTransactions) {
-									return transactionIterate(response.ledger.transactions[i+1], i+1, numTransactions);
-								} else {
-									return checkResponseCompletion(response);
-								}
-							} else {
-								return processFailure("Unable to append payload:", tx.hash);
-							}
-						}).catch(error => {
-							return processFailure("Unable to intepret payload:", error, tx.hash);
-						})
-					} else {
-						if (i+1 < numTransactions) {
-							return transactionIterate(response.ledger.transactions[i+1], i+1, numTransactions);
-						} else {
-							return checkResponseCompletion(response);
-						}
-					}
-				}
-				async function checkResponseCompletion(response) {
-					if (chains.xrp.api.hasNextPage(response) == true) {
-						chains.xrp.api.requestNextPage(command, params, response)
-						.then(next_response => {
-							responseIterate(next_response);
-						})
-					} else if (parseInt(currLedger)+1 < genesisLedger + (claimPeriodIndex+1)*claimPeriodLength) {
-						return xrplProcessLedger(parseInt(currLedger)+1);
-					} else {
-						var root;
-						if (payloads.length > 0) {
-							const tree = new MerkleTree(payloads, keccak256, {sort: true});
-							root = tree.getHexRoot();
-						} else {
-							root = "0x0000000000000000000000000000000000000000000000000000000000000000";
-						}
-						console.log('Num Payloads:\t\t', payloads.length);
-						return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root);
-					}
-				}
-				if (response.ledger.transactions.length > 0) {
-					return transactionIterate(response.ledger.transactions[0], 0, response.ledger.transactions.length);
+			async function responseIterate(payloads, response) {
+				payloads = payloads.concat(response.ledger.transactions);
+				if (chains.xrp.api.hasNextPage(response) == true) {
+					chains.xrp.api.requestNextPage(command, params, response)
+					.then(next_response => {
+						responseIterate(payloads, next_response);
+					})
+					.catch(error => {
+						processFailure(error);
+					})
+				} else if (parseInt(currLedger)+1 < genesisLedger + (claimPeriodIndex+1)*claimPeriodLength) {
+					return xrplProcessLedger(payloads, parseInt(currLedger)+1);
 				} else {
-					return checkResponseCompletion(response);
-				}
+					var root;
+					if (payloads.length > 0) {
+						const leaves = payloads.map(x => keccak256(x));
+						const tree = new MerkleTree(leaves, keccak256, {sort: true});
+						root = tree.getHexRoot();
+					} else {
+						root = "0x0000000000000000000000000000000000000000000000000000000000000000";
+					}
+					console.log('Num Payloads:\t\t', payloads.length);
+					return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root);
+				}	
 			}
-			responseIterate(response);
+			responseIterate(payloads, response);
 		})
 		.catch(error => {
 			processFailure(error);
 		})
 	}
-	return xrplProcessLedger(ledger);
+	return xrplProcessLedger(payloads, ledger);
 }
 
 function xrplClaimProcessingCompleted(message) {
@@ -176,8 +127,8 @@ async function run(chainId, minLedger) {
 							"\n\x1b[0mCurrent Timestamp:\t\x1b[33m", parseInt(Date.now()/1000),
 							"\n\x1b[0mDiff Avg (sec):\t\t\x1b[33m", parseInt(result.timeDiffAvg));
 						const currTime = parseInt(Date.now()/1000);
-						const deferTime = parseInt(parseInt(result.timeDiffAvg)/2) - (currTime-parseInt(result.finalisedTimestamp)) - 5;
-						if (deferTime > 5) {
+						const deferTime = parseInt(2*parseInt(result.timeDiffAvg)/3 - (currTime-parseInt(result.finalisedTimestamp)));
+						if (deferTime > 1) {
 							console.log("Not enough time elapsed since prior finality, deferring for", deferTime, "seconds.");
 							return setTimeout(() => {run(chainId, minLedger)}, 1000*deferTime);
 						} else if (sampledLedger > parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
