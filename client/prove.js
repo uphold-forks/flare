@@ -69,11 +69,11 @@ async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, cla
 						const leaves = payloads.map(x => keccak256(x));
 						const tree = new MerkleTree(leaves, keccak256, {sort: true});
 						const root = tree.getHexRoot();
-						const proof = tree.getProof(leaf.txHash);
-						const verification = tree.verify(proof, leaf.txHash, root);
+						const proof = tree.getProof(leaf.txId);
+						const verification = tree.verify(proof, leaf.txId, root);
 						console.log('Number of Merkle Tree Leaves:', payloads.length, '\n');
 						if (verification == true) {
-							const hexProof = tree.getHexProof(leaf.txHash);
+							const hexProof = tree.getHexProof(leaf.txId);
 							return provePaymentFinality(claimPeriodIndex, hexProof, leaf, root);
 						} else {
 							return processFailure('Invalid Merkle tree proof.');
@@ -134,7 +134,7 @@ async function xrplConnectRetry(error) {
 
 async function run(chainId) {
 	stateConnector.methods.getlatestIndex(parseInt(chainId)).call({
-		from: config.account.address,
+		from: config.accounts[1].address,
 		gas: config.flare.gas,
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
@@ -146,44 +146,58 @@ async function run(chainId) {
 		if (chainId == 0) {
 			chains.xrp.api.getTransaction(txId).catch(processFailure)
 			.then(tx => {
-				const leafPromise = new Promise((resolve, reject) => {
-					var destinationTag;
-					if (!("tag" in tx.specification.destination)) {
-						destinationTag = '0';
-					} else {
-						destinationTag = String(tx.specification.destination.tag);
-					}
-					const amount = String(parseInt(parseFloat(tx.outcome.deliveredAmount.value) / Math.pow(10, -6)));
-					console.log('\nchainId: \t\t', '0', '\n',
-						'ledger: \t\t', tx.outcome.ledgerVersion, '\n',
-						'txId: \t\t\t', tx.id, '\n',
-						'source: \t\t', tx.specification.source.address, '\n',
-						'destination: \t\t', tx.specification.destination.address, '\n',
-						'destinationTag: \t', destinationTag, '\n',
-						'amount: \t\t', amount, '\n');
-					const chainIdHash = web3.utils.soliditySha3('0');
-					const ledgerHash = web3.utils.soliditySha3(tx.outcome.ledgerVersion);
-					const txHash = web3.utils.soliditySha3(tx.id);
-					const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(tx.specification.source.address, tx.specification.destination.address), destinationTag);
-					const amountHash = web3.utils.soliditySha3(amount);
-					const leafHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txHash, accountsHash, amountHash);
-					const leaf = {
-						"leafHash": 			leafHash,
-						"chainId": 				'0',
-						"ledger": 				tx.outcome.ledgerVersion,
-						"txHash": 				txHash,
-						"accountsHash": 		accountsHash,
-						"amount": 				amount,
-					}
-					resolve(leaf);
-				})
-				leafPromise.then(leaf => {
-					if (parseInt(tx.outcome.ledgerVersion) >= result[0] || parseInt(tx.outcome.ledgerVersion) < result[3]) {
-						return xrplProcessLedgers([], result[0], parseInt((parseInt(tx.outcome.ledgerVersion)-result[0])/result[2]), result[2], result[0] + parseInt((parseInt(tx.outcome.ledgerVersion)-result[0])/result[2])*result[2], leaf);
-					} else {
-						return processFailure('Transaction not yet finalised on Flare.')
-					}
-				})
+				if (tx.type == 'payment') {
+					const leafPromise = new Promise((resolve, reject) => {
+						var destinationTag;
+						if (!("tag" in tx.specification.destination)) {
+							destinationTag = '0';
+						} else {
+							destinationTag = String(tx.specification.destination.tag);
+						}
+						const amount = String(parseInt(parseFloat(tx.outcome.deliveredAmount.value) / Math.pow(10, -6)));
+						console.log('\nchainId: \t\t', '0', '\n',
+							'ledger: \t\t', tx.outcome.ledgerVersion, '\n',
+							'txId: \t\t\t', tx.id, '\n',
+							'source: \t\t', tx.specification.source.address, '\n',
+							'destination: \t\t', tx.specification.destination.address, '\n',
+							'destinationTag: \t', destinationTag, '\n',
+							'amount: \t\t', amount, '\n');
+						const chainIdHash = web3.utils.soliditySha3('0');
+						const ledgerHash = web3.utils.soliditySha3(tx.outcome.ledgerVersion);
+						const txId = web3.utils.soliditySha3(tx.id);
+						const accountsHash = web3.utils.soliditySha3(web3.utils.soliditySha3(tx.specification.source.address, tx.specification.destination.address), destinationTag);
+						const amountHash = web3.utils.soliditySha3(amount);
+						const paymentHash = web3.utils.soliditySha3(chainIdHash, ledgerHash, txId, accountsHash, amountHash);
+						const leaf = {
+							"chainId": 				'0',
+							"txId": 				txId,
+							"paymentHash": 			paymentHash,
+						}
+						resolve(leaf);
+					})
+					leafPromise.then(leaf => {
+						if (parseInt(tx.outcome.ledgerVersion) >= result[0] || parseInt(tx.outcome.ledgerVersion) < result[3]) {
+							stateConnector.methods.getPaymentFinality(
+											leaf.txId,
+											leaf.paymentHash).call({
+								from: config.accounts[1].address,
+								gas: config.flare.gas,
+								gasPrice: config.flare.gasPrice
+							}).catch(() => {
+								return xrplProcessLedgers([], result[0], parseInt((parseInt(tx.outcome.ledgerVersion)-result[0])/result[2]), result[2], result[0] + parseInt((parseInt(tx.outcome.ledgerVersion)-result[0])/result[2])*result[2], leaf);
+							})
+							.then(result => {
+								if (result == true) {
+									return xrplClaimProcessingCompleted('Payment already proven.');
+								} 
+							})
+						} else {
+							return processFailure('Transaction not yet finalised on Flare.')
+						}
+					})
+				} else {
+					return xrplClaimProcessingCompleted('Transaction type not yet supported on Flare.');
+				}
 			})
 		} else {
 			return processFailure('Invalid chainId.');
@@ -192,56 +206,68 @@ async function run(chainId) {
 }
 
 async function provePaymentFinality(claimPeriodIndex, proof, leaf, root) {
-	console.log('Proof: ', proof, '\nLeaf: ', leaf.leafHash, '\nRoot: ', root);
-	stateConnector.methods.provePaymentFinality(
+	console.log('Proof: ', proof, '\nLeaf: ', leaf, '\nRoot: ', root);
+	web3.eth.getTransactionCount(config.accounts[1].address)
+	.then(nonce => {
+		return [stateConnector.methods.provePaymentFinality(
 					leaf.chainId,
 					claimPeriodIndex,
 					root,
-					leaf.txHash,
-					proof).call().catch(processFailure)
-	.then(result => {
-		if (result == true) {
-			return xrplClaimProcessingCompleted('\nPayment verified.');
-		} else {
-			return xrplClaimProcessingCompleted('\nInvalid payment.');
-		}
-	});
-}
-
-async function initialiseChains() {
-	console.log('Initialising chains');
-	web3.eth.getTransactionCount(config.account.address)
-	.then(nonce => {
-		return [stateConnector.methods.initialiseChains().encodeABI(), nonce];
+					leaf.txId,
+					leaf.paymentHash,
+					proof).encodeABI(), nonce];
 	})
-	.then(contractData => {
+	.then(txData => {
 		var rawTx = {
-			nonce: contractData[1],
-			gasPrice: web3.utils.toHex(config.flare.gasPrice),
-			gas: web3.utils.toHex(config.flare.contractGas),
-			chainId: config.flare.chainId,
-			from: config.account.address,
+			nonce: txData[1],
+			gasPrice: web3.utils.toHex(parseInt(config.flare.gasPrice)),
+			gas: web3.utils.toHex(config.flare.gas),
 			to: stateConnector.options.address,
-			data: contractData[0]
-		}
+			from: config.accounts[1].address,
+			data: txData[0]
+		};
 		var tx = new Tx(rawTx, {common: customCommon});
-		var key = Buffer.from(config.account.privateKey, 'hex');
+		var key = Buffer.from(config.accounts[1].privateKey, 'hex');
 		tx.sign(key);
 		var serializedTx = tx.serialize();
-		
-		web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
-		.on('receipt', receipt => {
-			if (receipt.status == false) {
-				return processFailure('receipt.status == false');
+		const txHash = web3.utils.sha3(serializedTx);
+		console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
+		web3.eth.getTransaction(txHash)
+		.then(txResult => {
+			if (txResult == null) {
+				web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
+				.on('receipt', receipt => {
+					if (receipt.status == false) {
+						return processFailure('receipt.status == false');
+					} else {
+						console.log('Transaction delivered:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
+						async function getPaymentFinality() {
+							return setTimeout(() => {
+								stateConnector.methods.getPaymentFinality(
+												leaf.txId,
+												leaf.paymentHash).call({
+									from: config.accounts[1].address,
+									gas: config.flare.gas,
+									gasPrice: config.flare.gasPrice
+								}).catch(getPaymentFinality)
+								.then(result => {
+									if (result.finality == true) {
+										return xrplClaimProcessingCompleted('Payment proven.');
+									}
+								})
+							}, 5000)
+						}
+						return getPaymentFinality();
+					}
+				})
+				.on('error', error => {
+					return processFailure(error);
+				});
 			} else {
-				console.log("State-connector chains initialised.");
-				setTimeout(() => {return run(0)}, 5000);
+				return processFailure('Already waiting for this transaction to be delivered.');
 			}
 		})
-		.on('error', error => {
-			processFailure(error);
-		});
-	}).catch(processFailure);
+	})
 }
 
 async function configure(chainId) {
@@ -286,7 +312,7 @@ async function web3Config() {
 	stateConnector = new web3.eth.Contract(abi);
 	// Smart contract EVM bytecode as hex
 	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
-	stateConnector.options.from = config.account.address;
+	stateConnector.options.from = config.accounts[1].address;
 	stateConnector.options.address = stateConnectorContract;
 }
 

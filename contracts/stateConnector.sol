@@ -26,6 +26,7 @@ contract stateConnector {
     struct HashExists {
         bool        exists;
         bytes32     hash;
+        uint256		timestamp;
     }
 
     // Chain ID mapping to Chain struct
@@ -77,14 +78,15 @@ contract stateConnector {
         return claimPeriodsMined[miner];
     }
 
-    function checkRootFinality(bytes32 root, uint32 chainId, uint64 claimPeriodIndex) private view returns (bool finality) {
+    function checkRootFinality(bytes32 root, uint32 chainId, uint64 claimPeriodIndex) private view returns (uint256 timestamp) {
         require(chains[chainId].exists == true, 'chainId does not exist');
         bytes32 locationHash =  keccak256(abi.encodePacked(
                                     keccak256(abi.encodePacked(chainId)),
                                     keccak256(abi.encodePacked(claimPeriodIndex))
                                 ));
         require(finalisedClaimPeriods[locationHash].exists == true, 'finalisedClaimPeriods[locationHash] does not exist');
-        return finalisedClaimPeriods[locationHash].hash == root;
+        require(finalisedClaimPeriods[locationHash].hash == root, 'Invalid root');
+        return finalisedClaimPeriods[locationHash].timestamp;
     }
 
     function verifyMerkleProof(bytes32 root, bytes32 leaf, bytes32[] memory proof) private pure returns (bool verified) {
@@ -137,7 +139,7 @@ contract stateConnector {
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
             claimPeriodsMined[msg.sender] = claimPeriodsMined[msg.sender] + 1;
-            finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash);
+            finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash, block.timestamp);
             chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             chains[chainId].finalisedLedgerIndex = ledger;
             uint256 timeDiffAvgUpdate = (chains[chainId].timeDiffAvg + (block.timestamp-chains[chainId].finalisedTimestamp))/2;
@@ -151,24 +153,23 @@ contract stateConnector {
         return (chainId, ledger, chains[chainId].claimPeriodLength, chains[chainId].numConfirmations, claimPeriodHash);
     }
 
-    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 root, bytes32 txId, bytes32 paymentHash, bytes32[] memory proof) public returns (bool success) {
+    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 root, bytes32 txId, bytes32 paymentHash, bytes32[] memory proof) public returns (bytes32 _txId, bytes32 _paymentHash) {
     	require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(chains[chainId].exists == true, 'chainId does not exist');
-        require(checkRootFinality(root, chainId, claimPeriodIndex) == true, 'Claim period not finalised');
-        require(verifyMerkleProof(root, txId, proof) == true, 'Payment not verified');
+        require(finalisedPayments[txId].exists == false, 'txId already proven');
+        uint256 timestamp = checkRootFinality(root, chainId, claimPeriodIndex);
+        require(verifyMerkleProof(root, txId, proof) == true, 'Invalid merkle proof');
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
-        	finalisedPayments[txId] = HashExists(true, paymentHash);
-        	return true;
-        } else {
-        	return false;
+        	finalisedPayments[txId] = HashExists(true, paymentHash, timestamp);
         }
+        return (txId, paymentHash);
     }
 
-    function getPaymentFinality(bytes32 txId, bytes32 paymentHash) public view returns (bool finality) {
+    function getPaymentFinality(bytes32 txId, bytes32 paymentHash) public view returns (bool finality, uint256 timestamp) {
     	require(finalisedPayments[txId].exists == true, 'txId does not exist');
     	require(finalisedPayments[txId].hash == paymentHash, 'invalid paymentHash');
-    	return true;
+    	return (true, finalisedPayments[txId].timestamp);
     }
 
 }

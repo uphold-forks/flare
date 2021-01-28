@@ -149,7 +149,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 	stateConnector.methods.checkFinality(
 					parseInt(chainId),
 					claimPeriodIndex).call({
-		from: config.account.address,
+		from: config.accounts[0].address,
 		gas: config.flare.gas,
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
@@ -162,7 +162,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 				return processFailure('Invalid chainId.');
 			}
 		} else {
-			web3.eth.getTransactionCount(config.account.address)
+			web3.eth.getTransactionCount(config.accounts[0].address)
 			.then(nonce => {
 				return [stateConnector.methods.registerClaimPeriod(
 							chainId,
@@ -176,11 +176,11 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 					gasPrice: web3.utils.toHex(parseInt(config.flare.gasPrice)),
 					gas: web3.utils.toHex(config.flare.gas),
 					to: stateConnector.options.address,
-					from: config.account.address,
+					from: config.accounts[0].address,
 					data: txData[0]
 				};
 				var tx = new Tx(rawTx, {common: customCommon});
-				var key = Buffer.from(config.account.privateKey, 'hex');
+				var key = Buffer.from(config.accounts[0].privateKey, 'hex');
 				tx.sign(key);
 				var serializedTx = tx.serialize();
 				const txHash = web3.utils.sha3(serializedTx);
@@ -213,7 +213,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 
 async function initialiseChains() {
 	console.log('Initialising chains');
-	web3.eth.getTransactionCount(config.account.address)
+	web3.eth.getTransactionCount(config.accounts[0].address)
 	.then(nonce => {
 		return [stateConnector.methods.initialiseChains().encodeABI(), nonce];
 	})
@@ -223,12 +223,12 @@ async function initialiseChains() {
 			gasPrice: web3.utils.toHex(config.flare.gasPrice),
 			gas: web3.utils.toHex(config.flare.contractGas),
 			chainId: config.flare.chainId,
-			from: config.account.address,
+			from: config.accounts[0].address,
 			to: stateConnector.options.address,
 			data: contractData[0]
 		}
 		var tx = new Tx(rawTx, {common: customCommon});
-		var key = Buffer.from(config.account.privateKey, 'hex');
+		var key = Buffer.from(config.accounts[0].privateKey, 'hex');
 		tx.sign(key);
 		var serializedTx = tx.serialize();
 		
@@ -289,7 +289,7 @@ async function web3Config() {
 	stateConnector = new web3.eth.Contract(abi);
 	// Smart contract EVM bytecode as hex
 	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
-	stateConnector.options.from = config.account.address;
+	stateConnector.options.from = config.accounts[0].address;
 	stateConnector.options.address = stateConnectorContract;
 }
 

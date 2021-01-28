@@ -249,9 +249,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
 		// Fee charged for attempting to perform an underlying chain state check
-		dataFee := new(big.Int).Mul(new(big.Int).SetUint64(GetDataFee(st.evm.Context.BlockNumber)), st.gasPrice)
-		if st.state.GetBalance(st.msg.From()).Cmp(dataFee) < 0 || len(st.data) > 132 {
-			return nil, ErrInsufficientFunds
+		dataFee := new(big.Int).Mul(new(big.Int).SetUint64(GetDataFee(st.evm.Context.BlockNumber)*uint64(len(st.data))), st.gasPrice)
+		if st.state.GetBalance(st.msg.From()).Cmp(dataFee) < 0 {
+			return nil, ErrInsufficientFundsForTransfer
 		}
 		st.state.SubBalance(st.msg.From(), dataFee)
 		st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), dataFee)
