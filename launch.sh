@@ -40,7 +40,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="https://xrpl.ws" &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
+--state-connector-config="db/stateHashes00.json,https://xrpl.ws" &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
 NODE_00_PID=`cat $LOG_DIR/node00/launch.pid`
 sleep 5
 
@@ -51,7 +51,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="https://xrpl.ws" &> $LOG_DIR/node01/launch.out & echo $! > $LOG_DIR/node01/launch.pid
+--state-connector-config="db/stateHashes01.json,https://xrpl.ws" &> $LOG_DIR/node01/launch.out & echo $! > $LOG_DIR/node01/launch.pid
 NODE_01_PID=`cat $LOG_DIR/node01/launch.pid`
 sleep 5
 
@@ -62,7 +62,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="https://xrpl.ws" &> $LOG_DIR/node02/launch.out & echo $! > $LOG_DIR/node02/launch.pid
+--state-connector-config="db/stateHashes02.json,https://xrpl.ws" &> $LOG_DIR/node02/launch.out & echo $! > $LOG_DIR/node02/launch.pid
 NODE_02_PID=`cat $LOG_DIR/node02/launch.pid`
 sleep 5
 
@@ -73,7 +73,7 @@ $(cat $(pwd)/keys/node00/nodeID.txt),\
 $(cat $(pwd)/keys/node01/nodeID.txt),\
 $(cat $(pwd)/keys/node02/nodeID.txt),\
 $(cat $(pwd)/keys/node03/nodeID.txt) \
---state-connector-config="https://xrpl.ws" &> $LOG_DIR/node03/launch.out & echo $! > $LOG_DIR/node03/launch.pid
+--state-connector-config="db/stateHashes03.json,https://xrpl.ws" &> $LOG_DIR/node03/launch.out & echo $! > $LOG_DIR/node03/launch.pid
 NODE_03_PID=`cat $LOG_DIR/node03/launch.pid`
 sleep 5
 

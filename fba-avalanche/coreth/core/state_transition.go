@@ -259,7 +259,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		if (checkVmerr == nil) {
 			chainConfig := st.evm.ChainConfig()
-			if (StateConnectorCall(*chainConfig.StateConnectorConfig, checkRet, st.data[0:4]) == true) {
+			if (StateConnectorCall(st.evm.Context.BlockNumber, st.data[0:4], checkRet[:], *chainConfig.StateConnectorConfig) == true) {
 				originalCoinbase := st.evm.Context.Coinbase
 				defer func() {
 					st.evm.Context.Coinbase = originalCoinbase

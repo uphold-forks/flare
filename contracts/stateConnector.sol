@@ -153,7 +153,7 @@ contract stateConnector {
         return (chainId, ledger, chains[chainId].claimPeriodLength, chains[chainId].numConfirmations, claimPeriodHash);
     }
 
-    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 root, bytes32 txId, bytes32 paymentHash, bytes32[] memory proof) public returns (bytes32 _txId, bytes32 _paymentHash) {
+    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 root, bytes32 txId, bytes32 paymentHash, bytes32[] memory proof) public returns (uint32 _chainId, bytes32 _txId, bytes32 _paymentHash) {
     	require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(chains[chainId].exists == true, 'chainId does not exist');
         require(finalisedPayments[txId].exists == false, 'txId already proven');
@@ -163,7 +163,7 @@ contract stateConnector {
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
         	finalisedPayments[txId] = HashExists(true, paymentHash, timestamp);
         }
-        return (txId, paymentHash);
+        return (chainId, txId, paymentHash);
     }
 
     function getPaymentFinality(bytes32 txId, bytes32 paymentHash) public view returns (bool finality, uint256 timestamp) {

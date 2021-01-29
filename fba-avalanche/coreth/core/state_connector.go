@@ -5,47 +5,47 @@ import (
 	"math/big"
 	"encoding/json"
 	"encoding/hex"
+	"encoding/binary"
 	"crypto/sha256"
 	"io/ioutil"
 	"os"
 	"time"
 	"net/http"
-	"strconv"
 	"bytes"
 )
 
 var fileMutex sync.Mutex
 
 // Fixed gas used for custom block.coinbase operations
-func GetDataFee(BlockNumber *big.Int) (uint64) {
+func GetDataFee(blockNumber *big.Int) (uint64) {
     switch {
         default:
             return 10000000
     }
 }
 
-func GetGovernanceContractAddr(BlockNumber *big.Int) (string) {
+func GetGovernanceContractAddr(blockNumber *big.Int) (string) {
     switch {
         default:
             return "0x1000000000000000000000000000000000000000"
     }
 }
 
-func GetStateConnectorContractAddr(BlockNumber *big.Int) (string) {
+func GetStateConnectorContractAddr(blockNumber *big.Int) (string) {
     switch {
         default:
             return "0x1000000000000000000000000000000000000001"
     }
 }
 
-func GetRegisterClaimPeriodSelector(BlockNumber *big.Int) ([]byte) {
+func GetRegisterClaimPeriodSelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
             return []byte{0x54,0x65,0xdf,0xc4}
     }
 }
 
-func GetProvePaymentFinalitySelector(BlockNumber *big.Int) ([]byte) {
+func GetProvePaymentFinalitySelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
             return []byte{0xf6,0xf5,0x6a,0xf7}
@@ -78,15 +78,13 @@ func contains(slice []string, item string) bool {
 // XRP
 // =======================================================
 
-func PingChain(chainURL string) (bool) {
-	
+func PingXRP(chainURL string) (bool) {
 	type Params struct {
 	}
 	type Payload struct {
 		Method string   `json:"method"`
 		Params []Params `json:"params"`
 	}
-
 	data := Payload{
 		Method: "ping",
 	}
@@ -106,6 +104,7 @@ func PingChain(chainURL string) (bool) {
 	if err != nil {
 		return false
 	}
+	defer resp.Body.Close()
 	if (resp.StatusCode == 200) {
 		return true
 	} else {
@@ -113,60 +112,117 @@ func PingChain(chainURL string) (bool) {
 	}
 }
 
-// func GetXRPBlock(index int) (bool) {
-// 	type Payload struct {
-// 		Method string   `json:"method"`
-// 		Params []Params `json:"params"`
-// 	}
-// 	type Params struct {
-// 		LedgerIndex  string `json:"ledger_index"`
-// 		Full         bool   `json:"full"`
-// 		Accounts     bool   `json:"accounts"`
-// 		Transactions bool   `json:"transactions"`
-// 		Expand       bool   `json:"expand"`
-// 		OwnerFunds   bool   `json:"owner_funds"`
-// 	}
-// 	data := Payload{
-// 	// fill struct
-// 	}
-// 	payloadBytes, err := json.Marshal(data)
-// 	if err != nil {
-// 		// handle err
-// 	}
-// 	body := bytes.NewReader(payloadBytes)
+func ProveRegisterClaimPeriodXRP(checkRet []byte, chainURL string) (bool, bool) {
+	type Params struct {
+		LedgerIndex  string `json:"ledger_index"`
+		Full         bool   `json:"full"`
+		Accounts     bool   `json:"accounts"`
+		Transactions bool   `json:"transactions"`
+		Expand       bool   `json:"expand"`
+		OwnerFunds   bool   `json:"owner_funds"`
+	}
+	type Payload struct {
+		Method string   `json:"method"`
+		Params []Params `json:"params"`
+	}
+	data := Payload{
+		Method: "ledger",
+		Params: []Params{
+			Params{
+				LedgerIndex: "61050250",
+				Full: false,
+				Accounts: false,
+				Transactions: true,
+				Expand: false,
+				OwnerFunds: false,
+			},
+		},
+	}
+	payloadBytes, err := json.Marshal(data)
+	if err != nil {
+		return false, true
+	}
+	body := bytes.NewReader(payloadBytes)
+	req, err := http.NewRequest("POST", chainURL, body)
+	if err != nil {
+		return false, true
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, true
+	}
+	defer resp.Body.Close()
+	return true, false
+}
 
-// 	req, err := http.NewRequest("POST", "https://s1.ripple.com:51234/", body)
-// 	if err != nil {
-// 		// handle err
-// 	}
-// 	req.Header.Set("Content-Type", "application/json")
+func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
+	return true, false
+}
 
-// 	resp, err := http.DefaultClient.Do(req)
-// 	if err != nil {
-// 		// handle err
-// 	}
-// 	defer resp.Body.Close()
-// }
+func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
+	if (bytes.Compare(functionSelector, GetRegisterClaimPeriodSelector(blockNumber)) == 0) {
+		return ProveRegisterClaimPeriodXRP(checkRet, chainURL)
+	} else if (bytes.Compare(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) == 0) {
+		return ProvePaymentFinalityXRP(checkRet, chainURL)
+	}
+	return false, true
+}
 
-func ReadChain(cacheRet string, chainURLs []string) (bool) {
-	pong := false
-	for pong == false {
-		pong = PingChain(chainURLs[0])
-		if (pong == false) {
+// =======================================================
+// Common
+// =======================================================
+
+func PingChain(chainId uint32, chainURL string) (bool) {
+	switch chainId {
+		case 0:
+			return PingXRP(chainURL) 
+        default:
+            return false
+    }
+}
+
+func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainId uint32, chainURL string) (bool, bool) {
+	switch chainId {
+		case 0:
+			return ProveXRP(blockNumber, functionSelector, checkRet, chainURL) 
+        default:
+            return false, true
+    }
+}
+
+func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURLs []string) (bool) {
+    ok := false
+    pong := false
+    chainId := binary.BigEndian.Uint32(checkRet[0:4])
+    if uint32(len(chainURLs)) > chainId {
+    	ok = true
+    }
+	for !pong {
+		if ok {
+			pong = PingChain(chainId, chainURLs[chainId])
+		}
+		if !pong {
 			// Notify this validator's admin here
-			time.Sleep(1*time.Second)
+			time.Sleep(time.Second)
 		}
 	}
-	return true
+	verified, error := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURLs[chainId])
+	if error {
+		// Notify this validator's admin here
+		time.Sleep(time.Second)
+		return ReadChain(blockNumber, functionSelector, checkRet, chainURLs)
+	}
+	return verified
 }
 
 // Verify proof against underlying chain
-func StateConnectorCall(stateConnectorConfig []string, checkRet []byte, functionSelector []byte) (bool) {
+func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) (bool) {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data StateHashes
-	stateCacheFilePath := "db/stateHashes"+strconv.Itoa(os.Getpid())+".json"
-	rawHash := sha256.Sum256(checkRet)
+	stateCacheFilePath := stateConnectorConfig[0]
+	rawHash := sha256.Sum256([]byte(hex.EncodeToString(functionSelector)+hex.EncodeToString(checkRet)))
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateCacheFilePath)
     if os.IsNotExist(err) {
@@ -176,8 +232,8 @@ func StateConnectorCall(stateConnectorConfig []string, checkRet []byte, function
 		data = StateHashes{}
 		json.Unmarshal(file, &data)
     }
-    if (contains(data.Hashes, hexHash) == false) {
-    	if (ReadChain(hex.EncodeToString(checkRet[:]), stateConnectorConfig[:]) == true) {
+    if !contains(data.Hashes, hexHash) {
+    	if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
     		data.Hashes = append(data.Hashes, hexHash)
 			jsonData, _ := json.Marshal(data)
 			ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)
