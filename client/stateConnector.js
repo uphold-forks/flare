@@ -131,7 +131,7 @@ async function run(chainId, minLedger) {
 						if (deferTime > 1) {
 							console.log("Not enough time elapsed since prior finality, deferring for", deferTime, "seconds.");
 							return setTimeout(() => {run(chainId, minLedger)}, 1000*deferTime);
-						} else if (sampledLedger > parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
+						} else if (sampledLedger >= parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
 							return xrplProcessLedgers([], parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), parseInt(result.finalisedLedgerIndex));
 						} else {
 							return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');

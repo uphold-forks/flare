@@ -74,6 +74,13 @@ contract stateConnector {
         return true;
     }
 
+    function updateChainUpdateTiming(uint32 chainId, uint256 timeDiffExpected) public returns (bool success) {
+        require(msg.sender == governanceContract, 'msg.sender != governanceContract');
+        require(chains[chainId].exists == true, 'chainId does not exist');
+        chains[chainId].timeDiffExpected = timeDiffExpected;
+        return true;
+    }
+
     function getClaimPeriodsMined(address miner) public view returns (uint64 numMined) {
         return claimPeriodsMined[miner];
     }
