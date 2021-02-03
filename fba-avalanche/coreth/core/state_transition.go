@@ -243,7 +243,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
-	if (contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Compare(st.data[0:4], GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0 ||
+	if (contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Compare(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
 			bytes.Compare(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) == 0)) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)

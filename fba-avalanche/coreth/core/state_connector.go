@@ -12,6 +12,7 @@ import (
 	"time"
 	"net/http"
 	"bytes"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var fileMutex sync.Mutex
@@ -38,17 +39,17 @@ func GetStateConnectorContractAddr(blockNumber *big.Int) (string) {
     }
 }
 
-func GetRegisterClaimPeriodSelector(blockNumber *big.Int) ([]byte) {
+func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
-            return []byte{0x54,0x65,0xdf,0xc4}
+            return []byte{0xa5,0x7d,0x0e,0x25}
     }
 }
 
 func GetProvePaymentFinalitySelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
-            return []byte{0xf6,0xf5,0x6a,0xf7}
+            return []byte{0xcf,0x22,0x00,0x11}
     }
 }
 
@@ -126,7 +127,7 @@ type GetXRPBlockRequestPayload struct {
 	Method 					string   					`json:"method"`
 	Params 					[]GetXRPBlockRequestParams 	`json:"params"`
 }
-type GetXRPBlockLedgerResponsePayload struct {
+type GetXRPBlockResponsePayload struct {
     Accepted      			bool 		`json:"accepted"`
     AccountHash   			string 		`json:"account_hash"`
     CloseFlags     			int 		`json:"close_flags"`
@@ -143,17 +144,16 @@ type GetXRPBlockLedgerResponsePayload struct {
     TotalCoins 				string 		`json:"totalCoins"`
     Total_Coins 			string 		`json:"total_coins"`
     TransactionHash 		string 		`json:"transaction_hash"`
-    Transactions 			[]string 	`json:"transactions"`
 }
-type GetXRPBlockLedgerResponse struct {
-    Ledger      			GetXRPBlockLedgerResponsePayload 	`json:"ledger"`
-    LedgerHash   			string 								`json:"ledger_hash"`
-    LedgerIndex     		int 								`json:"ledger_index"`
-    Status        			string 								`json:"status"`
-    Validated   			bool 								`json:"validated"`
+type GetXRPBlockResponse struct {
+    Ledger      			GetXRPBlockResponsePayload 	`json:"ledger"`
+    LedgerHash   			string 						`json:"ledger_hash"`
+    LedgerIndex     		int 						`json:"ledger_index"`
+    Status        			string 						`json:"status"`
+    Validated   			bool 						`json:"validated"`
 }
 
-func GetXRPBlock(ledger uint64, chainURL string) ([]string, bool) {
+func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 	data := GetXRPBlockRequestPayload{
 		Method: "ledger",
 		Params: []GetXRPBlockRequestParams{
@@ -161,7 +161,7 @@ func GetXRPBlock(ledger uint64, chainURL string) ([]string, bool) {
 				LedgerIndex: ledger,
 				Full: false,
 				Accounts: false,
-				Transactions: true,
+				Transactions: false,
 				Expand: false,
 				OwnerFunds: false,
 			},
@@ -169,42 +169,44 @@ func GetXRPBlock(ledger uint64, chainURL string) ([]string, bool) {
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
-		return []string{}, true
+		return "", true
 	}
 	body := bytes.NewReader(payloadBytes)
 	req, err := http.NewRequest("POST", chainURL, body)
 	if err != nil {
-		return []string{}, true
+		return "", true
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return []string{}, true
+		return "", true
 	}
 	defer resp.Body.Close()
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return []string{}, true
+		return "", true
 	}
-	var jsonResp map[string]GetXRPBlockLedgerResponse
+	var jsonResp map[string]GetXRPBlockResponse
 	err = json.Unmarshal(respBody, &jsonResp)
 	if err != nil {
-		return []string{}, true
+		return "", true
 	}
-	return jsonResp["result"].Ledger.Transactions, false
+	if !jsonResp["result"].Validated {
+		return "", true
+	}
+	return jsonResp["result"].Ledger.TransactionHash, false
 }
 
-func ProveRegisterClaimPeriodXRP(checkRet []byte, chainURL string) (bool, bool) {
-	minLedger := binary.BigEndian.Uint64(checkRet[56:64])
-	claimPeriodLength := binary.BigEndian.Uint16(checkRet[94:96])
-	var i uint16
-	for i = 0; i < claimPeriodLength; i++ {
-		_, err := GetXRPBlock(minLedger+uint64(i), chainURL)
-		if err {
-			return false, true
-		}
+func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
+	ledger := binary.BigEndian.Uint64(checkRet[56:64])
+	ledgerHashString, err := GetXRPBlock(ledger, chainURL)
+	if err {
+		return false, true
 	}
-	return true, false
+	if ledgerHashString != "" && bytes.Compare(crypto.Keccak256([]byte(ledgerHashString)), checkRet[96:128]) == 0 {
+		return true, false
+	}
+	return false, false
 }
 
 func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
@@ -212,8 +214,8 @@ func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 }
 
 func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if (bytes.Compare(functionSelector, GetRegisterClaimPeriodSelector(blockNumber)) == 0) {
-		return ProveRegisterClaimPeriodXRP(checkRet, chainURL)
+	if (bytes.Compare(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) == 0) {
+		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
 	} else if (bytes.Compare(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) == 0) {
 		return ProvePaymentFinalityXRP(checkRet, chainURL)
 	}

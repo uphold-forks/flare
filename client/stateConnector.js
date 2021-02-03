@@ -40,53 +40,26 @@ var config,
 const RippleAPI = require('ripple-lib').RippleAPI;
 const RippleKeys = require('ripple-keypairs');
 
-async function xrplProcessLedgers(payloads, genesisLedger, claimPeriodIndex, claimPeriodLength, ledger) {
-	console.log('\nRetrieving XRPL state from ledgers:', ledger, 'to', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
-	async function xrplProcessLedger(payloads, currLedger) {
-		const command = 'ledger';
-		const params = {
-			'ledger_index': currLedger,
-			'binary': false,
-			'full': false,
-			'accounts': false,
-			'transactions': true,
-			'expand': false,
-			'owner_funds': false
-		};
-		return chains.xrp.api.request(command, params)
-		.then(response => {
-			async function responseIterate(payloads, response) {
-				payloads = payloads.concat(response.ledger.transactions);
-				if (chains.xrp.api.hasNextPage(response) == true) {
-					chains.xrp.api.requestNextPage(command, params, response)
-					.then(next_response => {
-						responseIterate(payloads, next_response);
-					})
-					.catch(error => {
-						processFailure(error);
-					})
-				} else if (parseInt(currLedger)+1 < genesisLedger + (claimPeriodIndex+1)*claimPeriodLength) {
-					return xrplProcessLedger(payloads, parseInt(currLedger)+1);
-				} else {
-					var root;
-					if (payloads.length > 0) {
-						const leaves = payloads.map(x => keccak256(x));
-						const tree = new MerkleTree(leaves, keccak256, {sort: true});
-						root = tree.getHexRoot();
-					} else {
-						root = "0x0000000000000000000000000000000000000000000000000000000000000000";
-					}
-					console.log('Num Payloads:\t\t', payloads.length);
-					return registerClaimPeriod(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, root);
-				}	
-			}
-			responseIterate(payloads, response);
-		})
-		.catch(error => {
-			processFailure(error);
-		})
-	}
-	return xrplProcessLedger(payloads, ledger);
+async function xrplProcessLedger(genesisLedger, claimPeriodIndex, claimPeriodLength) {
+	console.log('\nRetrieving XRPL state hash from ledger:', genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1);
+	const currLedger = genesisLedger + (claimPeriodIndex+1)*claimPeriodLength - 1;
+	const command = 'ledger';
+	const params = {
+		'ledger_index': currLedger,
+		'binary': false,
+		'full': false,
+		'accounts': false,
+		'transactions': false,
+		'expand': false,
+		'owner_funds': false
+	};
+	return chains.xrp.api.request(command, params)
+	.then(response => {
+		return proveClaimPeriodFinality(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, web3.utils.sha3(response.ledger.transaction_hash));
+	})
+	.catch(error => {
+		processFailure(error);
+	})
 }
 
 function xrplClaimProcessingCompleted(message) {
@@ -110,7 +83,7 @@ async function xrplConnectRetry(error) {
 
 async function run(chainId, minLedger) {
 	console.log('\n\x1b[34mState Connector System connected at', Date(Date.now()).toString(), '\x1b[0m' );
-	stateConnector.methods.getlatestIndex(parseInt(chainId)).call().catch(initialiseChains)
+	stateConnector.methods.getLatestIndex(parseInt(chainId)).call().catch(initialiseChains)
 	.then(result => {
 		if (result != undefined) {
 			if (chainId == 0) {
@@ -128,11 +101,11 @@ async function run(chainId, minLedger) {
 							"\n\x1b[0mDiff Avg (sec):\t\t\x1b[33m", parseInt(result.timeDiffAvg));
 						const currTime = parseInt(Date.now()/1000);
 						const deferTime = parseInt(2*parseInt(result.timeDiffAvg)/3 - (currTime-parseInt(result.finalisedTimestamp)));
-						if (deferTime > 1) {
+						if (deferTime > 0) {
 							console.log("Not enough time elapsed since prior finality, deferring for", deferTime, "seconds.");
-							return setTimeout(() => {run(chainId, minLedger)}, 1000*deferTime);
+							return setTimeout(() => {run(chainId, minLedger)}, 1000*(deferTime+1));
 						} else if (sampledLedger >= parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
-							return xrplProcessLedgers([], parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength), parseInt(result.finalisedLedgerIndex));
+							return xrplProcessLedger(parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength));
 						} else {
 							return xrplClaimProcessingCompleted('Reached latest state, waiting for new ledgers.');
 						}
@@ -145,8 +118,8 @@ async function run(chainId, minLedger) {
 	})
 }
 
-async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPeriodHash) {
-	stateConnector.methods.checkFinality(
+async function proveClaimPeriodFinality(chainId, ledger, claimPeriodIndex, claimPeriodHash) {
+	stateConnector.methods.getClaimPeriodIndexFinality(
 					parseInt(chainId),
 					claimPeriodIndex).call({
 		from: config.accounts[0].address,
@@ -164,7 +137,7 @@ async function registerClaimPeriod(chainId, ledger, claimPeriodIndex, claimPerio
 		} else {
 			web3.eth.getTransactionCount(config.accounts[0].address)
 			.then(nonce => {
-				return [stateConnector.methods.registerClaimPeriod(
+				return [stateConnector.methods.proveClaimPeriodFinality(
 							chainId,
 							ledger,
 							claimPeriodIndex,
