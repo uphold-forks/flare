@@ -147,22 +147,29 @@ contract stateConnector {
         return finalisedClaimPeriods[locationHash].timestamp;
     }
 
-    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 claimPeriodHash, bytes32 txId, bytes32 paymentHash) public returns (uint32 _chainId, bytes32 _txId, bytes32 _paymentHash) {
+    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 claimPeriodHash, bytes32 paymentHash, string memory txId) public returns (uint32 _chainId, bytes32 _paymentHash, string memory _txId) {
     	require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(chains[chainId].exists == true, 'chainId does not exist');
-        require(finalisedPayments[txId].exists == false, 'txId already proven');
+        bytes32 txIdHash = keccak256(abi.encodePacked(txId));
+        require(finalisedPayments[txIdHash].exists == false, 'txId already proven');
         uint256 timestamp = getClaimPeriodFinality(claimPeriodHash, chainId, claimPeriodIndex);
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
-        	finalisedPayments[txId] = HashExists(true, paymentHash, timestamp);
+        	finalisedPayments[txIdHash] = HashExists(true, paymentHash, timestamp);
         }
-        return (chainId, txId, paymentHash);
+        return (chainId, paymentHash, txId);
     }
 
-    function getPaymentFinality(bytes32 txId, bytes32 paymentHash) public view returns (bool finality, uint256 timestamp) {
-    	require(finalisedPayments[txId].exists == true, 'txId does not exist');
+    function getPaymentFinality(bytes32 txId, uint64 ledger, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) public view returns (bool finality, uint256 timestamp) {
+        require(finalisedPayments[txId].exists == true, 'txId does not exist');
+        bytes32 paymentHash = keccak256(abi.encodePacked(
+        							txId,
+        							keccak256(abi.encode(ledger)),
+        							sourceHash,
+        							destinationHash,
+        							keccak256(abi.encode(destinationTag)),
+        							keccak256(abi.encode(amount))));
     	require(finalisedPayments[txId].hash == paymentHash, 'invalid paymentHash');
     	return (true, finalisedPayments[txId].timestamp);
     }
-
 }

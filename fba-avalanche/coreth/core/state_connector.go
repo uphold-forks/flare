@@ -12,7 +12,11 @@ import (
 	"time"
 	"net/http"
 	"bytes"
+	"reflect"
+	"strconv"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 var fileMutex sync.Mutex
@@ -49,7 +53,7 @@ func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) ([]byte) {
 func GetProvePaymentFinalitySelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
-            return []byte{0xcf,0x22,0x00,0x11}
+            return []byte{0x13,0xbb,0x43,0x1c}
     }
 }
 
@@ -81,10 +85,29 @@ func contains(slice []string, item string) bool {
 
 type PingXRPParams struct {
 }
-
 type PingXRPPayload struct {
 	Method string   		`json:"method"`
 	Params []PingXRPParams 	`json:"params"`
+}
+type GetXRPBlockRequestParams struct {
+	LedgerIndex  			uint64 		`json:"ledger_index"`
+	Full         			bool   		`json:"full"`
+	Accounts     			bool   		`json:"accounts"`
+	Transactions 			bool   		`json:"transactions"`
+	Expand       			bool   		`json:"expand"`
+	OwnerFunds   			bool   		`json:"owner_funds"`
+}
+type GetXRPBlockRequestPayload struct {
+	Method 					string   					`json:"method"`
+	Params 					[]GetXRPBlockRequestParams 	`json:"params"`
+}
+type CheckXRPErrorResponse struct {
+	Error   				string 		`json:"error"`
+}
+type GetXRPBlockResponse struct {
+    LedgerHash   			string 		`json:"ledger_hash"`
+    LedgerIndex     		int 		`json:"ledger_index"`
+    Validated   			bool 		`json:"validated"`
 }
 
 func PingXRP(chainURL string) (bool) {
@@ -113,44 +136,6 @@ func PingXRP(chainURL string) (bool) {
 	} else {
 		return false
 	}
-}
-
-type GetXRPBlockRequestParams struct {
-	LedgerIndex  			uint64 		`json:"ledger_index"`
-	Full         			bool   		`json:"full"`
-	Accounts     			bool   		`json:"accounts"`
-	Transactions 			bool   		`json:"transactions"`
-	Expand       			bool   		`json:"expand"`
-	OwnerFunds   			bool   		`json:"owner_funds"`
-}
-type GetXRPBlockRequestPayload struct {
-	Method 					string   					`json:"method"`
-	Params 					[]GetXRPBlockRequestParams 	`json:"params"`
-}
-type GetXRPBlockResponsePayload struct {
-    Accepted      			bool 		`json:"accepted"`
-    AccountHash   			string 		`json:"account_hash"`
-    CloseFlags     			int 		`json:"close_flags"`
-    CloseTime       		int 		`json:"close_time"`
-    CloseTimeHuman  		string 		`json:"close_time_human"`
-    CloseTimeResolution 	int 		`json:"close_time_resolution"`
-    Closed 					bool 		`json:"closed"`
-    Hash 				 	string 		`json:"hash"`
-    LedgerHash 				string 		`json:"ledger_hash"`
-    LedgerIndex 			string 		`json:"ledger_index"`
-    ParentCloseTime 		int 		`json:"parent_close_time"`
-    ParentHash 		 		string 		`json:"parent_hash"`
-    seqNum 			 		string 		`json:"seqNum"`
-    TotalCoins 				string 		`json:"totalCoins"`
-    Total_Coins 			string 		`json:"total_coins"`
-    TransactionHash 		string 		`json:"transaction_hash"`
-}
-type GetXRPBlockResponse struct {
-    Ledger      			GetXRPBlockResponsePayload 	`json:"ledger"`
-    LedgerHash   			string 						`json:"ledger_hash"`
-    LedgerIndex     		int 						`json:"ledger_index"`
-    Status        			string 						`json:"status"`
-    Validated   			bool 						`json:"validated"`
 }
 
 func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
@@ -182,19 +167,30 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 		return "", true
 	}
 	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", true
+	if (resp.StatusCode == 200) {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", true
+		}
+		var checkErrorResp map[string]CheckXRPErrorResponse
+		err = json.Unmarshal(respBody, &checkErrorResp)
+		if err != nil {
+			return "", true
+		}
+		if checkErrorResp["result"].Error != "" {
+			return "", true
+		}
+		var jsonResp map[string]GetXRPBlockResponse
+		err = json.Unmarshal(respBody, &jsonResp)
+		if err != nil {
+			return "", true
+		}
+		if !jsonResp["result"].Validated {
+			return "", true
+		}
+		return jsonResp["result"].LedgerHash, false
 	}
-	var jsonResp map[string]GetXRPBlockResponse
-	err = json.Unmarshal(respBody, &jsonResp)
-	if err != nil {
-		return "", true
-	}
-	if !jsonResp["result"].Validated {
-		return "", true
-	}
-	return jsonResp["result"].Ledger.TransactionHash, false
+	return "", true
 }
 
 func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
@@ -209,8 +205,102 @@ func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) 
 	return false, false
 }
 
+type GetXRPTxRequestParams struct {
+	Transaction  			string 		`json:"transaction"`
+	Binary         			bool   		`json:"binary"`
+}
+type GetXRPTxRequestPayload struct {
+	Method 					string   					`json:"method"`
+	Params 					[]GetXRPTxRequestParams 	`json:"params"`
+}
+type GetXRPTxResponse struct {
+	Account      			string 		`json:"Account"`
+    Amount		   			interface{} `json:"Amount"`
+    Destination     		string 		`json:"Destination"`
+    DestinationTag     		int 		`json:"DestinationTag"`
+    TransactionType       	string 		`json:"TransactionType"`
+    Hash 			  		string 		`json:"hash"`
+    InLedger 	 			int 		`json:"inLedger"`
+    Flags 					int 		`json:"Flags"`
+    Validated   			bool 		`json:"validated"`
+}
+
+func GetXRPTx(txHash string, chainURL string) ([]byte, bool) {
+	data := GetXRPTxRequestPayload{
+		Method: "tx",
+		Params: []GetXRPTxRequestParams{
+			GetXRPTxRequestParams{
+				Transaction: txHash,
+				Binary: false,
+			},
+		},
+	}
+	payloadBytes, err := json.Marshal(data)
+	if err != nil {
+		return []byte{}, true
+	}
+	body := bytes.NewReader(payloadBytes)
+	req, err := http.NewRequest("POST", chainURL, body)
+	if err != nil {
+		return []byte{}, true
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return []byte{}, true
+	}
+	defer resp.Body.Close()
+	if (resp.StatusCode == 200) {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return []byte{}, true
+		}
+		var checkErrorResp map[string]CheckXRPErrorResponse
+		err = json.Unmarshal(respBody, &checkErrorResp)
+		if err != nil {
+			return []byte{}, true
+		}
+		if checkErrorResp["result"].Error != "" {
+			return []byte{}, true
+		}
+		var jsonResp map[string]GetXRPTxResponse
+		err = json.Unmarshal(respBody, &jsonResp)
+		if err != nil {
+			return []byte{}, false
+		}
+		if (jsonResp["result"].TransactionType == "Payment") {
+			amountType := reflect.TypeOf(jsonResp["result"].Amount)
+			if (amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && jsonResp["result"].Validated == true) {
+				txIdHash := crypto.Keccak256([]byte(jsonResp["result"].Hash))
+				ledgerHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].InLedger))), 32))
+				sourceHash := crypto.Keccak256([]byte(jsonResp["result"].Account))
+				destinationHash := crypto.Keccak256([]byte(jsonResp["result"].Destination))
+				destinationTagHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].DestinationTag))), 32))
+				amount, err := strconv.Atoi(jsonResp["result"].Amount.(string))
+				if err != nil {
+					return []byte{}, false
+				}
+				amountHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(amount))), 32))
+				return crypto.Keccak256(txIdHash, ledgerHash, sourceHash, destinationHash, destinationTagHash, amountHash), false
+			} else {
+				return []byte{}, false
+			}
+		} else {
+			return []byte{}, false
+		}
+	}
+	return []byte{}, true
+}
+
 func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
-	return true, false
+	paymentHash, err := GetXRPTx(string(checkRet[128:]), chainURL)
+	if !err {
+		if len(paymentHash) > 0 && bytes.Compare(paymentHash, checkRet[32:64]) == 0 {
+			return true, false
+		}
+		return false, false
+	}
+	return false, true
 }
 
 func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
@@ -288,7 +378,6 @@ func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet 
     if !contains(data.Hashes, hexHash) {
     	if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
     		data.Hashes = append(data.Hashes, hexHash)
-			data.Hashes = append(data.Hashes, hex.EncodeToString(checkRet))
 			jsonData, _ := json.Marshal(data)
 			ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)
 			return true

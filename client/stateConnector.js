@@ -55,7 +55,7 @@ async function xrplProcessLedger(genesisLedger, claimPeriodIndex, claimPeriodLen
 	};
 	return chains.xrp.api.request(command, params)
 	.then(response => {
-		return proveClaimPeriodFinality(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, web3.utils.sha3(response.ledger.transaction_hash));
+		return proveClaimPeriodFinality(0, genesisLedger + (claimPeriodIndex+1)*claimPeriodLength, claimPeriodIndex, web3.utils.sha3(response.ledger_hash));
 	})
 	.catch(error => {
 		processFailure(error);
