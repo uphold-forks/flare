@@ -134,7 +134,7 @@ type ManagerConfig struct {
 	WhitelistedSubnets      ids.Set          // Subnets to validate
 	TimeoutManager          *timeout.Manager // Manages request timeouts when sending messages to other validators
 	HealthService           *health.Health
-	UNLvalidators 			[]ids.ShortID
+	ValidatorConfig 		ids.ValidatorConfig
 }
 
 type manager struct {
@@ -253,7 +253,7 @@ func (m *manager) buildChain(chainParams ChainParameters) (*chain, error) {
 		SNLookup:            m,
 		Namespace:           fmt.Sprintf("%s_%s_vm", constants.PlatformName, primaryAlias),
 		Metrics:             m.ConsensusParams.Metrics,
-		UNLvalidators:		 m.ManagerConfig.UNLvalidators,
+		ValidatorConfig:	 m.ManagerConfig.ValidatorConfig,
 	}
 
 	// Get a factory for the vm we want to use on our chain

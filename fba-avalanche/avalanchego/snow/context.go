@@ -72,7 +72,7 @@ type Context struct {
 	bootstrapped uint32
 	Namespace    string
 	Metrics      prometheus.Registerer
-	UNLvalidators []ids.ShortID
+	ValidatorConfig 	 ids.ValidatorConfig
 }
 
 // IsBootstrapped returns true iff this chain is done bootstrapping

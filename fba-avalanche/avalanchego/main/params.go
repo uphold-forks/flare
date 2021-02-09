@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"io/ioutil"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -231,7 +232,7 @@ func avalancheFlagSet() *flag.FlagSet {
 	fs.String(corethConfigKey, defaultString, "Specifies config to pass into coreth")
 
 	// Unique Node List:
-	fs.String(UNLvalidatorsKey, defaultString, "Comma separated list of peer ids to leverage for network-level consensus. Example: NodeID-JR4dVmy6ffUGAKCBDkyCbeZbyHQBeDsET,NodeID-8CrVPQZ4VSqgL8zTdvL14G8HqAfrBr4z")
+	fs.String(validatorsFileKey, defaultString, "JSON file containing Node-IDs and their probability weighting of being sampled during consensus.")
 
 	return fs
 }
@@ -652,34 +653,32 @@ func setNodeConfig(v *viper.Viper) error {
 
 	// Coreth Plugin
 	corethConfigString := v.GetString(corethConfigKey)
-	if corethConfigString != defaultString {
-		corethConfigValue := v.Get(corethConfigKey)
-		switch value := corethConfigValue.(type) {
-		case string:
-			corethConfigString = value
-		default:
-			corethConfigBytes, err := json.Marshal(value)
-			if err != nil {
-				return fmt.Errorf("couldn't parse coreth config: %w", err)
-			}
-			corethConfigString = string(corethConfigBytes)
-		}
+	dbDir := v.GetString(dbDirKey)
+	if (dbDir[len(dbDir)-1:] == "/") {
+		Config.CorethConfig = dbDir + "stateHashes.json," + corethConfigString
+	} else {
+		Config.CorethConfig = dbDir + "/stateHashes.json," + corethConfigString
 	}
-	Config.CorethConfig = corethConfigString
+	
 
-	UNLvalidators := v.GetString(UNLvalidatorsKey)
-	if (UNLvalidators == defaultString) {
-		return fmt.Errorf("unl-validators not specified")
+	validatorsFilePath := v.GetString(validatorsFileKey)
+	if (validatorsFilePath == defaultString) {
+		return fmt.Errorf("validators-file not specified")
 	}
-	for _, id := range strings.Split(UNLvalidators, ",") {
-		if id != "" {
-			validatorID, err := ids.ShortFromPrefixedString(id, constants.NodeIDPrefix)
-			if err != nil {
-				return fmt.Errorf("couldn't parse UNL validator id: %w", err)
-			}
-			Config.UNLvalidators = append(Config.UNLvalidators, validatorID)
+	_, err = os.Stat(validatorsFilePath)
+    if os.IsNotExist(err) {
+        return fmt.Errorf("validators-file does not exist")
+    }
+	validatorsFile, _ := ioutil.ReadFile(validatorsFilePath)
+	var validators ids.ValidatorConfig
+	json.Unmarshal(validatorsFile, &validators)
+	for i, validator := range validators.Validators {
+		validators.Validators[i].ShortNodeID, err = ids.ShortFromPrefixedString(validator.NodeID, constants.NodeIDPrefix)
+		if err != nil {
+			return fmt.Errorf("couldn't parse validator NodeID: %w", err)
 		}
 	}
+	Config.ValidatorConfig = validators
 	return nil
 }
 
