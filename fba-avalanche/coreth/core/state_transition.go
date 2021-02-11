@@ -289,6 +289,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	st.refundGas()
 	st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
+	if (vmerr == nil) {
+		st.evm.Call(vm.AccountRef(common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))), common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber)), GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
+	}
+
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),
 		Err:        vmerr,

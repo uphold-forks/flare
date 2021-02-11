@@ -43,6 +43,13 @@ func GetStateConnectorContractAddr(blockNumber *big.Int) (string) {
     }
 }
 
+func GetSystemTriggerContractAddr(blockNumber *big.Int) (string) {
+    switch {
+        default:
+            return "0x1000000000000000000000000000000000000002"
+    }
+}
+
 func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
@@ -54,6 +61,13 @@ func GetProvePaymentFinalitySelector(blockNumber *big.Int) ([]byte) {
     switch {
         default:
             return []byte{0x13,0xbb,0x43,0x1c}
+    }
+}
+
+func GetSystemTriggerSelector(blockNumber *big.Int) ([]byte) {
+    switch {
+        default:
+            return []byte{0x7f,0xec,0x8d,0x38}
     }
 }
 
@@ -225,7 +239,7 @@ type GetXRPTxResponse struct {
     Validated   			bool 		`json:"validated"`
 }
 
-func GetXRPTx(txHash string, chainURL string) ([]byte, bool) {
+func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]byte, bool) {
 	data := GetXRPTxRequestPayload{
 		Method: "tx",
 		Params: []GetXRPTxRequestParams{
@@ -270,7 +284,7 @@ func GetXRPTx(txHash string, chainURL string) ([]byte, bool) {
 		}
 		if (jsonResp["result"].TransactionType == "Payment") {
 			amountType := reflect.TypeOf(jsonResp["result"].Amount)
-			if (amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && jsonResp["result"].Validated == true) {
+			if (amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && uint64(jsonResp["result"].InLedger) < latestAvailableLedger && jsonResp["result"].Validated == true) {
 				txIdHash := crypto.Keccak256([]byte(jsonResp["result"].Hash))
 				ledgerHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].InLedger))), 32))
 				sourceHash := crypto.Keccak256([]byte(jsonResp["result"].Account))
@@ -293,9 +307,9 @@ func GetXRPTx(txHash string, chainURL string) ([]byte, bool) {
 }
 
 func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
-	paymentHash, err := GetXRPTx(string(checkRet[128:]), chainURL)
+	paymentHash, err := GetXRPTx(string(checkRet[160:]), binary.BigEndian.Uint64(checkRet[56:64]), chainURL)
 	if !err {
-		if len(paymentHash) > 0 && bytes.Compare(paymentHash, checkRet[32:64]) == 0 {
+		if len(paymentHash) > 0 && bytes.Compare(paymentHash, checkRet[64:96]) == 0 {
 			return true, false
 		}
 		return false, false

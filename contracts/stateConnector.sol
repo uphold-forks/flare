@@ -147,7 +147,7 @@ contract stateConnector {
         return finalisedClaimPeriods[locationHash].timestamp;
     }
 
-    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 claimPeriodHash, bytes32 paymentHash, string memory txId) public returns (uint32 _chainId, bytes32 _paymentHash, string memory _txId) {
+    function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 claimPeriodHash, bytes32 paymentHash, string memory txId) public returns (uint32 _chainId, uint64 finalisedLedgerIndex, bytes32 _paymentHash, string memory _txId) {
     	require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(chains[chainId].exists == true, 'chainId does not exist');
         bytes32 txIdHash = keccak256(abi.encodePacked(txId));
@@ -157,7 +157,7 @@ contract stateConnector {
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
         	finalisedPayments[txIdHash] = HashExists(true, paymentHash, timestamp);
         }
-        return (chainId, paymentHash, txId);
+        return (chainId, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
 
     function getPaymentFinality(bytes32 txId, uint64 ledger, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) public view returns (bool finality, uint256 timestamp) {
