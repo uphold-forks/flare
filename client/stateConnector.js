@@ -100,9 +100,9 @@ async function run(chainId, minLedger) {
 							"\n\x1b[0mCurrent Timestamp:\t\x1b[33m", parseInt(Date.now()/1000),
 							"\n\x1b[0mDiff Avg (sec):\t\t\x1b[33m", parseInt(result.timeDiffAvg));
 						const currTime = parseInt(Date.now()/1000);
-						const deferTime = parseInt(2*parseInt(result.timeDiffAvg)/3 - (currTime-parseInt(result.finalisedTimestamp)));
+						const deferTime = parseInt(parseInt(result.timeDiffAvg) - (currTime-parseInt(result.finalisedTimestamp)) - 20);
 						if (deferTime > 0) {
-							console.log("Not enough time elapsed since prior finality, deferring for", deferTime, "seconds.");
+							console.log("Not enough time elapsed since prior finality, deferring for", deferTime+1, "seconds.");
 							return setTimeout(() => {run(chainId, minLedger)}, 1000*(deferTime+1));
 						} else if (sampledLedger >= parseInt(result.genesisLedger) + (parseInt(result.finalisedClaimPeriodIndex)+1)*parseInt(result.claimPeriodLength)) {
 							return xrplProcessLedger(parseInt(result.genesisLedger), parseInt(result.finalisedClaimPeriodIndex), parseInt(result.claimPeriodLength));

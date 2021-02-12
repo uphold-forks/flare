@@ -48,7 +48,7 @@ contract stateConnector {
     function initialiseChains() public returns (bool success) {
         require(initialised == false, 'initialised != false');
         governanceContract = 0x1000000000000000000000000000000000000000;
-        chains[0] = Chain(true, 61050250, 30, 0, 0, 61050250, block.timestamp, 120, 0); //XRP
+        chains[0] = Chain(true, 61538000, 30, 0, 0, 61538000, block.timestamp, 120, 0); //XRP
         initialised = true;
         return true;
     }
@@ -105,7 +105,12 @@ contract stateConnector {
         require(chains[chainId].exists == true, 'chainId does not exist');
         require(ledger == chains[chainId].finalisedLedgerIndex + chains[chainId].claimPeriodLength, 'invalid ledger');
         require(ledger == chains[chainId].genesisLedger + (claimPeriodIndex+1)*chains[chainId].claimPeriodLength, 'invalid claimPeriodIndex');
-        require(3*(block.timestamp-chains[chainId].finalisedTimestamp) >= 2*chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
+        require(block.timestamp > chains[chainId].finalisedTimestamp, 'block.timestamp <= chains[chainId].finalisedTimestamp');
+        if (2*chains[chainId].timeDiffAvg < chains[chainId].timeDiffExpected) {
+        	require(3*(block.timestamp-chains[chainId].finalisedTimestamp) >= 2*chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
+        } else {
+        	require(block.timestamp-chains[chainId].finalisedTimestamp+15 >= chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
+        }
         bytes32 locationHash =  keccak256(abi.encodePacked(
                                     keccak256(abi.encodePacked(chainId)),
                                     keccak256(abi.encodePacked(claimPeriodIndex))
@@ -126,8 +131,8 @@ contract stateConnector {
             chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             chains[chainId].finalisedLedgerIndex = ledger;
             uint256 timeDiffAvgUpdate = (chains[chainId].timeDiffAvg + (block.timestamp-chains[chainId].finalisedTimestamp))/2;
-            if (timeDiffAvgUpdate > chains[chainId].timeDiffExpected) {
-                chains[chainId].timeDiffAvg = chains[chainId].timeDiffExpected;
+            if (timeDiffAvgUpdate > 2*chains[chainId].timeDiffExpected) {
+                chains[chainId].timeDiffAvg = 2*chains[chainId].timeDiffExpected;
             } else {
                 chains[chainId].timeDiffAvg = timeDiffAvgUpdate;
             }
