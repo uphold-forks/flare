@@ -111,7 +111,6 @@ async function run(chainId) {
 				if (tx.type == 'payment') {
 					if (tx.outcome.deliveredAmount.currency == 'XRP') {
 						const leafPromise = new Promise((resolve, reject) => {
-							console.log(tx.outcome);
 							var destinationTag;
 							if (!("tag" in tx.specification.destination)) {
 								destinationTag = 0;
@@ -187,7 +186,7 @@ async function run(chainId) {
 }
 
 async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
-	console.log('Leaf: ', leaf, '\nClaim Period Hash: ', claimPeriodHash);
+	console.log('Claim Period Hash:\t \x1b[33m' + claimPeriodHash + '\x1b[0m');
 	web3.eth.getTransactionCount(config.accounts[1].address)
 	.then(nonce => {
 		return [stateConnector.methods.provePaymentFinality(
@@ -284,7 +283,6 @@ async function chainConfig(chainId) {
 async function web3Config() {
 	let rawConfig = fs.readFileSync('config.json');
 	config = JSON.parse(rawConfig);
-	// console.log(config);
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;
 	customCommon = Common.forCustomChain('ropsten',
