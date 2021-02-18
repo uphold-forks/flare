@@ -167,7 +167,7 @@ type VM struct {
 
 	connections map[[20]byte]time.Time
 
-	UNLvalidators []ids.ShortID
+	ValidatorConfig ids.ValidatorConfig
 }
 
 // Initialize this blockchain.
@@ -180,7 +180,7 @@ func (vm *VM) Initialize(
 	_ []*common.Fx,
 ) error {
 	ctx.Log.Verbo("initializing platform chain")
-	vm.UNLvalidators = ctx.UNLvalidators
+	vm.ValidatorConfig = ctx.ValidatorConfig
 	// Initialize the inner VM, which has a lot of boiler-plate logic
 	vm.SnowmanVM = &core.SnowmanVM{}
 	if err := vm.SnowmanVM.Initialize(ctx, db, vm.unmarshalBlockFunc, msgs); err != nil {
@@ -961,8 +961,8 @@ func (vm *VM) updateVdrSet(subnetID ids.ID) error {
 	stopPrefix := []byte(fmt.Sprintf("%s%s", constants.PrimaryNetworkID, stopDBPrefix))
 	stopDB := prefixdb.NewNested(stopPrefix, vm.DB)
 	defer stopDB.Close()
-	for _, nodeID := range vm.UNLvalidators {
-		err := vdrs.AddWeight(nodeID, uint64(1))
+	for _, validator := range vm.ValidatorConfig.Validators {
+		err := vdrs.AddWeight(validator.ShortNodeID, uint64(validator.Weighting))
 		if err != nil {
 			return err
 		}

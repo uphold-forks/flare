@@ -243,32 +243,31 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
-	if (contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber))) {
+	if (contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Compare(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
+			bytes.Compare(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) == 0)) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		// Check if registerClaimPeriod() is being called in the stateConnector contract
-		dataFee := new(big.Int).Mul(new(big.Int).SetUint64(GetDataFee(st.evm.Context.BlockNumber)*uint64((len(st.data)-4)/32)), st.gasPrice)
-		if st.state.GetBalance(st.msg.From()).Cmp(new(big.Int).Add(new(big.Int).SetUint64(GetFixedGasUsed(st.evm.Context.BlockNumber)), dataFee)) < 0 {
-			return nil, ErrInsufficientFunds
+
+		// Fee charged for attempting to perform an underlying chain state check
+		dataFee := new(big.Int).Mul(new(big.Int).SetUint64(GetDataFee(st.evm.Context.BlockNumber)*uint64(len(st.data))), st.gasPrice)
+		if st.state.GetBalance(st.msg.From()).Cmp(dataFee) < 0 {
+			return nil, ErrInsufficientFundsForTransfer
 		}
 		st.state.SubBalance(st.msg.From(), dataFee)
 		st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), dataFee)
 
-		if (bytes.Compare(st.data[0:4], GetRegisterClaimPeriodSelector(st.evm.Context.BlockNumber)) == 0) {
-			cacheRet, _, cacheVmerr := st.evm.Call(sender, st.to(), st.data, ^uint64(0), st.value)
-			if (cacheVmerr == nil) {
-				chainConfig := st.evm.ChainConfig()
-				if (VerifyClaimPeriod(*chainConfig.StateConnectorConfig, cacheRet[32:]) == true) {
-					originalCoinbase := st.evm.Context.Coinbase
-					defer func() {
-						st.evm.Context.Coinbase = originalCoinbase
-					}()
-					st.evm.Context.Coinbase = st.msg.From()
-				}
+		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		if (checkVmerr == nil) {
+			chainConfig := st.evm.ChainConfig()
+			if (StateConnectorCall(st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) == true) {
+				originalCoinbase := st.evm.Context.Coinbase
+				defer func() {
+					st.evm.Context.Coinbase = originalCoinbase
+				}()
+				st.evm.Context.Coinbase = st.msg.From()
 			}
 		}
-		ret, _, vmerr = st.evm.Call(sender, st.to(), st.data, ^uint64(0), st.value)
-		st.gas = st.gas - GetFixedGasUsed(st.evm.Context.BlockNumber)
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	} else {
 		// Check clauses 4-5, subtract intrinsic gas if everything is correct
 		gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
@@ -289,6 +288,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 	st.refundGas()
 	st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+
+	if (vmerr == nil) {
+		st.evm.Call(vm.AccountRef(common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))), common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber)), GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
+	}
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),

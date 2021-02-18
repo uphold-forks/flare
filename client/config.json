@@ -1,8 +1,14 @@
 {
-  "account": {
-    "address": "0x9b200C53C8635a3d5972e1Dc5a7661713143987C",
-    "privateKey": "653cf330f6af563bc209892c752ef975c616e862762a3d97f55bdfc41428b90b"
-  },
+  "accounts": [
+    {
+      "address": "0x9b200C53C8635a3d5972e1Dc5a7661713143987C",
+      "privateKey": "653cf330f6af563bc209892c752ef975c616e862762a3d97f55bdfc41428b90b"
+    },
+    {
+      "address": "0xB35ABD91a7Da229a1a844229A652C3b34b59C59A",
+      "privateKey": "3822078a9d975e98e2b3363e72bb9cdbc90413715da436ce28d00fd789e69d33"
+    }
+  ],
   "chains": [
     {
       "name": "XRPL",
@@ -10,7 +16,7 @@
     }
   ],
   "flare": {
-    "gas": "100000",
+    "gas": "5000000",
     "contractGas": "10000000",
     "gasPrice": "10000000",
     "chainId": 16,

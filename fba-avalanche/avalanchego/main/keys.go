@@ -80,9 +80,9 @@ const (
 	consensusGossipFrequencyKey     = "consensus-gossip-frequency"
 	consensusShutdownTimeoutKey     = "consensus-shutdown-timeout"
 	fdLimitKey                      = "fd-limit"
-	corethConfigKey                 = "state-connector-config"
+	corethConfigKey                 = "chain-apis"
 	disconnectedCheckFreqKey        = "disconnected-check-frequency"
 	disconnectedRestartTimeoutKey   = "disconnected-restart-timeout"
 	restartOnDisconnectedKey        = "restart-on-disconnected"
-	UNLvalidatorsKey				= "unl-validators"
+	validatorsFileKey				= "validators-file"
 )
