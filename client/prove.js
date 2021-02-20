@@ -5,8 +5,6 @@ const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
 const Common = require('ethereumjs-common').default;
 const fs = require('fs');
-const { MerkleTree } = require('merkletreejs');
-const keccak256 = require('keccak256');
 
 const stateConnectorContract = "0x1000000000000000000000000000000000000001";
 var config,
