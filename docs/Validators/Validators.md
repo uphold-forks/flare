@@ -37,7 +37,7 @@ Flare is unique as a network in that it is focused on bringing together liquidit
 
 * Finally, any validator that exists on the daily ground truth list and also conforms to minimal uptime requirements as a validator is entitled to a share of the Flare network mining reward scaled by their weighting on the ground truth list and paid out daily.
 
-## Relevant Code Segments
+## Code
 
 Updating the validator set on Flare with custom sampling probabilities: https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/vms/platformvm/vm.go#L959
 ```golang
