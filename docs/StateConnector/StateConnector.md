@@ -51,7 +51,8 @@ Before a proof is compared against an underlying chain, it is first evaluated at
 7. When a chain reaches a value for `timeDiffAvg` of `1/2 * timeDiffExpected`, the permitted timeout between submitting data availability proofs is set to `2/3 * timeDiffAvg`, enabling a rapid bootstrapping to the latest state in the event of a liveness outage of the state-connector system.
 
 <table align="center"><tr><td align="center" width="9999">
-<img src="https://gitlab.com/flarenetwork/flare/-/raw/master/docs/StateConnector/timeDelays.png" align="center" width="150" alt="Data Availability Proof Timing">
+<img src="https://gitlab.com/flarenetwork/flare/-/raw/master/docs/StateConnector/timeDelays.png" align="center" alt="Data Availability Proof Timing">
+
 Frequency in Permitting Data Availability Proof Submissions to Flare.
 </td></tr></table>
 
