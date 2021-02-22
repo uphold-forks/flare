@@ -101,7 +101,6 @@ contract stateConnector {
     }
 
     function proveClaimPeriodFinality(uint32 chainId, uint64 ledger, uint64 claimPeriodIndex, bytes32 claimPeriodHash) public returns (uint32 _chainId, uint64 _ledger, uint16 _numConfirmations, bytes32 _claimPeriodHash) {
-        require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(chains[chainId].exists == true, 'chainId does not exist');
         require(ledger == chains[chainId].finalisedLedgerIndex + chains[chainId].claimPeriodLength, 'invalid ledger');
         require(ledger == chains[chainId].genesisLedger + (claimPeriodIndex+1)*chains[chainId].claimPeriodLength, 'invalid claimPeriodIndex');
@@ -153,7 +152,6 @@ contract stateConnector {
     }
 
     function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 claimPeriodHash, bytes32 paymentHash, string memory txId) public returns (uint32 _chainId, uint64 finalisedLedgerIndex, bytes32 _paymentHash, string memory _txId) {
-    	require(msg.sender == tx.origin, 'msg.sender != tx.origin');
         require(chains[chainId].exists == true, 'chainId does not exist');
         bytes32 txIdHash = keccak256(abi.encodePacked(txId));
         require(finalisedPayments[txIdHash].exists == false, 'txId already proven');
