@@ -63,9 +63,9 @@ func (vm *VM) updateVdrSet(subnetID ids.ID) error {
 Providing sampling probabilities via command-line input on launch using the `--validators-file` flag:
 ```bash
 ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9650 --staking-port=9651 \
---db-dir=db/node00/ --staking-enabled=true --network-id=coston --bootstrap-ips= --bootstrap-ids= \
---staking-tls-cert-file=$(pwd)/config/keys/node00/staker.crt --staking-tls-key-file=$(pwd)/config/keys/node00/staker.key \
---log-level=debug --validators-file=$(pwd)/config/validators/validators_0000.json --chain-apis="https://xrpl.ws"
+	--db-dir=db/node00/ --staking-enabled=true --network-id=coston --bootstrap-ips= --bootstrap-ids= \
+	--staking-tls-cert-file=$(pwd)/config/keys/node00/staker.crt --staking-tls-key-file=$(pwd)/config/keys/node00/staker.key \
+	--log-level=debug --validators-file=$(pwd)/config/validators/validators_0000.json --chain-apis="https://xrpl.ws"
 ```
 
 Example `validators.json` definition: https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/avalanchego/config/validators/validators_0000.json
