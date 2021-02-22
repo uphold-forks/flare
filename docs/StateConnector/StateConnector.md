@@ -50,8 +50,10 @@ Before a proof is compared against an underlying chain, it is first evaluated at
 6. Each chain features a limit on what the value of `timeDiffAvg` can be, and this is defined as two times the expected length of time for a claim period on that chain: `2 * timeDiffExpected`. For example, for an underlying chain with average 4-second finality and a claim period size of 30 ledgers, `2 * timeDiffExpected` for this chain equals `2 * 120 == 240` seconds, where `timeDiffExpected` can be updated over time via governance.
 7. When a chain reaches a value for `timeDiffAvg` of `1/2 * timeDiffExpected`, the permitted timeout between submitting data availability proofs is set to `2/3 * timeDiffAvg`, enabling a rapid bootstrapping to the latest state in the event of a liveness outage of the state-connector system.
 
-<img align="center" src="https://gitlab.com/flarenetwork/flare/-/raw/master/docs/StateConnector/timeDelays.png" alt="Data Availability Proof Timing">
+<table align="center"><tr><td align="center" width="9999">
+<img src="https://gitlab.com/flarenetwork/flare/-/raw/master/docs/StateConnector/timeDelays.png" align="center" width="150" alt="Data Availability Proof Timing">
 Frequency in Permitting Data Availability Proof Submissions to Flare.
+</td></tr></table>
 
 If the presently submitted data availability proof conforms to all of these basic conditions, then the logic proceeds to the next stage of verifying the data availability proof. Otherwise, the entire transaction containing this proof proposal is reverted and the sender can never recuperate their `dataFee` value.
 
