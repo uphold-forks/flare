@@ -1,6 +1,4 @@
-# State Connector System
-
-Proving the state of any underlying chain for all smart contracts on Flare.
+# State Connector System: Proving the state of any underlying chain for all smart contracts on Flare
 
 Flare Network is purpose-built for safely interpreting the state of all underlying chains. Other networks either force you to rely on trusted third parties for this, or they force other chains to conform to their standards, in effect changing the independent chain's protocol so they can then begin to communicate. Flare by contrast does not require you to trust anyone but the validators of an underlying chain, and Flare does not require validators from the underlying chains to even be aware that Flare exists.
 
