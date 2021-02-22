@@ -25,9 +25,8 @@ Before any specific transaction from an underlying chain is proven on Flare, the
 * **`claimPeriodIndex`**: The ongoing state of an underlying chain is broken down into uniformly-sized and ordered groups of ledger(s) known as _claim periods_. In general, the expected length of time for an underlying chain to produce a claim period should be defined as being strictly greater than the time to finality of a single block on Flare. This is an important consideration, because it enables rapidly catching up to the latest claim period state of an underlying chain in the scenario that liveness in the process of agreeing data availability is temporarily lost. That is, longer claim periods enable faster bootstrapping to the latest state at the expense of longer time to finalize the present state of an underlying chain to Flare.
 * **`claimPeriodHash`**: The keccak256 hash of the last ledger's regularly-formatted hash from this claim period.
 
+https://gitlab.com/flarenetwork/flare/-/blob/master/contracts/stateConnector.sol#L103
 ```javascript
-// flare/contracts/stateConnector.sol -> line 103
-
 function proveClaimPeriodFinality(uint32 chainId, uint64 ledger, 
     uint64 claimPeriodIndex, bytes32 claimPeriodHash) public returns 
     (uint32 _chainId, uint64 _ledger, uint16 _numConfirmations, 
@@ -62,9 +61,8 @@ Once the basic viability of a data availability proof has been determined, the p
 
 At the systems-level, the initial viability check is performed using a standard EVM state transition call: `st.evm.Call(from, to, data, gas, value)`. However, this call is performed separately and ahead of the actual state transition call that changes the EVM state. The systems-level code knows to only perform this 2-phase call of `st.evm.Call` because it checks the `to` address-value and the function selector bytes contained in the data bytes-value to check that this transaction is pertaining to calling the `proveClaimPeriodFinality` function in the state connector contract, which has a fixed address from the genesis file but can be updated over time through governance.
 
+https://gitlab.com/flarenetwork/flare/-/blob/master/fba-avalanche/coreth/core/state_transition.go#L259
 ```golang
-// flare/fba-avalanche/coreth/core/state_transition.go -> line 259
-
 // Check basic viability of the data availability proof
 checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 if (checkVmerr == nil) {
@@ -94,9 +92,8 @@ Once the prior step returns and if it was successful, the `block.coinbase` value
 
 Finally, the value of `timeDiffAvg` is updated for a successful data availability proof submission as follows:
 
+https://gitlab.com/flarenetwork/flare/-/blob/master/contracts/stateConnector.sol#L132
 ```javascript
-// stateConnector.sol -> line 133
-
 // Calculate the actual moving average of timeDiff updates
 uint256 timeDiffAvgUpdate = (chains[chainId].timeDiffAvg + (block.timestamp-chains[chainId].finalisedTimestamp))/2;
 if (timeDiffAvgUpdate > 2*chains[chainId].timeDiffExpected) {
