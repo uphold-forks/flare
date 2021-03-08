@@ -8,13 +8,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"math/bits"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
-	"io/ioutil"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -262,6 +263,9 @@ func getViper() (*viper.Viper, error) {
 // setNodeConfig sets attributes on [Config] based on the values
 // defined in the [viper] environment
 func setNodeConfig(v *viper.Viper) error {
+	if bits.UintSize != 64 {
+		return fmt.Errorf("system architecture is not 64-bit")
+	}
 	// Logging:
 	loggingConfig, err := logging.DefaultConfig()
 	if err != nil {
@@ -654,22 +658,24 @@ func setNodeConfig(v *viper.Viper) error {
 	// Coreth Plugin
 	corethConfigString := v.GetString(corethConfigKey)
 	dbDir := v.GetString(dbDirKey)
-	if (dbDir[len(dbDir)-1:] == "/") {
+	if dbDir[len(dbDir)-1:] == "/" {
 		Config.CorethConfig = dbDir + "stateHashes.json," + corethConfigString
 	} else {
 		Config.CorethConfig = dbDir + "/stateHashes.json," + corethConfigString
 	}
-	
 
 	validatorsFilePath := v.GetString(validatorsFileKey)
-	if (validatorsFilePath == defaultString) {
+	if validatorsFilePath == defaultString {
 		return fmt.Errorf("validators-file not specified")
 	}
 	_, err = os.Stat(validatorsFilePath)
-    if os.IsNotExist(err) {
-        return fmt.Errorf("validators-file does not exist")
-    }
-	validatorsFile, _ := ioutil.ReadFile(validatorsFilePath)
+	if errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("validators-file does not exist")
+	}
+	validatorsFile, err := ioutil.ReadFile(validatorsFilePath)
+	if err != nil {
+		return fmt.Errorf("cannot read from validatorsFilePath")
+	}
 	var validators ids.ValidatorConfig
 	json.Unmarshal(validatorsFile, &validators)
 	for i, validator := range validators.Validators {
