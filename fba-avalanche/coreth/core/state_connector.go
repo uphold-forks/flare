@@ -1,74 +1,75 @@
 package core
 
 import (
-	"sync"
-	"math/big"
-	"encoding/json"
-	"encoding/hex"
-	"encoding/binary"
-	"crypto/sha256"
-	"io/ioutil"
-	"os"
-	"time"
-	"net/http"
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"io/ioutil"
+	"math/big"
+	"net/http"
+	"os"
 	"reflect"
 	"strconv"
-	"github.com/ethereum/go-ethereum/crypto"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var fileMutex sync.Mutex
 
 // Fixed gas used for custom block.coinbase operations
-func GetDataFee(blockNumber *big.Int) (uint64) {
-    switch {
-        default:
-            return 10000000
-    }
+func GetDataFee(blockNumber *big.Int) uint64 {
+	switch {
+	default:
+		return 10000000
+	}
 }
 
-func GetGovernanceContractAddr(blockNumber *big.Int) (string) {
-    switch {
-        default:
-            return "0x1000000000000000000000000000000000000000"
-    }
+func GetGovernanceContractAddr(blockNumber *big.Int) string {
+	switch {
+	default:
+		return "0x1000000000000000000000000000000000000000"
+	}
 }
 
-func GetStateConnectorContractAddr(blockNumber *big.Int) (string) {
-    switch {
-        default:
-            return "0x1000000000000000000000000000000000000001"
-    }
+func GetStateConnectorContractAddr(blockNumber *big.Int) string {
+	switch {
+	default:
+		return "0x1000000000000000000000000000000000000001"
+	}
 }
 
-func GetSystemTriggerContractAddr(blockNumber *big.Int) (string) {
-    switch {
-        default:
-            return "0x1000000000000000000000000000000000000002"
-    }
+func GetSystemTriggerContractAddr(blockNumber *big.Int) string {
+	switch {
+	default:
+		return "0x1000000000000000000000000000000000000002"
+	}
 }
 
-func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) ([]byte) {
-    switch {
-        default:
-            return []byte{0xa5,0x7d,0x0e,0x25}
-    }
+func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) []byte {
+	switch {
+	default:
+		return []byte{0xa5, 0x7d, 0x0e, 0x25}
+	}
 }
 
-func GetProvePaymentFinalitySelector(blockNumber *big.Int) ([]byte) {
-    switch {
-        default:
-            return []byte{0x13,0xbb,0x43,0x1c}
-    }
+func GetProvePaymentFinalitySelector(blockNumber *big.Int) []byte {
+	switch {
+	default:
+		return []byte{0x13, 0xbb, 0x43, 0x1c}
+	}
 }
 
-func GetSystemTriggerSelector(blockNumber *big.Int) ([]byte) {
-    switch {
-        default:
-            return []byte{0x7f,0xec,0x8d,0x38}
-    }
+func GetSystemTriggerSelector(blockNumber *big.Int) []byte {
+	switch {
+	default:
+		return []byte{0x7f, 0xec, 0x8d, 0x38}
+	}
 }
 
 var (
@@ -81,16 +82,16 @@ var (
 )
 
 type StateHashes struct {
-	Hashes	[]string 	`json:"hashes"`
+	Hashes []string `json:"hashes"`
 }
 
 func contains(slice []string, item string) bool {
-    set := make(map[string]struct{}, len(slice))
-    for _, s := range slice {
-        set[s] = struct{}{}
-    }
-    _, ok := set[item] 
-    return ok
+	set := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+	_, ok := set[item]
+	return ok
 }
 
 // =======================================================
@@ -100,31 +101,31 @@ func contains(slice []string, item string) bool {
 type PingXRPParams struct {
 }
 type PingXRPPayload struct {
-	Method string   		`json:"method"`
-	Params []PingXRPParams 	`json:"params"`
+	Method string          `json:"method"`
+	Params []PingXRPParams `json:"params"`
 }
 type GetXRPBlockRequestParams struct {
-	LedgerIndex  			uint64 		`json:"ledger_index"`
-	Full         			bool   		`json:"full"`
-	Accounts     			bool   		`json:"accounts"`
-	Transactions 			bool   		`json:"transactions"`
-	Expand       			bool   		`json:"expand"`
-	OwnerFunds   			bool   		`json:"owner_funds"`
+	LedgerIndex  uint64 `json:"ledger_index"`
+	Full         bool   `json:"full"`
+	Accounts     bool   `json:"accounts"`
+	Transactions bool   `json:"transactions"`
+	Expand       bool   `json:"expand"`
+	OwnerFunds   bool   `json:"owner_funds"`
 }
 type GetXRPBlockRequestPayload struct {
-	Method 					string   					`json:"method"`
-	Params 					[]GetXRPBlockRequestParams 	`json:"params"`
+	Method string                     `json:"method"`
+	Params []GetXRPBlockRequestParams `json:"params"`
 }
 type CheckXRPErrorResponse struct {
-	Error   				string 		`json:"error"`
+	Error string `json:"error"`
 }
 type GetXRPBlockResponse struct {
-    LedgerHash   			string 		`json:"ledger_hash"`
-    LedgerIndex     		int 		`json:"ledger_index"`
-    Validated   			bool 		`json:"validated"`
+	LedgerHash  string `json:"ledger_hash"`
+	LedgerIndex int    `json:"ledger_index"`
+	Validated   bool   `json:"validated"`
 }
 
-func PingXRP(chainURL string) (bool) {
+func PingXRP(chainURL string) bool {
 	data := PingXRPPayload{
 		Method: "ping",
 	}
@@ -145,7 +146,7 @@ func PingXRP(chainURL string) (bool) {
 		return false
 	}
 	defer resp.Body.Close()
-	if (resp.StatusCode == 200) {
+	if resp.StatusCode == 200 {
 		return true
 	} else {
 		return false
@@ -157,12 +158,12 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 		Method: "ledger",
 		Params: []GetXRPBlockRequestParams{
 			GetXRPBlockRequestParams{
-				LedgerIndex: ledger,
-				Full: false,
-				Accounts: false,
+				LedgerIndex:  ledger,
+				Full:         false,
+				Accounts:     false,
 				Transactions: false,
-				Expand: false,
-				OwnerFunds: false,
+				Expand:       false,
+				OwnerFunds:   false,
 			},
 		},
 	}
@@ -181,7 +182,7 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 		return "", true
 	}
 	defer resp.Body.Close()
-	if (resp.StatusCode == 200) {
+	if resp.StatusCode == 200 {
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return "", true
@@ -220,23 +221,23 @@ func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) 
 }
 
 type GetXRPTxRequestParams struct {
-	Transaction  			string 		`json:"transaction"`
-	Binary         			bool   		`json:"binary"`
+	Transaction string `json:"transaction"`
+	Binary      bool   `json:"binary"`
 }
 type GetXRPTxRequestPayload struct {
-	Method 					string   					`json:"method"`
-	Params 					[]GetXRPTxRequestParams 	`json:"params"`
+	Method string                  `json:"method"`
+	Params []GetXRPTxRequestParams `json:"params"`
 }
 type GetXRPTxResponse struct {
-	Account      			string 		`json:"Account"`
-    Amount		   			interface{} `json:"Amount"`
-    Destination     		string 		`json:"Destination"`
-    DestinationTag     		int 		`json:"DestinationTag"`
-    TransactionType       	string 		`json:"TransactionType"`
-    Hash 			  		string 		`json:"hash"`
-    InLedger 	 			int 		`json:"inLedger"`
-    Flags 					int 		`json:"Flags"`
-    Validated   			bool 		`json:"validated"`
+	Account         string      `json:"Account"`
+	Amount          interface{} `json:"Amount"`
+	Destination     string      `json:"Destination"`
+	DestinationTag  int         `json:"DestinationTag"`
+	TransactionType string      `json:"TransactionType"`
+	Hash            string      `json:"hash"`
+	InLedger        int         `json:"inLedger"`
+	Flags           int         `json:"Flags"`
+	Validated       bool        `json:"validated"`
 }
 
 func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]byte, bool) {
@@ -245,7 +246,7 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		Params: []GetXRPTxRequestParams{
 			GetXRPTxRequestParams{
 				Transaction: txHash,
-				Binary: false,
+				Binary:      false,
 			},
 		},
 	}
@@ -264,7 +265,7 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		return []byte{}, true
 	}
 	defer resp.Body.Close()
-	if (resp.StatusCode == 200) {
+	if resp.StatusCode == 200 {
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return []byte{}, true
@@ -282,15 +283,15 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		if err != nil {
 			return []byte{}, false
 		}
-		if (jsonResp["result"].TransactionType == "Payment") {
+		if jsonResp["result"].TransactionType == "Payment" {
 			amountType := reflect.TypeOf(jsonResp["result"].Amount)
-			if (amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && uint64(jsonResp["result"].InLedger) < latestAvailableLedger && jsonResp["result"].Validated == true) {
+			if amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && uint64(jsonResp["result"].InLedger) < latestAvailableLedger && jsonResp["result"].Validated == true {
 				txIdHash := crypto.Keccak256([]byte(jsonResp["result"].Hash))
 				ledgerHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].InLedger))), 32))
 				sourceHash := crypto.Keccak256([]byte(jsonResp["result"].Account))
 				destinationHash := crypto.Keccak256([]byte(jsonResp["result"].Destination))
 				destinationTagHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].DestinationTag))), 32))
-				amount, err := strconv.Atoi(jsonResp["result"].Amount.(string))
+				amount, err := strconv.ParseUint(jsonResp["result"].Amount.(string), 10, 64)
 				if err != nil {
 					return []byte{}, false
 				}
@@ -318,9 +319,9 @@ func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 }
 
 func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if (bytes.Compare(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) == 0) {
+	if bytes.Compare(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) == 0 {
 		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
-	} else if (bytes.Compare(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) == 0) {
+	} else if bytes.Compare(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) == 0 {
 		return ProvePaymentFinalityXRP(checkRet, chainURL)
 	}
 	return false, true
@@ -330,31 +331,31 @@ func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, ch
 // Common
 // =======================================================
 
-func PingChain(chainId uint32, chainURL string) (bool) {
+func PingChain(chainId uint32, chainURL string) bool {
 	switch chainId {
-		case 0:
-			return PingXRP(chainURL) 
-        default:
-            return false
-    }
+	case 0:
+		return PingXRP(chainURL)
+	default:
+		return false
+	}
 }
 
 func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainId uint32, chainURL string) (bool, bool) {
 	switch chainId {
-		case 0:
-			return ProveXRP(blockNumber, functionSelector, checkRet, chainURL) 
-        default:
-            return false, true
-    }
+	case 0:
+		return ProveXRP(blockNumber, functionSelector, checkRet, chainURL)
+	default:
+		return false, true
+	}
 }
 
-func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURLs []string) (bool) {
-    ok := false
-    pong := false
-    chainId := binary.BigEndian.Uint32(checkRet[28:32])
-    if uint32(len(chainURLs)) > chainId {
-    	ok = true
-    }
+func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURLs []string) bool {
+	ok := false
+	pong := false
+	chainId := binary.BigEndian.Uint32(checkRet[28:32])
+	if uint32(len(chainURLs)) > chainId {
+		ok = true
+	}
 	for !pong {
 		if ok {
 			pong = PingChain(chainId, chainURLs[chainId])
@@ -374,30 +375,35 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, c
 }
 
 // Verify proof against underlying chain
-func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) (bool) {
+func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) bool {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	var data StateHashes
 	stateCacheFilePath := stateConnectorConfig[0]
-	rawHash := sha256.Sum256([]byte(hex.EncodeToString(functionSelector)+hex.EncodeToString(checkRet)))
+	rawHash := sha256.Sum256([]byte(hex.EncodeToString(functionSelector) + hex.EncodeToString(checkRet)))
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateCacheFilePath)
-    if os.IsNotExist(err) {
-        os.Create(stateCacheFilePath)
-    } else {
-    	file, _ := ioutil.ReadFile(stateCacheFilePath)
+	if os.IsNotExist(err) {
+		os.Create(stateCacheFilePath)
+	} else if err == nil {
+		file, err := ioutil.ReadFile(stateCacheFilePath)
+		if err != nil {
+			// Notify this validator's admin, pause execution here
+		}
 		data = StateHashes{}
 		json.Unmarshal(file, &data)
-    }
-    if !contains(data.Hashes, hexHash) {
-    	if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
-    		data.Hashes = append(data.Hashes, hexHash)
+	} else {
+		// Notify this validator's admin, pause execution here
+	}
+	if !contains(data.Hashes, hexHash) {
+		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
+			data.Hashes = append(data.Hashes, hexHash)
 			jsonData, _ := json.Marshal(data)
 			ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)
 			return true
-    	} else {
-    		return false
-    	}
-    }
-    return true
+		} else {
+			return false
+		}
+	}
+	return true
 }
