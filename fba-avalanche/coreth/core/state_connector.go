@@ -384,26 +384,39 @@ func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet 
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateCacheFilePath)
 	if os.IsNotExist(err) {
-		os.Create(stateCacheFilePath)
-	} else if err == nil {
+		_, err = os.Create(stateCacheFilePath)
+		if err != nil {
+			// Bypass caching mechanism
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+		}
+	} else if err != nil {
+		// Bypass caching mechanism
+		return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+	} else {
 		file, err := ioutil.ReadFile(stateCacheFilePath)
 		if err != nil {
-			// Notify this validator's admin, pause execution here
+			// Bypass caching mechanism
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
 		}
 		data = StateHashes{}
-		json.Unmarshal(file, &data)
-	} else {
-		// Notify this validator's admin, pause execution here
+		err = json.Unmarshal(file, &data)
+		if err != nil {
+			// Bypass caching mechanism
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+		}
 	}
 	if !contains(data.Hashes, hexHash) {
 		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
 			data.Hashes = append(data.Hashes, hexHash)
-			jsonData, _ := json.Marshal(data)
-			ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)
+			jsonData, err := json.Marshal(data)
+			if err == nil {
+				ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)
+			}
 			return true
 		} else {
 			return false
 		}
 	}
+	// Cache contains this proof already
 	return true
 }
