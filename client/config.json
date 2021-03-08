@@ -12,7 +12,7 @@
   "chains": [
     {
       "name": "XRPL",
-      "url": "wss://xrpl.ws"
+      "url": "wss://xrplcluster.com"
     }
   ],
   "flare": {

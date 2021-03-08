@@ -17,9 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"math"
 	"math/big"
-	"bytes"
 
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/params"
@@ -243,8 +243,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
-	if (contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Compare(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
-			bytes.Compare(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) == 0)) {
+	if contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Compare(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
+		bytes.Compare(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) == 0) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
@@ -257,9 +257,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), dataFee)
 
 		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		if (checkVmerr == nil) {
+		if checkVmerr == nil {
 			chainConfig := st.evm.ChainConfig()
-			if (StateConnectorCall(st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) == true) {
+			if StateConnectorCall(st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) == true {
 				originalCoinbase := st.evm.Context.Coinbase
 				defer func() {
 					st.evm.Context.Coinbase = originalCoinbase
@@ -278,7 +278,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			return nil, ErrIntrinsicGas
 		}
 		st.gas -= gas
-		if (contractCreation) {
+		if contractCreation {
 			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 		} else {
 			// Increment the nonce for the next transaction
@@ -289,8 +289,11 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	st.refundGas()
 	st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
-	if (vmerr == nil) {
-		st.evm.Call(vm.AccountRef(common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))), common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber)), GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
+	if vmerr == nil {
+		_, _, triggerErr := st.evm.Call(vm.AccountRef(common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))), common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber)), GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
+		if triggerErr != nil {
+			// Errors were not properly handled in try/catch statements in the trigger contracts
+		}
 	}
 
 	return &ExecutionResult{
