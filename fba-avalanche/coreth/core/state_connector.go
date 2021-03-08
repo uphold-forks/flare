@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -365,8 +366,8 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, c
 			time.Sleep(time.Second)
 		}
 	}
-	verified, error := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURLs[chainId])
-	if error {
+	verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURLs[chainId])
+	if err {
 		// Notify this validator's admin here
 		time.Sleep(time.Second)
 		return ReadChain(blockNumber, functionSelector, checkRet, chainURLs)
@@ -383,7 +384,7 @@ func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet 
 	rawHash := sha256.Sum256([]byte(hex.EncodeToString(functionSelector) + hex.EncodeToString(checkRet)))
 	hexHash := hex.EncodeToString(rawHash[:])
 	_, err := os.Stat(stateCacheFilePath)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		_, err = os.Create(stateCacheFilePath)
 		if err != nil {
 			// Bypass caching mechanism
