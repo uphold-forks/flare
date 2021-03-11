@@ -14,7 +14,7 @@
 7) Copy the bytes value to the right of `deployedBytecode` to your clipboard.
 8) Open the file: flare/fba-avalanche/avalanchego/genesis/genesis_coston.go
 9) Navigate to the JSON value of `CostonGenesis`.
-10 This JSON contains the genesis config file for the Coston testnet. Addresses can be allocated with both a balance and code deployed at that address, for example:
+10) This JSON contains the genesis config file for the Coston testnet. Addresses can be allocated with both a balance and code deployed at that address, for example:
 ```
 "1000000000000000000000000000000000000002": {
     "balance": "0x0",

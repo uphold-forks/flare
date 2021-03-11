@@ -27,14 +27,12 @@ async function web3Config() {
 		},
 		'petersburg',);
 	// Read the compiled contract code
-	let source = fs.readFileSync("../contracts/systemTrigger.json");
-	let contracts = JSON.parse(source)["contracts"];
-	// ABI description as JSON structure
-	let abi = JSON.parse(contracts['systemTrigger.sol:systemTrigger'].abi);
+	let source = fs.readFileSync("../bin/contracts/FlareKeeper.json");
+	let contract = JSON.parse(source);
 	// Create Contract proxy class
-	systemTrigger = new web3.eth.Contract(abi);
+	systemTrigger = new web3.eth.Contract(contract.abi);
 	// Smart contract EVM bytecode as hex
-	systemTrigger.options.data = '0x' + contracts['systemTrigger.sol:systemTrigger'].bin;
+	systemTrigger.options.data = '0x' + contract.deployedBytecode;
 	systemTrigger.options.from = config.accounts[0].address;
 	systemTrigger.options.address = systemTriggerAddress;
 }
