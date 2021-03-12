@@ -291,14 +291,12 @@ async function web3Config() {
 		},
 		'petersburg',);
 	// Read the compiled contract code
-	let source = fs.readFileSync("../contracts/stateConnector.json");
-	let contracts = JSON.parse(source)["contracts"];
-	// ABI description as JSON structure
-	let abi = JSON.parse(contracts['stateConnector.sol:stateConnector'].abi);
+	let source = fs.readFileSync("../bin/contracts/StateConnector.json");
+	let contract = JSON.parse(source);
 	// Create Contract proxy class
-	stateConnector = new web3.eth.Contract(abi);
+	stateConnector = new web3.eth.Contract(contract.abi);
 	// Smart contract EVM bytecode as hex
-	stateConnector.options.data = '0x' + contracts['stateConnector.sol:stateConnector'].bin;
+	stateConnector.options.data = '0x' + contract.deployedBytecode;
 	stateConnector.options.from = config.accounts[1].address;
 	stateConnector.options.address = stateConnectorContract;
 }
