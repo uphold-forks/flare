@@ -145,6 +145,7 @@ async function run(chainId) {
 						leafPromise.then(leaf => {
 							if (parseInt(tx.outcome.ledgerVersion) >= result[0] || parseInt(tx.outcome.ledgerVersion) < result[3]) {
 								stateConnector.methods.getPaymentFinality(
+												leaf.chainId,
 												web3.utils.soliditySha3(leaf.txId),
 												leaf.ledger,
 												leaf.source,
@@ -221,6 +222,7 @@ async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
 						async function getPaymentFinality() {
 							return setTimeout(() => {
 								stateConnector.methods.getPaymentFinality(
+												leaf.chainId,
 												web3.utils.soliditySha3(leaf.txId),
 												leaf.ledger,
 												leaf.source,
@@ -231,7 +233,7 @@ async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
 									gas: config.flare.gas,
 									gasPrice: config.flare.gasPrice
 								}).catch(error => {
-									console.log(error);
+									console.log('Waiting for transaction finality...');
 									return getPaymentFinality();
 								})
 								.then(result => {
@@ -243,7 +245,7 @@ async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
 										}
 									}
 								})
-							}, 5000)
+							}, 10000)
 						}
 						return getPaymentFinality();
 					}
