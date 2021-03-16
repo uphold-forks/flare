@@ -13,6 +13,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -364,29 +365,57 @@ func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, 
 	}
 }
 
-func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURLs []string) bool {
-	ok := false
-	pong := false
+func AlertAdmin(alertURLs string, errorCode int) {
+	for true {
+		for _, alertURL := range strings.Split(alertURLs, ",") {
+			if alertURL != "" {
+				switch errorCode {
+				// General pattern:
+				// 1) Send alert to the current alertURL
+				// 2) If unsuccessful -> continue in for-loop to try another alertURL
+				// 3) Else -> return
+				case 0:
+					// uint32(len(chainURLs)) <= chainId
+					return
+				default:
+					return
+				}
+			}
+		}
+		// If all alert APIs used were unsuccessful at reaching admin, wait and try again
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, alertURLs string, chainURLs []string) bool {
 	chainId := binary.BigEndian.Uint32(checkRet[28:32])
-	if uint32(len(chainURLs)) > chainId {
-		ok = true
-	}
-	for !pong {
-		if ok {
-			pong = PingChain(chainId, chainURLs[chainId])
-		}
-		if !pong {
-			// Notify this validator's admin here
-			time.Sleep(time.Second)
+	if uint32(len(chainURLs)) <= chainId {
+		// This is already checked at avalanchego/main/params.go on launch, but a fail-safe
+		// is included here regardless for increased coverage
+		for true {
+			AlertAdmin(alertURLs, 0)
+			time.Sleep(10 * time.Second)
 		}
 	}
-	verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURLs[chainId])
-	if err {
-		// Notify this validator's admin here
-		time.Sleep(time.Second)
-		return ReadChain(blockNumber, functionSelector, checkRet, chainURLs)
+	for true {
+		for _, chainURL := range strings.Split(chainURLs[chainId], ",") {
+			if chainURL != "" {
+				pong := PingChain(chainId, chainURL)
+				if !pong {
+					AlertAdmin(alertURLs, 0)
+					continue
+				}
+				verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURL)
+				if err {
+					AlertAdmin(alertURLs, 0)
+					continue
+				}
+				return verified
+			}
+		}
+		AlertAdmin(alertURLs, 0)
+		time.Sleep(10 * time.Second)
 	}
-	return verified
 }
 
 // Verify proof against underlying chain
@@ -402,26 +431,26 @@ func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet 
 		_, err = os.Create(stateCacheFilePath)
 		if err != nil {
 			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 		}
 	} else if err != nil {
 		// Bypass caching mechanism
-		return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+		return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 	} else {
 		file, err := ioutil.ReadFile(stateCacheFilePath)
 		if err != nil {
 			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 		}
 		data = StateHashes{}
 		err = json.Unmarshal(file, &data)
 		if err != nil {
 			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 		}
 	}
 	if !contains(data.Hashes, hexHash) {
-		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
+		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:]) {
 			data.Hashes = append(data.Hashes, hexHash)
 			jsonData, err := json.Marshal(data)
 			if err == nil {

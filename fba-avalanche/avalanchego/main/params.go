@@ -229,8 +229,11 @@ func avalancheFlagSet() *flag.FlagSet {
 	// Subnet Whitelist
 	fs.String(whitelistedSubnetsKey, "", "Whitelist of subnets to validate.")
 
-	// Coreth Config
-	fs.String(corethConfigKey, defaultString, "Specifies config to pass into coreth")
+	// Alert APIs
+	fs.String(alertAPIsKey, defaultString, "Comma-delimited list of API(s) to use for alerting this validator's administrator in the event of a problem with the state connector system.")
+
+	// XRP APIs
+	fs.String(xrpAPIsKey, defaultString, "Comma-delimited list of API(s) to use for attaching the state connector system to the XRP Ledger.")
 
 	// Unique Node List:
 	fs.String(validatorsFileKey, defaultString, "JSON file containing Node-IDs and their probability weighting of being sampled during consensus.")
@@ -655,14 +658,26 @@ func setNodeConfig(v *viper.Viper) error {
 	// Crypto
 	Config.EnableCrypto = v.GetBool(signatureVerificationEnabledKey)
 
-	// Coreth Plugin
-	corethConfigString := v.GetString(corethConfigKey)
-	dbDir := v.GetString(dbDirKey)
-	if dbDir[len(dbDir)-1:] == "/" {
-		Config.CorethConfig = dbDir + "stateHashes.json," + corethConfigString
-	} else {
-		Config.CorethConfig = dbDir + "/stateHashes.json," + corethConfigString
+	// State Connector APIs
+	alertAPIsString := v.GetString(alertAPIsKey)
+	if alertAPIsString == defaultString {
+		return fmt.Errorf("alert-apis not specified")
 	}
+	xrpAPIsString := v.GetString(xrpAPIsKey)
+	if xrpAPIsString == defaultString {
+		return fmt.Errorf("xrp-apis not specified")
+	}
+	stateHashesFilePath := v.GetString(dbDirKey)
+
+	if stateHashesFilePath[len(stateHashesFilePath)-1:] == "/" {
+		stateHashesFilePath = stateHashesFilePath + "stateHashes.json"
+	} else {
+		for stateHashesFilePath[len(stateHashesFilePath)-1:] == " " {
+			stateHashesFilePath = stateHashesFilePath[:len(stateHashesFilePath)-1]
+		}
+		stateHashesFilePath = stateHashesFilePath + "/stateHashes.json"
+	}
+	Config.CorethConfig = stateHashesFilePath + " " + alertAPIsString + " " + xrpAPIsString
 
 	validatorsFilePath := v.GetString(validatorsFileKey)
 	if validatorsFilePath == defaultString {
