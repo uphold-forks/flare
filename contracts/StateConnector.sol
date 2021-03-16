@@ -9,6 +9,7 @@ contract StateConnector {
     
     address private governanceContract;
     bool private initialised;
+    uint32 private numChains;
 
     struct Chain {
         bool        exists;
@@ -58,6 +59,7 @@ contract StateConnector {
         require(initialised == false, 'initialised != false');
         governanceContract = 0x1000000000000000000000000000000000000000;
         chains[0] = Chain(true, 62228900, 30, 0, 0, 62228900, block.timestamp, 120, 0); //XRP
+        numChains = 1;
         initialised = true;
         return true;
     }
@@ -74,10 +76,15 @@ contract StateConnector {
         governanceContract = _governanceContract;
     }
 
-    function addChain(uint32 chainId, uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance {
-        require(chains[chainId].exists == false, 'chainId already exists');
+    function addChain(uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance returns (uint32 currNumChains) {
         require(claimPeriodLength > 0, 'claimPeriodLength == 0');
-        chains[chainId] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
+        require(block.coinbase == governanceContract || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
+        uint32 _currNumChains = numChains;
+        if (block.coinbase == governanceContract && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
+            chains[numChains+1] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
+            numChains = numChains+1;
+        }
+        return _currNumChains;
     }
 
     function updateChainTiming(uint32 chainId, uint256 timeDiffExpected) external onlyGovernance chainExists(chainId) {

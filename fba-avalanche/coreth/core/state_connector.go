@@ -66,6 +66,20 @@ func GetProvePaymentFinalitySelector(blockNumber *big.Int) []byte {
 	}
 }
 
+func GetAddChainSelector(blockNumber *big.Int) []byte {
+	switch {
+	default:
+		return []byte{0x1d, 0x4d, 0xed, 0x8e}
+	}
+}
+
+func GetMaxAllowedChains(blockNumber *big.Int) uint32 {
+	switch {
+	default:
+		return 1
+	}
+}
+
 func GetSystemTriggerSelector(blockNumber *big.Int) []byte {
 	switch {
 	default:
