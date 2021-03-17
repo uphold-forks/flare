@@ -77,11 +77,12 @@ contract StateConnector {
     }
 
     function addChain(uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance returns (uint32 currNumChains) {
+        require(chains[numChains].exists == false, "chainId already exists"); // Can happen if numChains is overflowed
         require(claimPeriodLength > 0, 'claimPeriodLength == 0');
         require(block.coinbase == governanceContract || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         uint32 _currNumChains = numChains;
         if (block.coinbase == governanceContract && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
-            chains[numChains+1] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
+            chains[numChains] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
             numChains = numChains+1;
         }
         return _currNumChains;
