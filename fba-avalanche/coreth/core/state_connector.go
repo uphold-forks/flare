@@ -94,7 +94,10 @@ var (
 		IdleConnTimeout:    60 * time.Second,
 		DisableCompression: true,
 	}
-	client = &http.Client{Transport: tr}
+	client = &http.Client{
+		Transport: tr,
+		Timeout:   5 * time.Second,
+	}
 )
 
 type StateHashes struct {
@@ -230,7 +233,7 @@ func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) 
 	if err {
 		return false, true
 	}
-	if ledgerHashString != "" && bytes.Compare(crypto.Keccak256([]byte(ledgerHashString)), checkRet[96:128]) == 0 {
+	if ledgerHashString != "" && bytes.Equal(crypto.Keccak256([]byte(ledgerHashString)), checkRet[96:128]) {
 		return true, false
 	}
 	return false, false
@@ -326,7 +329,7 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 	paymentHash, err := GetXRPTx(string(checkRet[160:]), binary.BigEndian.Uint64(checkRet[56:64]), chainURL)
 	if !err {
-		if len(paymentHash) > 0 && bytes.Compare(paymentHash, checkRet[64:96]) == 0 {
+		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[64:96]) {
 			return true, false
 		}
 		return false, false
@@ -335,9 +338,9 @@ func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 }
 
 func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if bytes.Compare(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) == 0 {
+	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
 		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
-	} else if bytes.Compare(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) == 0 {
+	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
 		return ProvePaymentFinalityXRP(checkRet, chainURL)
 	}
 	return false, true
@@ -366,7 +369,7 @@ func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, 
 }
 
 func AlertAdmin(alertURLs string, errorCode int) {
-	for true {
+	for {
 		for _, alertURL := range strings.Split(alertURLs, ",") {
 			if alertURL != "" {
 				switch errorCode {
@@ -376,6 +379,15 @@ func AlertAdmin(alertURLs string, errorCode int) {
 				// 3) Else -> return
 				case 0:
 					// uint32(len(chainURLs)) <= chainId
+					return
+				case 1:
+					// PingChain failed
+					return
+				case 2:
+					// ProveChain failed
+					return
+				case 3:
+					// All chainURLs failed
 					return
 				default:
 					return
@@ -392,30 +404,31 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, a
 	if uint32(len(chainURLs)) <= chainId {
 		// This is already checked at avalanchego/main/params.go on launch, but a fail-safe
 		// is included here regardless for increased coverage
-		for true {
+		for {
 			AlertAdmin(alertURLs, 0)
 			time.Sleep(10 * time.Second)
 		}
 	}
-	for true {
+	for {
 		for _, chainURL := range strings.Split(chainURLs[chainId], ",") {
 			if chainURL != "" {
 				pong := PingChain(chainId, chainURL)
 				if !pong {
-					AlertAdmin(alertURLs, 0)
+					AlertAdmin(alertURLs, 1)
 					continue
 				}
 				verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURL)
 				if err {
-					AlertAdmin(alertURLs, 0)
+					AlertAdmin(alertURLs, 2)
 					continue
 				}
 				return verified
 			}
 		}
-		AlertAdmin(alertURLs, 0)
+		AlertAdmin(alertURLs, 3)
 		time.Sleep(10 * time.Second)
 	}
+	return false
 }
 
 // Verify proof against underlying chain

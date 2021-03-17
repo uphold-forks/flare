@@ -663,12 +663,13 @@ func setNodeConfig(v *viper.Viper) error {
 	if alertAPIsString == defaultString {
 		return fmt.Errorf("alert-apis not specified")
 	}
+	alertAPIsString = strings.ReplaceAll(alertAPIsString, " ", "")
 	xrpAPIsString := v.GetString(xrpAPIsKey)
 	if xrpAPIsString == defaultString {
 		return fmt.Errorf("xrp-apis not specified")
 	}
+	xrpAPIsString = strings.ReplaceAll(xrpAPIsString, " ", "")
 	stateHashesFilePath := v.GetString(dbDirKey)
-
 	if stateHashesFilePath[len(stateHashesFilePath)-1:] == "/" {
 		stateHashesFilePath = stateHashesFilePath + "stateHashes.json"
 	} else {

@@ -244,12 +244,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
-	if contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Compare(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
-		bytes.Compare(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
-		bytes.Compare(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber)) == 0) {
+	if contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Equal(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) ||
+		bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) ||
+		bytes.Equal(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber))) {
 
-		if bytes.Compare(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) == 0 ||
-			bytes.Compare(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) == 0 {
+		if bytes.Equal(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) ||
+			bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) {
 			// Increment the nonce for the next transaction
 			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
@@ -273,7 +273,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				}
 			}
 			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		} else if bytes.Compare(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber)) == 0 {
+		} else if bytes.Equal(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber)) {
 			checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 			if checkVmerr == nil {
 				if binary.BigEndian.Uint32(checkRet[28:32])+1 <= GetMaxAllowedChains(st.evm.Context.BlockNumber) {
