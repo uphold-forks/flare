@@ -77,11 +77,10 @@ async function xrplConfig() {
 	})
 }
 
-function xrplClaimProcessingCompleted(message) {
+function xrplProofProcessingCompleted() {
 	chains.xrp.api.disconnect().catch(processFailure)
 	.then(() => {
-		console.log(message);
-		setTimeout(() => {return process.exit()}, 2500);
+		return process.exit();
 	})
 }
 
@@ -145,6 +144,7 @@ async function run(chainId) {
 						leafPromise.then(leaf => {
 							if (parseInt(tx.outcome.ledgerVersion) >= result[0] || parseInt(tx.outcome.ledgerVersion) < result[3]) {
 								stateConnector.methods.getPaymentFinality(
+												leaf.chainId,
 												web3.utils.soliditySha3(leaf.txId),
 												leaf.ledger,
 												leaf.source,
@@ -161,7 +161,7 @@ async function run(chainId) {
 									if (typeof result != "undefined") {
 										if ("finality" in result) {
 											if (result.finality == true) {
-												return xrplClaimProcessingCompleted('Payment already proven.');
+												return xrplProofProcessingCompleted('Payment already proven.');
 											} 
 										}
 									}
@@ -171,10 +171,10 @@ async function run(chainId) {
 							}
 						})
 					} else {
-						return xrplClaimProcessingCompleted('Transaction type not yet supported.');
+						return xrplProofProcessingCompleted('Transaction type not yet supported.');
 					}
 				} else {
-					return xrplClaimProcessingCompleted('Transaction type not yet supported.');
+					return xrplProofProcessingCompleted('Transaction type not yet supported.');
 				}
 			})
 		} else {
@@ -208,7 +208,7 @@ async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
 		tx.sign(key);
 		var serializedTx = tx.serialize();
 		const txHash = web3.utils.sha3(serializedTx);
-		console.log('Delivering transaction:\t\x1b[33m', txHash, '\x1b[0m');
+		console.log('Delivering proof:\t\x1b[33m', txHash, '\x1b[0m');
 		web3.eth.getTransaction(txHash)
 		.then(txResult => {
 			if (txResult == null) {
@@ -217,35 +217,8 @@ async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
 					if (receipt.status == false) {
 						return processFailure('receipt.status == false');
 					} else {
-						console.log('Transaction delivered:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
-						async function getPaymentFinality() {
-							return setTimeout(() => {
-								stateConnector.methods.getPaymentFinality(
-												web3.utils.soliditySha3(leaf.txId),
-												leaf.ledger,
-												leaf.source,
-												leaf.destination,
-												leaf.destinationTag,
-												leaf.amount).call({
-									from: config.accounts[1].address,
-									gas: config.flare.gas,
-									gasPrice: config.flare.gasPrice
-								}).catch(error => {
-									console.log(error);
-									return getPaymentFinality();
-								})
-								.then(result => {
-									if (typeof result != "undefined") {
-										if ("finality" in result) {
-											if (result.finality == true) {
-												return xrplClaimProcessingCompleted('Payment proven.');
-											} 
-										}
-									}
-								})
-							}, 5000)
-						}
-						return getPaymentFinality();
+						console.log('Proof delivered:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
+						return xrplProofProcessingCompleted();
 					}
 				})
 				.on('error', error => {

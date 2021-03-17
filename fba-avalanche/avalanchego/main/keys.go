@@ -80,9 +80,10 @@ const (
 	consensusGossipFrequencyKey     = "consensus-gossip-frequency"
 	consensusShutdownTimeoutKey     = "consensus-shutdown-timeout"
 	fdLimitKey                      = "fd-limit"
-	corethConfigKey                 = "chain-apis"
 	disconnectedCheckFreqKey        = "disconnected-check-frequency"
 	disconnectedRestartTimeoutKey   = "disconnected-restart-timeout"
 	restartOnDisconnectedKey        = "restart-on-disconnected"
-	validatorsFileKey				= "validators-file"
+	validatorsFileKey               = "validators-file"
+	alertAPIsKey                    = "alert-apis"
+	xrpAPIsKey                      = "xrp-apis"
 )

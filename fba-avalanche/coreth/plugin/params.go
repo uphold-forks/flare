@@ -3,8 +3,8 @@ package main
 import (
 	// "encoding/json"
 	"flag"
-	"os"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ava-labs/coreth/plugin/evm"
@@ -46,7 +46,7 @@ func init() {
 	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
 
 	if *config != "default" {
-		for _, value := range strings.Split(*config, ",") {
+		for _, value := range strings.Split(*config, " ") {
 			if value != "" {
 				cliConfig.StateConnectorConfig = append(cliConfig.StateConnectorConfig, value)
 			} else {

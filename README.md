@@ -59,10 +59,10 @@ yarn
 
 ## Verify an Underlying Chain Payment on Flare
 
-Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/9617C6513866328BF0C57746A0BF88F8752F2CF798ADAB121AA66770F3D040EF. Run the following command in a separate terminal window:
+Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/6019341FCB6C1939B8EF630FC23097D90B3BB02061A611B164CBB4140BF21E8B. Run the following command in a separate terminal window:
 
 ```
-node prove xrp 9617C6513866328BF0C57746A0BF88F8752F2CF798ADAB121AA66770F3D040EF
+node prove xrp 6019341FCB6C1939B8EF630FC23097D90B3BB02061A611B164CBB4140BF21E8B
 ```
 
 (c) Flare Networks Ltd. 2020

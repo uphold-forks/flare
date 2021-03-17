@@ -13,6 +13,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,6 +67,20 @@ func GetProvePaymentFinalitySelector(blockNumber *big.Int) []byte {
 	}
 }
 
+func GetAddChainSelector(blockNumber *big.Int) []byte {
+	switch {
+	default:
+		return []byte{0x1d, 0x4d, 0xed, 0x8e}
+	}
+}
+
+func GetMaxAllowedChains(blockNumber *big.Int) uint32 {
+	switch {
+	default:
+		return 1
+	}
+}
+
 func GetSystemTriggerSelector(blockNumber *big.Int) []byte {
 	switch {
 	default:
@@ -79,7 +94,10 @@ var (
 		IdleConnTimeout:    60 * time.Second,
 		DisableCompression: true,
 	}
-	client = &http.Client{Transport: tr}
+	client = &http.Client{
+		Transport: tr,
+		Timeout:   5 * time.Second,
+	}
 )
 
 type StateHashes struct {
@@ -215,7 +233,7 @@ func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) 
 	if err {
 		return false, true
 	}
-	if ledgerHashString != "" && bytes.Compare(crypto.Keccak256([]byte(ledgerHashString)), checkRet[96:128]) == 0 {
+	if ledgerHashString != "" && bytes.Equal(crypto.Keccak256([]byte(ledgerHashString)), checkRet[96:128]) {
 		return true, false
 	}
 	return false, false
@@ -311,7 +329,7 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 	paymentHash, err := GetXRPTx(string(checkRet[160:]), binary.BigEndian.Uint64(checkRet[56:64]), chainURL)
 	if !err {
-		if len(paymentHash) > 0 && bytes.Compare(paymentHash, checkRet[64:96]) == 0 {
+		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[64:96]) {
 			return true, false
 		}
 		return false, false
@@ -320,9 +338,9 @@ func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 }
 
 func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if bytes.Compare(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) == 0 {
+	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
 		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
-	} else if bytes.Compare(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) == 0 {
+	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
 		return ProvePaymentFinalityXRP(checkRet, chainURL)
 	}
 	return false, true
@@ -350,29 +368,67 @@ func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, 
 	}
 }
 
-func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURLs []string) bool {
-	ok := false
-	pong := false
+func AlertAdmin(alertURLs string, errorCode int) {
+	for {
+		for _, alertURL := range strings.Split(alertURLs, ",") {
+			if alertURL != "" {
+				switch errorCode {
+				// General pattern:
+				// 1) Send alert to the current alertURL
+				// 2) If unsuccessful -> continue in for-loop to try another alertURL
+				// 3) Else -> return
+				case 0:
+					// uint32(len(chainURLs)) <= chainId
+					return
+				case 1:
+					// PingChain failed
+					return
+				case 2:
+					// ProveChain failed
+					return
+				case 3:
+					// All chainURLs failed
+					return
+				default:
+					return
+				}
+			}
+		}
+		// If all alert APIs used were unsuccessful at reaching admin, wait and try again
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, alertURLs string, chainURLs []string) bool {
 	chainId := binary.BigEndian.Uint32(checkRet[28:32])
-	if uint32(len(chainURLs)) > chainId {
-		ok = true
-	}
-	for !pong {
-		if ok {
-			pong = PingChain(chainId, chainURLs[chainId])
-		}
-		if !pong {
-			// Notify this validator's admin here
-			time.Sleep(time.Second)
+	if uint32(len(chainURLs)) <= chainId {
+		// This is already checked at avalanchego/main/params.go on launch, but a fail-safe
+		// is included here regardless for increased coverage
+		for {
+			AlertAdmin(alertURLs, 0)
+			time.Sleep(10 * time.Second)
 		}
 	}
-	verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURLs[chainId])
-	if err {
-		// Notify this validator's admin here
-		time.Sleep(time.Second)
-		return ReadChain(blockNumber, functionSelector, checkRet, chainURLs)
+	for {
+		for _, chainURL := range strings.Split(chainURLs[chainId], ",") {
+			if chainURL != "" {
+				pong := PingChain(chainId, chainURL)
+				if !pong {
+					AlertAdmin(alertURLs, 1)
+					continue
+				}
+				verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURL)
+				if err {
+					AlertAdmin(alertURLs, 2)
+					continue
+				}
+				return verified
+			}
+		}
+		AlertAdmin(alertURLs, 3)
+		time.Sleep(10 * time.Second)
 	}
-	return verified
+	return false
 }
 
 // Verify proof against underlying chain
@@ -388,26 +444,26 @@ func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet 
 		_, err = os.Create(stateCacheFilePath)
 		if err != nil {
 			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 		}
 	} else if err != nil {
 		// Bypass caching mechanism
-		return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+		return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 	} else {
 		file, err := ioutil.ReadFile(stateCacheFilePath)
 		if err != nil {
 			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 		}
 		data = StateHashes{}
 		err = json.Unmarshal(file, &data)
 		if err != nil {
 			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:])
+			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
 		}
 	}
 	if !contains(data.Hashes, hexHash) {
-		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1:]) {
+		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:]) {
 			data.Hashes = append(data.Hashes, hexHash)
 			jsonData, err := json.Marshal(data)
 			if err == nil {
