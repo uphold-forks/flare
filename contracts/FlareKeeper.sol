@@ -31,9 +31,9 @@ contract FlareKeeper {
         _;
     }
 
-    function initialise(address _governance) external {
+    function initialise() external {
         require(initialised == false, "initialised != false");
-        governanceContract = _governance;
+        governanceContract = 0xff50eF6F4b0568493175defa3655b10d68Bf41FB;
         initialised = true;
     }
 

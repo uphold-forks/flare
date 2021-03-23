@@ -1,19 +1,19 @@
 {
   "validators": [
     {
-      "nodeID": "NodeID-GQ4292fG2RMRWa7RtphPJTYHeMR5YAQPM",
+      "nodeID": "NodeID-LtahNtUH9tb4VCZZipLNqkBCxzjpFTdHs",
       "weighting": 1
     },
     {
-      "nodeID": "NodeID-GMHrauiUPGikdbT4Z65dEBFpfQWKovLy5",
+      "nodeID": "NodeID-34KwvqefLeXYPrzcNjc4yMPRpMfE89ppw",
       "weighting": 1
     },
     {
-      "nodeID": "NodeID-DhdvGK268cNmDPzvh1Vw7rzSmT1tptSUB",
+      "nodeID": "NodeID-G9CJC4te7FyH1XyMugsRqVYYZBuTreFvd",
       "weighting": 1
     },
     {
-      "nodeID": "NodeID-hBfmpWJ87GSPHUtxthGd2fHsVdaGmkgq",
+      "nodeID": "NodeID-HhAo3hwTn73UB1LxU131gXrs7HMnMxmdE",
       "weighting": 1
     }
   ]

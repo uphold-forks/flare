@@ -23,7 +23,15 @@ git clone https://gitlab.com/flarenetwork/flare
 
 ## Deploy
 
-Configure and launch a 4-node network and deploy the state-connector smart contract.
+Configure and launch a 4-node network
+
+First, set an environment variable listing your preferred XRP Ledger APIs for use with the state connector system. Each successive URL included works as a backup to its preceeding URL in case the preceeding URL fails.
+
+```
+export XRP_APIs="url1, url2, ..., urlN"
+```
+
+Then, launch the network:
 
 ```
 ./launch.sh
@@ -59,10 +67,10 @@ yarn
 
 ## Verify an Underlying Chain Payment on Flare
 
-Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/6019341FCB6C1939B8EF630FC23097D90B3BB02061A611B164CBB4140BF21E8B. Run the following command in a separate terminal window:
+Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F. Run the following command in a separate terminal window:
 
 ```
-node prove xrp 6019341FCB6C1939B8EF630FC23097D90B3BB02061A611B164CBB4140BF21E8B
+node prove xrp C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F
 ```
 
 (c) Flare Networks Ltd. 2020
