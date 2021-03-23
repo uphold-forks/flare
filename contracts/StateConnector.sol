@@ -46,19 +46,19 @@ contract StateConnector {
     }
 
     modifier onlyGovernance() {
-        require(msg.sender == governanceContract, "msg.sender != governanceContract");
+        require(msg.sender == governanceContract, 'msg.sender != governanceContract');
         _;
     }
 
     modifier chainExists(uint32 chainId) {
-        require(chains[chainId].exists == true, "chainId does not exist");
+        require(chains[chainId].exists, 'chainId does not exist');
         _;
     }
 
     function initialiseChains() public returns (bool success) {
-        require(initialised == false, 'initialised != false');
+        require(!initialised, 'initialised != false');
         governanceContract = 0x1000000000000000000000000000000000000000;
-        chains[0] = Chain(true, 62228900, 30, 0, 0, 62228900, block.timestamp, 120, 0); //XRP
+        chains[0] = Chain(true, 62395000, 30, 0, 0, 62395000, block.timestamp, 120, 0); //XRP
         numChains = 1;
         initialised = true;
         return true;
@@ -73,11 +73,12 @@ contract StateConnector {
     }
 
     function setGovernanceContract(address _governanceContract) external onlyGovernance {
+        require(_governanceContract != address(0x0), '_governanceContract == 0x0');
         governanceContract = _governanceContract;
     }
 
     function addChain(uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance returns (uint32 currNumChains) {
-        require(chains[numChains].exists == false, "chainId already exists"); // Can happen if numChains is overflowed
+        require(!chains[numChains].exists, 'chainId already exists'); // Can happen if numChains is overflowed
         require(claimPeriodLength > 0, 'claimPeriodLength == 0');
         require(block.coinbase == governanceContract || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         uint32 _currNumChains = numChains;
@@ -115,10 +116,10 @@ contract StateConnector {
         	require(block.timestamp-chains[chainId].finalisedTimestamp+15 >= chains[chainId].timeDiffAvg, 'not enough time elapsed since prior finality');
         }
         bytes32 locationHash =  keccak256(abi.encodePacked(chainId,claimPeriodIndex));
-        require(finalisedClaimPeriods[locationHash].exists == false, 'locationHash already finalised');
+        require(!finalisedClaimPeriods[locationHash].exists, 'locationHash already finalised');
         if (claimPeriodIndex > 0) {
             bytes32 prevLocationHash =  keccak256(abi.encodePacked(chainId,claimPeriodIndex-1));
-            require(finalisedClaimPeriods[prevLocationHash].exists == true, 'previous claim period not yet finalised');
+            require(finalisedClaimPeriods[prevLocationHash].exists, 'previous claim period not yet finalised');
         }
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
@@ -140,14 +141,14 @@ contract StateConnector {
 
     function getClaimPeriodFinality(bytes32 claimPeriodHash, uint32 chainId, uint64 claimPeriodIndex) private view chainExists(chainId) returns (uint256 timestamp) {
         bytes32 locationHash =  keccak256(abi.encodePacked(chainId,claimPeriodIndex));
-        require(finalisedClaimPeriods[locationHash].exists == true, 'finalisedClaimPeriods[locationHash] does not exist');
+        require(finalisedClaimPeriods[locationHash].exists, 'finalisedClaimPeriods[locationHash] does not exist');
         require(finalisedClaimPeriods[locationHash].hashBytes == claimPeriodHash, 'Invalid claimPeriodHash');
         return finalisedClaimPeriods[locationHash].timestamp;
     }
 
     function provePaymentFinality(uint32 chainId, uint64 claimPeriodIndex, bytes32 claimPeriodHash, bytes32 paymentHash, string memory txId) external chainExists(chainId) returns (uint32 _chainId, uint64 finalisedLedgerIndex, bytes32 _paymentHash, string memory _txId) {
         bytes32 txIdHash = keccak256(abi.encodePacked(txId));
-        require(finalisedPayments[chainId][txIdHash].exists == false, 'txId already proven');
+        require(!finalisedPayments[chainId][txIdHash].exists, 'txId already proven');
         uint256 timestamp = getClaimPeriodFinality(claimPeriodHash, chainId, claimPeriodIndex);
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
@@ -157,7 +158,7 @@ contract StateConnector {
     }
 
     function getPaymentFinality(uint32 chainId, bytes32 txId, uint64 ledger, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) external view chainExists(chainId) returns (bool finality, uint256 timestamp) {
-        require(finalisedPayments[chainId][txId].exists == true, 'txId does not exist');
+        require(finalisedPayments[chainId][txId].exists, 'txId does not exist');
         bytes32 paymentHash = keccak256(abi.encodePacked(
         							txId,
         							keccak256(abi.encode(ledger)),
