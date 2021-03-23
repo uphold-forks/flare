@@ -57,7 +57,7 @@ contract StateConnector {
 
     function initialiseChains() public returns (bool success) {
         require(!initialised, 'initialised != false');
-        governanceContract = 0x1000000000000000000000000000000000000000;
+        governanceContract = 0xff50eF6F4b0568493175defa3655b10d68Bf41FB;
         chains[0] = Chain(true, 62395000, 30, 0, 0, 62395000, block.timestamp, 120, 0); //XRP
         numChains = 1;
         initialised = true;

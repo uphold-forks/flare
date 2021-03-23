@@ -33,7 +33,7 @@ contract FlareKeeper {
 
     function initialise() external {
         require(initialised == false, "initialised != false");
-        governanceContract = 0x1000000000000000000000000000000000000000;
+        governanceContract = 0xff50eF6F4b0568493175defa3655b10d68Bf41FB;
         initialised = true;
     }
 
