@@ -15,26 +15,27 @@ Flare is a next-generation blockchain which enables smart contracts with multipl
     - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
+- Commandline JSON parser: [jq](https://stedolan.github.io/jq/download/)
 
 Clone Flare:
 ```
 git clone https://gitlab.com/flarenetwork/flare
 ```
 
-## Deploy
+## Deploy a Local Network
 
 Configure and launch a 4-node network
 
 First, set an environment variable listing your preferred XRP Ledger APIs for use with the state connector system. Each successive URL included works as a backup to its preceeding URL in case the preceeding URL fails.
 
 ```
-export XRP_APIs="url1, url2, ..., urlN"
+export XRP_APIs="https://xrpl.flare.network:443, https://xrplcluster.com"
 ```
 
 Then, launch the network:
 
 ```
-./launch.sh
+./local.sh
 ```
 
 To restart a previously stopped network without resetting it, use the launch command above with the `--existing` flag.
@@ -72,5 +73,9 @@ Once the first data availability proof has been finalised, you can then submit a
 ```
 node prove xrp C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F
 ```
+
+## Connect a Node to the Coston Testnet
+
+
 
 (c) Flare Networks Ltd. 2020

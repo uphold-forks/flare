@@ -124,8 +124,5 @@ func main() {
 		fmt.Errorf("couldn't delete keys folder: %w", err)
 		return
 	}
-	GenerateStakingKeyCert(keyPath + "/node00")
-	GenerateStakingKeyCert(keyPath + "/node01")
-	GenerateStakingKeyCert(keyPath + "/node02")
-	GenerateStakingKeyCert(keyPath + "/node03")
+	GenerateStakingKeyCert(keyPath + "/node04")
 }
