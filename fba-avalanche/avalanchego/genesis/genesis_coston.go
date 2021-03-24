@@ -81,6 +81,9 @@ const (
 	      },
 	      "ff57CaF5B871db64F2a7F4C5bc2d17A5E666F7E8": {
 	        "balance": "0x314dc6448d9338c15B0a00000000"
+	      },
+	      "ffC11262622D5069aBad729efe84a95C169d9c06": {
+	        "balance": "0x314dc6448d9338c15B0a00000000"
 	      }
 	    },
 	    "number": "0x0",

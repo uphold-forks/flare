@@ -76,6 +76,20 @@ node prove xrp C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F
 
 ## Connect a Node to the Coston Testnet
 
+The Coston testnet has a public RPC endpoint at:
 
+- Chain ID: [16](https://github.com/ethereum-lists/chains/blob/master/_data/chains/eip155-16.json)
+- Asset Code: CFLR
+- Public RPC Endpoint: https://coston.flare.network/ext/bc/C/rpc
+
+that you can use with MetaMask, Web3 JS (https://web3js.readthedocs.io/en/v1.3.4/), etc right away without running your own Flare node. However, you can also run your own Flare node and peer it with the Coston testnet using the following command:
+
+```
+./coston.sh
+```
+
+Once launched, your Flare node may take several minutes to bootstrap to the Coston testnet history. Once bootstrapped, you can send Web3 RPC requests to the Coston testnet through your node's RPC endpoint at: `http://127.0.0.1:9650/ext/bc/C/rpc`.
+
+The Coston testnet also has a block scanner at: https://flarescan.org
 
 (c) Flare Networks Ltd. 2020
