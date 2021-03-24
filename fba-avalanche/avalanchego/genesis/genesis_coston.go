@@ -79,6 +79,9 @@ const (
 	      "ff89975844E384a1798b0cD24D7611F44Dd17040": {
 	        "balance": "0x314dc6448d9338c15B0a00000000"
 	      },
+		  "ff65397290C660596bFf1564E333f870E577F4D2": {
+	        "balance": "0x314dc6448d9338c15B0a00000000"
+	      },
 	      "ff57CaF5B871db64F2a7F4C5bc2d17A5E666F7E8": {
 	        "balance": "0x314dc6448d9338c15B0a00000000"
 	      },
