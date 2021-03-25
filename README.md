@@ -4,7 +4,7 @@ Flare is a next-generation blockchain which enables smart contracts with multipl
 
 ## Features
 
-- Federated Byzantine Agreement based Avalanche consensus. Control over the Flare network is proportionally given to the miners that contribute the most to safety in their underlying chains and that have the most value from their chain represented onto Flare as F-assets.
+- Federated Byzantine Agreement based Avalanche consensus. Control over the Flare network is proportionally given to the miners that contribute the most to the safety of underlying blockchains on Flare, weighted by market cap.
 - State-connector system to observe the state of underlying chains. State-connector proofs can be submitted by anyone, and all nodes independently compare this proof to their own view of an underlying chain before permitting the proof to be finalised onto Flare.
 
 ## Documentation & FAQ's
