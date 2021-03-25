@@ -42,6 +42,7 @@ func init() {
 	cliConfig.TxPoolAPIEnabled = true
 	cliConfig.NetAPIEnabled = true
 	cliConfig.Web3APIEnabled = true
+	cliConfig.DebugAPIEnabled = true
 	cliConfig.RPCGasCap = 2500000000 // 25000000 x 100
 	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
 
