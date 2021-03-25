@@ -5,7 +5,13 @@ Flare is a next-generation blockchain which enables smart contracts with multipl
 ## Features
 
 - Federated Byzantine Agreement based Avalanche consensus. Control over the Flare network is proportionally given to the miners that contribute the most to safety in their underlying chains and that have the most value from their chain represented onto Flare as F-assets.
-- State-connector system to observe the state of underlying chains. State-connector proofs only require one Flare transaction which can be submitted by anyone, and all nodes independently compare this proof to an underlying chain before permitting the proof to be finalised onto Flare.
+- State-connector system to observe the state of underlying chains. State-connector proofs can be submitted by anyone, and all nodes independently compare this proof to their own view of an underlying chain before permitting the proof to be finalised onto Flare.
+
+## Documentation & FAQ's
+
+Information about how Flare works at the network-level is available at https://docs.flare.network/en/.
+
+Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and if you have any other questions or feedback.
 
 ## Dependencies
 
@@ -92,4 +98,13 @@ Once launched, your Flare node may take several minutes to bootstrap to the Cost
 
 The Coston testnet also has a block scanner at: https://flarescan.org
 
-(c) Flare Networks Ltd. 2020
+
+## License: MIT
+
+Copyright 2021 Flare Foundation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
