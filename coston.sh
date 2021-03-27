@@ -47,7 +47,7 @@ cd - &> /dev/null
     --staking-enabled=true \
     --p2p-tls-enabled=true \
     --network-id=coston \
-    --bootstrap-ips=$(dig +short coston.flare.network):9300  \
+    --bootstrap-ips=$(curl -sX POST --data '{ "jsonrpc":"2.0", "id":1, "method":"info.getNodeIP" }' -H 'content-type:application/json;' https://coston.flare.network/ext/info | jq -r ".result.ip")  \
     --bootstrap-ids=$(curl -sX POST --data '{ "jsonrpc":"2.0", "id":1, "method":"info.getNodeID" }' -H 'content-type:application/json;' https://coston.flare.network/ext/info | jq -r ".result.nodeID")  \
     --staking-tls-cert-file=$(pwd)/config/keys/node04/node.crt  \
     --staking-tls-key-file=$(pwd)/config/keys/node04/node.key \
