@@ -270,7 +270,7 @@ func (vm *VM) Initialize(
 	nodecfg := node.Config{NoUSB: true}
 	chain := coreth.NewETHChain(&config, &nodecfg, nil, vm.chaindb)
 	vm.chain = chain
-	vm.networkID = config.NetworkId
+	vm.networkID = g.Config.ChainID.Uint64()
 	chain.SetOnHeaderNew(func(header *types.Header) {
 		hid := make([]byte, 32)
 		_, err := rand.Read(hid)
