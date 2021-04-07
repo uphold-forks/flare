@@ -196,7 +196,7 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 		return "", true
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", true
 	}
@@ -279,7 +279,7 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		return []byte{}, true
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return []byte{}, true
 	}
