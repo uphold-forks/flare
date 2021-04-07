@@ -36,7 +36,7 @@ Configure and launch a 4-node network
 First, set an environment variable listing your preferred XRP Ledger APIs for use with the state connector system. Each successive URL included works as a backup to its preceeding URL in case the preceeding URL fails.
 
 ```
-export XRP_APIs="https://xrpl.flare.network:443, https://xrplcluster.com"
+export XRP_APIs="https://xrpl.flare.network:443, https://xrpl-1.flare.network:443, https://xrplcluster.com"
 ```
 
 Then, launch the network:
