@@ -294,8 +294,13 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		if err != nil {
 			return []byte{}, true
 		}
-		if checkErrorResp["result"].Error != "" {
-			return []byte{}, true
+		respErrString := checkErrorResp["result"].Error
+		if respErrString != "" {
+			if respErrString == "txnNotFound" {
+				return []byte{}, false
+			} else {
+				return []byte{}, true
+			}
 		}
 		var jsonResp map[string]GetXRPTxResponse
 		err = json.Unmarshal(respBody, &jsonResp)
