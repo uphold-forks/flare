@@ -211,13 +211,8 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 		if err != nil {
 			return "", true
 		}
-		respErrString := checkErrorResp["result"].Error
-		if respErrString != "" {
-			if respErrString == "lgrNotFound" {
-				return "", false
-			} else {
-				return "", true
-			}
+		if checkErrorResp["result"].Error != "" {
+			return "", true
 		}
 		var jsonResp map[string]GetXRPBlockResponse
 		err = json.Unmarshal(respBody, &jsonResp)
