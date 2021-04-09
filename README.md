@@ -22,7 +22,7 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
 - Commandline JSON parser: [jq](https://stedolan.github.io/jq/download/)
-- cURL: `sudo apt update && sudo apt install curl`
+- cURL and gcc: `sudo apt update && sudo apt -y install curl && sudo apt -y install gcc`
 
 Clone Flare:
 ```
