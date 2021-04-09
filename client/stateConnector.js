@@ -284,7 +284,7 @@ async function sleep(ms) {
 	});
 }
 
-// setTimeout(() => {return process.exit()}, 600000);
+setTimeout(() => {return process.exit()}, 600000);
 app.get('/', (req, res) => {
 	if ("verify" in req.query) {
 		console.log(req.query.verify);
