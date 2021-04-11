@@ -374,34 +374,7 @@ func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, 
 }
 
 func AlertAdmin(alertURLs string, errorCode int) {
-	for {
-		for _, alertURL := range strings.Split(alertURLs, ",") {
-			if alertURL != "" {
-				switch errorCode {
-				// General pattern:
-				// 1) Send alert to the current alertURL
-				// 2) If unsuccessful -> continue in for-loop to try another alertURL
-				// 3) Else -> return
-				case 0:
-					// uint32(len(chainURLs)) <= chainId
-					return
-				case 1:
-					// PingChain failed
-					return
-				case 2:
-					// ProveChain failed
-					return
-				case 3:
-					// All chainURLs failed
-					return
-				default:
-					return
-				}
-			}
-		}
-		// If all alert APIs used were unsuccessful at reaching admin, wait and try again
-		time.Sleep(10 * time.Second)
-	}
+	return
 }
 
 func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, alertURLs string, chainURLs []string) bool {
@@ -431,7 +404,7 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, a
 			}
 		}
 		AlertAdmin(alertURLs, 3)
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	return false
 }
