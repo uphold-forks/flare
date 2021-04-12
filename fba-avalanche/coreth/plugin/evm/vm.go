@@ -312,6 +312,7 @@ func (vm *VM) Initialize(
 
 	config := eth.NewDefaultConfig()
 	config.Genesis = g
+	config.Genesis.Config.StateConnectorConfig = &vm.CLIConfig.StateConnectorConfig
 	// disable the experimental snapshot feature from geth
 	config.TrieCleanCache += config.SnapshotCache
 	config.SnapshotCache = 0
@@ -359,7 +360,7 @@ func (vm *VM) Initialize(
 	nodecfg := node.Config{NoUSB: true}
 	chain := coreth.NewETHChain(&config, &nodecfg, nil, vm.chaindb, vm.CLIConfig.EthBackendSettings())
 	vm.chain = chain
-	vm.networkID = config.NetworkId
+	vm.networkID = g.Config.ChainID.Uint64()
 
 	// Kickoff gasPriceUpdate goroutine once the backend is initialized, if it
 	// exists

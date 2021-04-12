@@ -302,7 +302,7 @@ var (
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, new(EthashConfig), nil, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -383,6 +383,8 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
+
+	StateConnectorConfig *[]string `json:"stateConnectorConfig,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

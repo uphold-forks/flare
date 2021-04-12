@@ -30,6 +30,8 @@ type CommandLineConfig struct {
 	AllowUnfinalizedQueries bool  `json:"allow-unfinalized-queries"`
 
 	ParsingError error
+
+	StateConnectorConfig []string
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
