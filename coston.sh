@@ -3,8 +3,8 @@ if [[ $(pwd) =~ " " ]]; then echo "Working directory path contains a folder with
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit; fi
 if [ -z ${XRP_APIs+x} ] || [ "$XRP_APIs" == "url1, url2, ..., urlN" ]; then echo "XRP_APIs is not set, please set it using the form: $ export XRP_APIs=\"url1, url2, ..., urlN\"" && exit; fi
 printf "\x1b[34mCoston Testnet Peering Deployment\x1b[0m\n\n"
-AVALANCHEGO_VERSION=@v1.1.0
-CORETH_VERSION=@v0.3.16
+AVALANCHEGO_VERSION=@v1.3.1
+CORETH_VERSION=@v0.4.1
 
 EXEC_DIR=$(pwd)
 LOG_DIR=$(pwd)/logs

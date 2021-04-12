@@ -41,6 +41,13 @@ func newConfig(t *testing.T) (Config, ids.ShortID, *common.SenderTest, *block.Te
 	sender.Default(true)
 	vm.Default(true)
 
+	isBootstrapped := false
+	subnet := &common.SubnetTest{
+		T:               t,
+		IsBootstrappedF: func() bool { return isBootstrapped },
+		BootstrappedF:   func(ids.ID) { isBootstrapped = true },
+	}
+
 	sender.CantGetAcceptedFrontier = false
 
 	peer := ids.GenerateTestShortID()
@@ -54,9 +61,11 @@ func newConfig(t *testing.T) (Config, ids.ShortID, *common.SenderTest, *block.Te
 		Ctx:        ctx,
 		Validators: peers,
 		Beacons:    peers,
-		SampleK:    int(peers.Weight()),
-		Alpha:      uint64(peers.Len()/2 + 1),
+		SampleK:    peers.Len(),
+		Alpha:      peers.Weight()/2 + 1,
 		Sender:     sender,
+		Subnet:     subnet,
+		Delay:      &common.DelayTest{},
 	}
 	return Config{
 		Config:  commonConfig,
@@ -233,7 +242,7 @@ func TestBootstrapperUnknownByzantineResponse(t *testing.T) {
 
 	requestID := new(uint32)
 	sender.GetAncestorsF = func(vdr ids.ShortID, reqID uint32, vtxID ids.ID) {
-		if !vdr.Equals(peerID) {
+		if vdr != peerID {
 			t.Fatalf("Should have requested block from %s, requested from %s", peerID, vdr)
 		}
 		switch {
@@ -256,7 +265,7 @@ func TestBootstrapperUnknownByzantineResponse(t *testing.T) {
 		t.Fatal("should not have sent new request")
 	}
 
-	if err := bs.MultiPut(ids.NewShortID([20]byte{1, 2, 3}), *requestID, [][]byte{blkBytes1}); err != nil { // respond from wrong peer
+	if err := bs.MultiPut(ids.ShortID{1, 2, 3}, *requestID, [][]byte{blkBytes1}); err != nil { // respond from wrong peer
 		t.Fatal(err)
 	} else if oldReqID != *requestID {
 		t.Fatal("should not have sent new request")
@@ -394,7 +403,7 @@ func TestBootstrapperPartialFetch(t *testing.T) {
 	requestID := new(uint32)
 	requested := ids.Empty
 	sender.GetAncestorsF = func(vdr ids.ShortID, reqID uint32, vtxID ids.ID) {
-		if !vdr.Equals(peerID) {
+		if vdr != peerID {
 			t.Fatalf("Should have requested block from %s, requested from %s", peerID, vdr)
 		}
 		switch vtxID {
@@ -549,7 +558,7 @@ func TestBootstrapperMultiPut(t *testing.T) {
 	requestID := new(uint32)
 	requested := ids.Empty
 	sender.GetAncestorsF = func(vdr ids.ShortID, reqID uint32, vtxID ids.ID) {
-		if !vdr.Equals(peerID) {
+		if vdr != peerID {
 			t.Fatalf("Should have requested block from %s, requested from %s", peerID, vdr)
 		}
 		switch vtxID {
@@ -601,9 +610,12 @@ func TestBootstrapperAcceptedFrontier(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	vm.LastAcceptedF = func() ids.ID { return blkID }
+	vm.LastAcceptedF = func() (ids.ID, error) { return blkID, nil }
 
-	accepted := bs.CurrentAcceptedFrontier()
+	accepted, err := bs.CurrentAcceptedFrontier()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(accepted) != 1 {
 		t.Fatalf("Only one block should be accepted")
@@ -766,7 +778,7 @@ func TestBootstrapperFinalized(t *testing.T) {
 
 	requestIDs := map[ids.ID]uint32{}
 	sender.GetAncestorsF = func(vdr ids.ShortID, reqID uint32, vtxID ids.ID) {
-		if !vdr.Equals(peerID) {
+		if vdr != peerID {
 			t.Fatalf("Should have requested block from %s, requested from %s", peerID, vdr)
 		}
 		requestIDs[vtxID] = reqID

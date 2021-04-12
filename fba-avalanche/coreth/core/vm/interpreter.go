@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2014 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -45,6 +55,9 @@ type Config struct {
 	EVMInterpreter   string // External EVM interpreter options
 
 	ExtraEips []int // Additional EIPS that are to be enabled
+
+	// AllowUnfinalizedQueries allow unfinalized queries
+	AllowUnfinalizedQueries bool
 }
 
 // Interpreter is used to run Ethereum based contracts and will utilise the
@@ -106,6 +119,8 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	if cfg.JumpTable[STOP] == nil {
 		var jt JumpTable
 		switch {
+		case evm.chainRules.IsApricotPhase1:
+			jt = apricotPhase1InstructionSet
 		case evm.chainRules.IsYoloV1:
 			jt = yoloV1InstructionSet
 		case evm.chainRules.IsIstanbul:
@@ -169,11 +184,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 	// as every returning call will return new data anyway.
 	in.returnData = nil
 
-	// Don't bother with the execution if there's no code.
-	if len(contract.Code) == 0 {
-		return nil, nil
-	}
-
 	var (
 		op          OpCode             // current opcode
 		mem         = NewMemory()      // bound memory
@@ -196,6 +206,20 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		logged  bool   // deferred Tracer should ignore already logged steps
 		res     []byte // result of the opcode execution function
 	)
+
+	// Don't bother with the execution if there's no code.
+	if len(contract.Code) == 0 {
+		if in.cfg.Debug {
+			// Even if there's nothing to execute, we need to invoke CaptureState here because the
+			// tracer assumes StateDB is populated when GetResult is invoked.
+			//
+			// If a transaction only contains an contract deployment with no code and we don't set CaptureState here, the
+			// tracer will panic if any db-related methods are invoked.
+			in.cfg.Tracer.CaptureState(in.evm, pcCopy, op, gasCopy, cost, mem, stack, returns, in.returnData, contract, in.evm.depth, nil)
+		}
+		return nil, nil
+	}
+
 	// Don't move this deferrred function, it's placed before the capturestate-deferred method,
 	// so that it get's executed _after_: the capturestate needs the stacks before
 	// they are returned to the pools

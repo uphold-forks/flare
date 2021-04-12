@@ -1,4 +1,9 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package evm
+
+import "github.com/ava-labs/coreth/eth"
 
 // CommandLineConfig ...
 type CommandLineConfig struct {
@@ -18,9 +23,13 @@ type CommandLineConfig struct {
 	DebugAPIEnabled    bool `json:"debug-api-enabled"`
 	Web3APIEnabled     bool `json:"web3-api-enabled"`
 
-	ParsingError error
+	// Eth Settings
+	LocalTxsEnabled         bool  `json:"local-txs-enabled"`
+	APIMaxDuration          int64 `json:"api-max-duration"`
+	MaxBlocksPerRequest     int64 `json:"api-max-blocks-per-request"`
+	AllowUnfinalizedQueries bool  `json:"allow-unfinalized-queries"`
 
-	StateConnectorConfig []string
+	ParsingError error
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
@@ -41,4 +50,8 @@ func (c CommandLineConfig) EthAPIs() []string {
 	}
 
 	return ethAPIs
+}
+
+func (c CommandLineConfig) EthBackendSettings() eth.Settings {
+	return eth.Settings{MaxBlocksPerRequest: c.MaxBlocksPerRequest}
 }

@@ -11,6 +11,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/cache"
 	"github.com/ava-labs/avalanchego/chains"
+	"github.com/ava-labs/avalanchego/codec"
+	"github.com/ava-labs/avalanchego/codec/linearcodec"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/prefixdb"
 	"github.com/ava-labs/avalanchego/database/versiondb"
@@ -20,7 +22,6 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
 	"github.com/ava-labs/avalanchego/snow/validators"
-	"github.com/ava-labs/avalanchego/utils/codec"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/ava-labs/avalanchego/utils/formatting"
@@ -93,6 +94,7 @@ var (
 
 // VM implements the snowman.ChainVM interface
 type VM struct {
+	metrics
 	*core.SnowmanVM
 
 	// Node's validator manager
@@ -165,9 +167,7 @@ type VM struct {
 
 	bootstrappedTime time.Time
 
-	connections map[[20]byte]time.Time
-
-	ValidatorConfig ids.ValidatorConfig
+	connections map[ids.ShortID]time.Time
 }
 
 // Initialize this blockchain.
@@ -180,7 +180,12 @@ func (vm *VM) Initialize(
 	_ []*common.Fx,
 ) error {
 	ctx.Log.Verbo("initializing platform chain")
-	vm.ValidatorConfig = ctx.ValidatorConfig
+
+	// Initialize metrics as soon as possible
+	if err := vm.metrics.Initialize(ctx.Namespace, ctx.Metrics); err != nil {
+		return err
+	}
+
 	// Initialize the inner VM, which has a lot of boiler-plate logic
 	vm.SnowmanVM = &core.SnowmanVM{}
 	if err := vm.SnowmanVM.Initialize(ctx, db, vm.unmarshalBlockFunc, msgs); err != nil {
@@ -189,13 +194,13 @@ func (vm *VM) Initialize(
 	vm.fx = &secp256k1fx.Fx{}
 
 	vm.codec = Codec
-	vm.codecRegistry = codec.NewDefault()
+	vm.codecRegistry = linearcodec.NewDefault()
 	if err := vm.fx.Initialize(vm); err != nil {
 		return err
 	}
 
 	vm.droppedTxCache = cache.LRU{Size: droppedTxCacheSize}
-	vm.connections = make(map[[20]byte]time.Time)
+	vm.connections = make(map[ids.ShortID]time.Time)
 
 	// Register this VM's types with the database so we can get/put structs to/from it
 	vm.registerDBTypes()
@@ -320,11 +325,18 @@ func (vm *VM) Initialize(
 		return err
 	}
 
-	lastAcceptedID := vm.LastAccepted()
+	lastAcceptedID, err := vm.LastAccepted()
+	if err != nil {
+		vm.Ctx.Log.Error("Error fetching the last accepted block ID (%s), %s", lastAcceptedID, err)
+		return err
+	}
 	vm.Ctx.Log.Info("initializing last accepted block as %s", lastAcceptedID)
 
 	// Build off the most recently accepted block
-	vm.SetPreference(lastAcceptedID)
+	if err := vm.SetPreference(lastAcceptedID); err != nil {
+		vm.Ctx.Log.Error("Error setting the preference to the last accepted block (%s), %s", lastAcceptedID, err)
+		return err
+	}
 
 	// Sanity check to make sure the DB is in a valid state
 	lastAcceptedIntf, err := vm.getBlock(lastAcceptedID)
@@ -419,7 +431,7 @@ func (vm *VM) Bootstrapped() error {
 	stopIter := stopDB.NewIterator()
 	defer stopIter.Release()
 
-	for stopIter.Next() { // Iterates in order of increasing start time
+	for stopIter.Next() { // Iterates in order of increasing stop time
 		txBytes := stopIter.Value()
 
 		tx := rewardTx{}
@@ -487,7 +499,7 @@ func (vm *VM) Shutdown() error {
 	stopIter := stopDB.NewIterator()
 	defer stopIter.Release()
 
-	for stopIter.Next() { // Iterates in order of increasing start time
+	for stopIter.Next() { // Iterates in order of increasing stop time
 		txBytes := stopIter.Value()
 
 		tx := rewardTx{}
@@ -517,7 +529,7 @@ func (vm *VM) Shutdown() error {
 
 		currentLocalTime := vm.clock.Time()
 		timeConnected := currentLocalTime
-		if realTimeConnected, isConnected := vm.connections[nodeID.Key()]; isConnected {
+		if realTimeConnected, isConnected := vm.connections[nodeID]; isConnected {
 			timeConnected = realTimeConnected
 		}
 		if timeConnected.Before(vm.bootstrappedTime) {
@@ -529,7 +541,9 @@ func (vm *VM) Shutdown() error {
 			timeConnected = lastUpdated
 		}
 
-		if !timeConnected.Before(currentLocalTime) {
+		// If the current local time is before the time this peer
+		// was marked as connnected skip updating its uptime.
+		if currentLocalTime.Before(timeConnected) {
 			continue
 		}
 
@@ -597,47 +611,48 @@ func (vm *VM) getBlock(blkID ids.ID) (Block, error) {
 }
 
 // SetPreference sets the preferred block to be the one with ID [blkID]
-func (vm *VM) SetPreference(blkID ids.ID) {
+func (vm *VM) SetPreference(blkID ids.ID) error {
 	if blkID != vm.Preferred() {
-		vm.SnowmanVM.SetPreference(blkID)
+		if err := vm.SnowmanVM.SetPreference(blkID); err != nil {
+			return err
+		}
 		vm.mempool.ResetTimer()
 	}
+	return nil
 }
 
 // CreateHandlers returns a map where:
 // * keys are API endpoint extensions
 // * values are API handlers
 // See API documentation for more information
-func (vm *VM) CreateHandlers() map[string]*common.HTTPHandler {
+func (vm *VM) CreateHandlers() (map[string]*common.HTTPHandler, error) {
 	// Create a service with name "platform"
 	handler, err := vm.SnowmanVM.NewHandler("platform", &Service{vm: vm})
-	vm.Ctx.Log.AssertNoError(err)
-	return map[string]*common.HTTPHandler{"": handler}
+	return map[string]*common.HTTPHandler{"": handler}, err
 }
 
 // CreateStaticHandlers implements the snowman.ChainVM interface
-func (vm *VM) CreateStaticHandlers() map[string]*common.HTTPHandler {
+func (vm *VM) CreateStaticHandlers() (map[string]*common.HTTPHandler, error) {
 	// Static service's name is platform
 	staticService := CreateStaticService()
-	handler, _ := vm.SnowmanVM.NewHandler("platform", staticService)
+	handler, err := vm.SnowmanVM.NewHandler("platform", staticService)
 	return map[string]*common.HTTPHandler{
 		"": handler,
-	}
+	}, err
 }
 
 // Connected implements validators.Connector
 func (vm *VM) Connected(vdrID ids.ShortID) {
-	vm.connections[vdrID.Key()] = time.Unix(vm.clock.Time().Unix(), 0)
+	vm.connections[vdrID] = time.Unix(vm.clock.Time().Unix(), 0)
 }
 
 // Disconnected implements validators.Connector
 func (vm *VM) Disconnected(vdrID ids.ShortID) {
-	vdrKey := vdrID.Key()
-	timeConnected, ok := vm.connections[vdrKey]
+	timeConnected, ok := vm.connections[vdrID]
 	if !ok {
 		return
 	}
-	delete(vm.connections, vdrKey)
+	delete(vm.connections, vdrID)
 
 	if !vm.bootstrapped {
 		return
@@ -732,36 +747,277 @@ func (vm *VM) nextStakerChangeTime(db database.Database) (time.Time, error) {
 
 // update validator set of [subnetID] based on the current chain timestamp
 func (vm *VM) updateValidators(db database.Database) error {
+	timestamp, err := vm.getTimestamp(db)
+	if err != nil {
+		return fmt.Errorf("can't get timestamp: %w", err)
+	}
+
+	subnets, err := vm.getSubnets(db)
+	if err != nil {
+		return err
+	}
+
+	if err := vm.updateSubnetValidators(db, constants.PrimaryNetworkID, timestamp); err != nil {
+		return err
+	}
+	for _, subnet := range subnets {
+		if err := vm.updateSubnetValidators(db, subnet.ID(), timestamp); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (vm *VM) calculateReward(db database.Database, duration time.Duration, stakeAmount uint64) (uint64, error) {
-	return 0, nil
+	currentSupply, err := vm.getCurrentSupply(db)
+	if err != nil {
+		return 0, err
+	}
+	reward := Reward(duration, stakeAmount, currentSupply, vm.stakeMintingPeriod)
+	newSupply, err := safemath.Add64(currentSupply, reward)
+	if err != nil {
+		return 0, err
+	}
+	return reward, vm.putCurrentSupply(db, newSupply)
+}
+
+func (vm *VM) updateSubnetValidators(db database.Database, subnetID ids.ID, timestamp time.Time) error {
+	startPrefix := []byte(fmt.Sprintf("%s%s", subnetID, startDBPrefix))
+	startDB := prefixdb.NewNested(startPrefix, db)
+	defer startDB.Close()
+
+	startIter := startDB.NewIterator()
+	defer startIter.Release()
+
+pendingStakerLoop:
+	for startIter.Next() { // Iterates in order of increasing start time
+		txBytes := startIter.Value()
+
+		tx := Tx{}
+		if _, err := vm.codec.Unmarshal(txBytes, &tx); err != nil {
+			return fmt.Errorf("couldn't unmarshal validator tx: %w", err)
+		}
+
+		switch staker := tx.UnsignedTx.(type) {
+		case *UnsignedAddDelegatorTx:
+			if subnetID != constants.PrimaryNetworkID {
+				return fmt.Errorf("AddDelegatorTx is invalid for subnet %s",
+					subnetID)
+			}
+			if staker.StartTime().After(timestamp) {
+				break pendingStakerLoop
+			}
+
+			if err := tx.Sign(vm.codec, nil); err != nil {
+				return err
+			}
+
+			if err := vm.dequeueStaker(db, subnetID, &tx); err != nil {
+				return fmt.Errorf("couldn't dequeue staker: %w", err)
+			}
+
+			reward, err := vm.calculateReward(db, staker.Validator.Duration(), staker.Validator.Wght)
+			if err != nil {
+				return fmt.Errorf("couldn't calculate reward for staker: %w", err)
+			}
+
+			rTx := rewardTx{
+				Reward: reward,
+				Tx:     tx,
+			}
+			if err := vm.addStaker(db, subnetID, &rTx); err != nil {
+				return fmt.Errorf("couldn't add staker: %w", err)
+			}
+		case *UnsignedAddValidatorTx:
+			if subnetID != constants.PrimaryNetworkID {
+				return fmt.Errorf("AddValidatorTx is invalid for subnet %s",
+					subnetID)
+			}
+			if staker.StartTime().After(timestamp) {
+				break pendingStakerLoop
+			}
+
+			if err := tx.Sign(vm.codec, nil); err != nil {
+				return err
+			}
+
+			if err := vm.dequeueStaker(db, subnetID, &tx); err != nil {
+				return fmt.Errorf("couldn't dequeue staker: %w", err)
+			}
+
+			reward, err := vm.calculateReward(db, staker.Validator.Duration(), staker.Validator.Wght)
+			if err != nil {
+				return fmt.Errorf("couldn't calculate reward for staker: %w", err)
+			}
+
+			rTx := rewardTx{
+				Reward: reward,
+				Tx:     tx,
+			}
+			if err := vm.addStaker(db, subnetID, &rTx); err != nil {
+				return fmt.Errorf("couldn't add staker: %w", err)
+			}
+		case *UnsignedAddSubnetValidatorTx:
+			if txSubnetID := staker.Validator.SubnetID(); subnetID != txSubnetID {
+				return fmt.Errorf("AddSubnetValidatorTx references the incorrect subnet. Expected %s; Got %s",
+					subnetID, txSubnetID)
+			}
+			if staker.StartTime().After(timestamp) {
+				break pendingStakerLoop
+			}
+
+			if err := tx.Sign(vm.codec, nil); err != nil {
+				return err
+			}
+
+			if err := vm.dequeueStaker(db, subnetID, &tx); err != nil {
+				return fmt.Errorf("couldn't dequeue staker: %w", err)
+			}
+
+			rTx := rewardTx{
+				Reward: 0,
+				Tx:     tx,
+			}
+			if err := vm.addStaker(db, subnetID, &rTx); err != nil {
+				return fmt.Errorf("couldn't add staker: %w", err)
+			}
+		default:
+			return fmt.Errorf("expected validator but got %T", tx.UnsignedTx)
+		}
+	}
+
+	stopPrefix := []byte(fmt.Sprintf("%s%s", subnetID, stopDBPrefix))
+	stopDB := prefixdb.NewNested(stopPrefix, db)
+	defer stopDB.Close()
+
+	stopIter := stopDB.NewIterator()
+	defer stopIter.Release()
+
+currentStakerLoop:
+	for stopIter.Next() { // Iterates in order of increasing stop time
+		txBytes := stopIter.Value()
+
+		tx := rewardTx{}
+		if _, err := vm.codec.Unmarshal(txBytes, &tx); err != nil {
+			return fmt.Errorf("couldn't unmarshal validator tx: %w", err)
+		}
+
+		switch staker := tx.Tx.UnsignedTx.(type) {
+		case *UnsignedAddDelegatorTx:
+			if subnetID != constants.PrimaryNetworkID {
+				return fmt.Errorf("AddDelegatorTx is invalid for subnet %s",
+					subnetID)
+			}
+			if staker.EndTime().After(timestamp) {
+				break currentStakerLoop
+			}
+		case *UnsignedAddValidatorTx:
+			if subnetID != constants.PrimaryNetworkID {
+				return fmt.Errorf("AddValidatorTx is invalid for subnet %s",
+					subnetID)
+			}
+			if staker.EndTime().After(timestamp) {
+				break currentStakerLoop
+			}
+		case *UnsignedAddSubnetValidatorTx:
+			if txSubnetID := staker.Validator.SubnetID(); subnetID != txSubnetID {
+				return fmt.Errorf("AddSubnetValidatorTx references the incorrect subnet. Expected %s; Got %s",
+					subnetID, txSubnetID)
+			}
+			if staker.EndTime().After(timestamp) {
+				break currentStakerLoop
+			}
+
+			if err := tx.Tx.Sign(vm.codec, nil); err != nil {
+				return err
+			}
+
+			if err := vm.removeStaker(db, subnetID, &tx); err != nil {
+				return fmt.Errorf("couldn't remove staker: %w", err)
+			}
+		default:
+			return fmt.Errorf("expected validator but got %T", tx.Tx.UnsignedTx)
+		}
+	}
+
+	errs := wrappers.Errs{}
+	errs.Add(
+		startIter.Error(),
+		startDB.Close(),
+		stopIter.Error(),
+		stopDB.Close(),
+	)
+	return errs.Err
 }
 
 func (vm *VM) updateVdrMgr(force bool) error {
 	if !force && !vm.bootstrapped {
 		return nil
 	}
+
+	subnets, err := vm.getSubnets(vm.DB)
+	if err != nil {
+		return err
+	}
+
 	if err := vm.updateVdrSet(constants.PrimaryNetworkID); err != nil {
 		return err
+	}
+	for _, subnet := range subnets {
+		if err := vm.updateVdrSet(subnet.ID()); err != nil {
+			return err
+		}
 	}
 	return vm.initBlockchains()
 }
 
 func (vm *VM) updateVdrSet(subnetID ids.ID) error {
 	vdrs := validators.NewSet()
-	for _, validator := range vm.ValidatorConfig.Validators {
-		err := vdrs.AddWeight(validator.ShortNodeID, uint64(validator.Weighting))
+
+	stopPrefix := []byte(fmt.Sprintf("%s%s", subnetID, stopDBPrefix))
+	stopDB := prefixdb.NewNested(stopPrefix, vm.DB)
+	defer stopDB.Close()
+	stopIter := stopDB.NewIterator()
+	defer stopIter.Release()
+
+	for stopIter.Next() { // Iterates in order of increasing stop time
+		txBytes := stopIter.Value()
+
+		tx := rewardTx{}
+		if _, err := vm.codec.Unmarshal(txBytes, &tx); err != nil {
+			return fmt.Errorf("couldn't unmarshal validator tx: %w", err)
+		}
+		if err := tx.Tx.Sign(vm.codec, nil); err != nil {
+			return err
+		}
+
+		var err error
+		switch staker := tx.Tx.UnsignedTx.(type) {
+		case *UnsignedAddDelegatorTx:
+			err = vdrs.AddWeight(staker.Validator.NodeID, staker.Validator.Weight())
+		case *UnsignedAddValidatorTx:
+			err = vdrs.AddWeight(staker.Validator.NodeID, staker.Validator.Weight())
+		case *UnsignedAddSubnetValidatorTx:
+			err = vdrs.AddWeight(staker.Validator.NodeID, staker.Validator.Weight())
+		default:
+			err = fmt.Errorf("expected validator but got %T", tx.Tx.UnsignedTx)
+		}
 		if err != nil {
 			return err
 		}
 	}
-	err := vm.vdrMgr.Set(constants.PrimaryNetworkID, vdrs)
-	if err != nil {
-		return err
+
+	if subnetID == constants.PrimaryNetworkID {
+		vm.totalStake.Set(float64(vdrs.Weight()) / float64(units.Avax))
 	}
-	return nil
+
+	errs := wrappers.Errs{}
+	errs.Add(
+		vm.vdrMgr.Set(subnetID, vdrs),
+		stopIter.Error(),
+		stopDB.Close(),
+	)
+	return errs.Err
 }
 
 // Codec ...
@@ -902,7 +1158,7 @@ func (vm *VM) calculateUptime(db database.Database, nodeID ids.ShortID, startTim
 
 	upDuration := uptime.UpDuration
 	currentLocalTime := vm.clock.Time()
-	if timeConnected, isConnected := vm.connections[nodeID.Key()]; isConnected {
+	if timeConnected, isConnected := vm.connections[nodeID]; isConnected {
 		if timeConnected.Before(vm.bootstrappedTime) {
 			timeConnected = vm.bootstrappedTime
 		}
@@ -929,12 +1185,12 @@ func (vm *VM) getStakers() ([]validators.Validator, error) {
 	stopPrefix := []byte(fmt.Sprintf("%s%s", constants.PrimaryNetworkID, stopDBPrefix))
 	stopDB := prefixdb.NewNested(stopPrefix, vm.DB)
 	defer stopDB.Close()
-	iter := stopDB.NewIterator()
-	defer iter.Release()
+	stopIter := stopDB.NewIterator()
+	defer stopIter.Release()
 
 	stakers := []validators.Validator{}
-	for iter.Next() { // Iterates in order of increasing start time
-		txBytes := iter.Value()
+	for stopIter.Next() { // Iterates in order of increasing stop time
+		txBytes := stopIter.Value()
 		tx := rewardTx{}
 		if _, err := vm.codec.Unmarshal(txBytes, &tx); err != nil {
 			return nil, fmt.Errorf("couldn't unmarshal validator tx: %w", err)
@@ -952,65 +1208,10 @@ func (vm *VM) getStakers() ([]validators.Validator, error) {
 
 	errs := wrappers.Errs{}
 	errs.Add(
-		iter.Error(),
+		stopIter.Error(),
 		stopDB.Close(),
 	)
 	return stakers, errs.Err
-}
-
-// Returns the pending staker set of the Primary Network.
-// Each element corresponds to a staking transaction.
-// There may be multiple elements with the same node ID.
-// TODO implement this more efficiently
-func (vm *VM) getPendingStakers() ([]validators.Validator, error) {
-	startDBPrefix := []byte(fmt.Sprintf("%s%s", constants.PrimaryNetworkID, startDBPrefix))
-	startDB := prefixdb.NewNested(startDBPrefix, vm.DB)
-	defer startDB.Close()
-	iter := startDB.NewIterator()
-	defer iter.Release()
-
-	stakers := []validators.Validator{}
-	for iter.Next() { // Iterates in order of increasing start time
-		txBytes := iter.Value()
-		tx := rewardTx{}
-		if _, err := vm.codec.Unmarshal(txBytes, &tx); err != nil {
-			return nil, fmt.Errorf("couldn't unmarshal validator tx: %w", err)
-		} else if err := tx.Tx.Sign(vm.codec, nil); err != nil {
-			return nil, err
-		}
-
-		switch staker := tx.Tx.UnsignedTx.(type) {
-		case *UnsignedAddDelegatorTx:
-			stakers = append(stakers, &staker.Validator)
-		case *UnsignedAddValidatorTx:
-			stakers = append(stakers, &staker.Validator)
-		}
-	}
-
-	errs := wrappers.Errs{}
-	errs.Add(
-		iter.Error(),
-		startDB.Close(),
-	)
-	return stakers, errs.Err
-}
-
-// Returns the total amount being staked on the Primary Network, in nAVAX.
-// Does not include stake of pending stakers.
-func (vm *VM) getTotalStake() (uint64, error) {
-	stakers, err := vm.getStakers()
-	if err != nil {
-		return 0, fmt.Errorf("couldn't get stakers: %w", err)
-	}
-
-	totalStake := uint64(0)
-	for _, staker := range stakers {
-		totalStake, err = safemath.Add64(totalStake, staker.Weight())
-		if err != nil {
-			return 0, err
-		}
-	}
-	return totalStake, nil
 }
 
 // Returns the percentage of the total stake on the Primary Network
@@ -1028,7 +1229,7 @@ func (vm *VM) getPercentConnected() (float64, error) {
 		if err != nil {
 			return 0, err
 		}
-		if _, connected := vm.connections[staker.ID().Key()]; !connected {
+		if _, connected := vm.connections[staker.ID()]; !connected {
 			continue // not connected to use --> don't include
 		}
 		connectedStake, err = safemath.Add64(connectedStake, staker.Weight())
@@ -1081,7 +1282,7 @@ func (vm *VM) maxStakeAmount(db database.Database, subnetID ids.ID, nodeID ids.S
 			return 0, fmt.Errorf("expected validator but got %T", tx.Tx.UnsignedTx)
 		}
 
-		if !validator.NodeID.Equals(nodeID) {
+		if validator.NodeID != nodeID {
 			continue
 		}
 
@@ -1129,7 +1330,7 @@ func (vm *VM) maxStakeAmount(db database.Database, subnetID ids.ID, nodeID ids.S
 			break
 		}
 
-		if !validator.NodeID.Equals(nodeID) {
+		if validator.NodeID != nodeID {
 			continue
 		}
 

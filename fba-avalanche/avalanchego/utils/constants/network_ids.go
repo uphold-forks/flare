@@ -5,8 +5,6 @@ package constants
 
 import (
 	"fmt"
-	"math"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -20,8 +18,6 @@ const (
 	DenaliID  uint32 = 3
 	EverestID uint32 = 4
 	FujiID    uint32 = 5
-	FlareID  uint32 = 14
-	CostonID  uint32 = 16
 
 	TestnetID  uint32 = FujiID
 	UnitTestID uint32 = 10
@@ -35,8 +31,6 @@ const (
 	TestnetName  = "testnet"
 	UnitTestName = "testing"
 	LocalName    = "local"
-	FlareName	 = "flare"
-	CostonName	 = "coston"
 
 	MainnetHRP  = "avax"
 	CascadeHRP  = "cascade"
@@ -46,8 +40,6 @@ const (
 	UnitTestHRP = "testing"
 	LocalHRP    = "local"
 	FallbackHRP = "custom"
-	FlareHRP	= "flare"
-	CostonHRP	= "coston"
 )
 
 // Variables to be exported
@@ -63,8 +55,6 @@ var (
 		FujiID:     FujiName,
 		UnitTestID: UnitTestName,
 		LocalID:    LocalName,
-		FlareID:    FlareName,
-		CostonID:   CostonName,
 	}
 	NetworkNameToNetworkID = map[string]uint32{
 		MainnetName:  MainnetID,
@@ -75,8 +65,6 @@ var (
 		TestnetName:  TestnetID,
 		UnitTestName: UnitTestID,
 		LocalName:    LocalID,
-		FlareName:    FlareID,
-		CostonName:   CostonID,
 	}
 
 	NetworkIDToHRP = map[uint32]string{
@@ -87,8 +75,6 @@ var (
 		FujiID:     FujiHRP,
 		UnitTestID: UnitTestHRP,
 		LocalID:    LocalHRP,
-		FlareID:    FlareHRP,
-		CostonID:   CostonHRP,
 	}
 	NetworkHRPToNetworkID = map[string]uint32{
 		MainnetHRP:  MainnetID,
@@ -98,11 +84,9 @@ var (
 		FujiHRP:     FujiID,
 		UnitTestHRP: UnitTestID,
 		LocalHRP:    LocalID,
-		FlareHRP:    FlareID,
-		CostonHRP:   CostonID,
 	}
 
-	ValidNetworkName = regexp.MustCompile(`network-[0-9]+`)
+	ValidNetworkPrefix = "network-"
 )
 
 // GetHRP returns the Human-Readable-Part of bech32 addresses for a networkID
@@ -129,20 +113,13 @@ func NetworkID(networkName string) (uint32, error) {
 		return id, nil
 	}
 
-	if id, err := strconv.ParseUint(networkName, 10, 0); err == nil {
-		if id > math.MaxUint32 {
-			return 0, fmt.Errorf("networkID %s not in [0, 2^32)", networkName)
-		}
-		return uint32(id), nil
+	idStr := networkName
+	if strings.HasPrefix(networkName, ValidNetworkPrefix) {
+		idStr = networkName[len(ValidNetworkPrefix):]
 	}
-	if ValidNetworkName.MatchString(networkName) {
-		if id, err := strconv.Atoi(networkName[8:]); err == nil {
-			if id > math.MaxUint32 {
-				return 0, fmt.Errorf("networkID %s not in [0, 2^32)", networkName)
-			}
-			return uint32(id), nil
-		}
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse %q as a network name", networkName)
 	}
-
-	return 0, fmt.Errorf("failed to parse %s as a network name", networkName)
+	return uint32(id), nil
 }

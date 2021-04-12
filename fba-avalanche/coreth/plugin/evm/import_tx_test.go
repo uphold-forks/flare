@@ -15,7 +15,7 @@ import (
 
 func TestImportTxVerifyNil(t *testing.T) {
 	var importTx *UnsignedImportTx
-	if err := importTx.Verify(testXChainID, NewContext(), testTxFee, testAvaxAssetID); err == nil {
+	if err := importTx.Verify(testXChainID, NewContext(), testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("Verify should have failed due to nil transaction")
 	}
 }
@@ -76,59 +76,70 @@ func TestImportTxVerify(t *testing.T) {
 	SortEVMOutputs(importTx.Outs)
 
 	// Test Valid ImportTx
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err != nil {
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err != nil {
 		t.Fatalf("Failed to verify ImportTx: %s", err)
 	}
 
-	importTx.syntacticallyVerified = false
 	importTx.NetworkID = testNetworkID + 1
 
 	// // Test Incorrect Network ID Errors
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err == nil {
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("ImportTx should have failed verification due to incorrect network ID")
 	}
 
-	importTx.syntacticallyVerified = false
 	importTx.NetworkID = testNetworkID
 	importTx.BlockchainID = nonExistentID
 	// // Test Incorrect Blockchain ID Errors
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err == nil {
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("ImportTx should have failed verification due to incorrect blockchain ID")
 	}
 
-	importTx.syntacticallyVerified = false
 	importTx.BlockchainID = testCChainID
 	importTx.SourceChain = nonExistentID
 	// // Test Incorrect Destination Chain ID Errors
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err == nil {
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("ImportTx should have failed verification due to incorrect source chain")
 	}
 
-	importTx.syntacticallyVerified = false
 	importTx.SourceChain = testXChainID
 	importedIns := importTx.ImportedInputs
+	evmOutputs := importTx.Outs
 	importTx.ImportedInputs = nil
-	// // Test No Exported Outputs Errors
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err == nil {
+	// // Test No Imported Inputs Errors
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("ImportTx should have failed verification due to no imported inputs")
 	}
 
-	importTx.syntacticallyVerified = false
 	importTx.ImportedInputs = []*avax.TransferableInput{importedIns[1], importedIns[0]}
 	// // Test Unsorted Imported Inputs Errors
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err == nil {
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("ImportTx should have failed verification due to unsorted import inputs")
 	}
 
-	importTx.syntacticallyVerified = false
 	importTx.ImportedInputs = []*avax.TransferableInput{importedIns[0], nil}
-	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID); err == nil {
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
 		t.Fatal("ImportTx should have failed verification due to invalid input")
+	}
+
+	importTx.ImportedInputs = []*avax.TransferableInput{importedIns[0], importedIns[1]}
+	// Test unsorted EVM Outputs
+	importTx.Outs = []EVMOutput{evmOutputs[1], evmOutputs[0]}
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, false); err != nil {
+		t.Fatalf("ImportTx should have passed verification in AP1, but failed due to %s", err)
+	}
+	if err := importTx.Verify(testXChainID, ctx, testTxFee, testAvaxAssetID, true); err == nil {
+		t.Fatal("ImportTx should have failed verification due to unsorted EVM Outputs in AP1")
 	}
 }
 
 func TestImportTxSemanticVerify(t *testing.T) {
-	_, vm, _, sharedMemory := GenesisVM(t, false)
+	_, vm, _, sharedMemory := GenesisVM(t, false, genesisJSONApricotPhase0)
+
+	defer func() {
+		if err := vm.Shutdown(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	xChainSharedMemory := sharedMemory.NewSharedMemory(vm.ctx.XChainID)
 
@@ -178,7 +189,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 		Outs: []EVMOutput{evmOutput},
 	}
 
-	state, err := vm.chain.BlockState(vm.lastAccepted.ethBlock)
+	state, err := vm.chain.CurrentState()
 	if err != nil {
 		t.Fatalf("Failed to get last accepted stateDB due to: %s", err)
 	}
@@ -187,12 +198,11 @@ func TestImportTxSemanticVerify(t *testing.T) {
 		t.Fatalf("Expected ethereum address to have empty starting balance.")
 	}
 
-	if err := unsignedImportTx.Verify(vm.ctx.XChainID, vm.ctx, vm.txFee, vm.ctx.AVAXAssetID); err != nil {
+	if err := unsignedImportTx.Verify(vm.ctx.XChainID, vm.ctx, vm.txFee, vm.ctx.AVAXAssetID, true); err != nil {
 		t.Fatal(err)
 	}
-	unsignedImportTx.syntacticallyVerified = false
 
-	tx := &Tx{UnsignedTx: unsignedImportTx}
+	tx := &Tx{UnsignedAtomicTx: unsignedImportTx}
 
 	// Sign with the correct key
 	if err := tx.Sign(vm.codec, [][]*crypto.PrivateKeySECP256K1R{{testKeys[0]}}); err != nil {
@@ -200,7 +210,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 	}
 
 	// Check that SemanticVerify passes without the UTXO being present during bootstrapping
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err != nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err != nil {
 		t.Fatal("Should have failed to import non-existent UTXO")
 	}
 	inputID := utxo.InputID()
@@ -215,7 +225,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 	}
 
 	// Check that SemanticVerify passes when the UTXO is present during bootstrapping
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err != nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err != nil {
 		t.Fatalf("Semantic verification should have passed during bootstrapping when the UTXO was present")
 	}
 
@@ -226,7 +236,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 		AssetID: vm.ctx.AVAXAssetID,
 	})
 
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err == nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err == nil {
 		t.Fatal("Semantic verification should have failed due to insufficient funds")
 	}
 
@@ -244,7 +254,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 
 	// Remove the signature
 	tx.Creds = nil
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err == nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err == nil {
 		t.Fatalf("SemanticVerify should have failed due to no signatures")
 	}
 
@@ -252,7 +262,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 	if err := tx.Sign(vm.codec, [][]*crypto.PrivateKeySECP256K1R{{testKeys[1]}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err == nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err == nil {
 		t.Fatalf("SemanticVerify should have failed due to an invalid signature")
 	}
 
@@ -263,7 +273,7 @@ func TestImportTxSemanticVerify(t *testing.T) {
 	}
 
 	// Check that SemanticVerify passes when the UTXO is present after bootstrapping
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err != nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err != nil {
 		t.Fatalf("Semantic verification should have passed after bootstrapping with the UTXO present")
 	}
 
@@ -283,13 +293,19 @@ func TestImportTxSemanticVerify(t *testing.T) {
 	}
 
 	// Check that SemanticVerify fails when the UTXO is not present after bootstrapping
-	if err := unsignedImportTx.SemanticVerify(vm, tx); err == nil {
+	if err := unsignedImportTx.SemanticVerify(vm, tx, true); err == nil {
 		t.Fatalf("Semantic verification should have failed after the UTXO removed from shared memory")
 	}
 }
 
 func TestNewImportTx(t *testing.T) {
-	_, vm, _, sharedMemory := GenesisVM(t, true)
+	_, vm, _, sharedMemory := GenesisVM(t, true, genesisJSONApricotPhase0)
+
+	defer func() {
+		if err := vm.Shutdown(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	importAmount := uint64(1000000)
 	utxoID := avax.UTXOID{
@@ -334,12 +350,12 @@ func TestNewImportTx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	importTx, ok := tx.UnsignedTx.(UnsignedAtomicTx)
+	importTx, ok := tx.UnsignedAtomicTx.(UnsignedAtomicTx)
 	if !ok {
 		t.Fatal("newImportTx did not return an atomic transaction")
 	}
 
-	if err := importTx.SemanticVerify(vm, tx); err != nil {
+	if err := importTx.SemanticVerify(vm, tx, true); err != nil {
 		t.Fatalf("newImportTx created an invalid transaction")
 	}
 

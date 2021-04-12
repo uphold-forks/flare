@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -835,6 +845,15 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	if state == nil || err != nil {
 		return nil, err
 	}
+
+	// If the request is for the pending block, set the block timestamp to the current time
+	// so that timing assumptions will behave as if a new block were issued.
+	if blkNumber, isNum := blockNrOrHash.Number(); isNum && blkNumber == rpc.PendingBlockNumber {
+		// Override header with a copy to ensure the original header is not modified
+		header = types.CopyHeader(header)
+		header.Time = uint64(time.Now().Unix())
+		header.Number = new(big.Int).Add(header.Number, big.NewInt(1))
+	}
 	// Override the fields of specified contracts before execution.
 	for addr, account := range overrides {
 		// Override account nonce.
@@ -1151,6 +1170,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 		"timestamp":        hexutil.Uint64(head.Time),
 		"transactionsRoot": head.TxHash,
 		"receiptsRoot":     head.ReceiptHash,
+		"extDataHash":      head.ExtDataHash,
 	}
 }
 
@@ -1160,10 +1180,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	fields := RPCMarshalHeader(block.Header())
 	fields["size"] = hexutil.Uint64(block.Size())
-
-	if len(block.ExtraData()) != 0 {
-		fields["blockExtraData"] = hexutil.Encode(block.ExtraData())
-	}
+	fields["blockExtraData"] = hexutil.Bytes(block.ExtData())
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {

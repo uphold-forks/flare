@@ -41,6 +41,8 @@ type Server struct {
 	factory logging.Factory
 	// Maps endpoints to handlers
 	router *router
+	// points the the router handlers
+	handler http.Handler
 	// Listens for HTTP traffic on this address
 	listenAddress string
 	// Handles authorization. Must be non-nil after initialization, even if
@@ -59,15 +61,26 @@ func (s *Server) Initialize(
 	port uint16,
 	authEnabled bool,
 	authPassword string,
+	allowedOrigins []string,
 ) error {
 	s.log = log
 	s.factory = factory
 	s.listenAddress = fmt.Sprintf("%s:%d", host, port)
 	s.router = newRouter()
-	s.auth = &auth.Auth{Enabled: authEnabled}
-	if err := s.auth.Password.Set(authPassword); err != nil {
+
+	a, err := auth.New(authEnabled, authPassword)
+	if err != nil {
 		return err
 	}
+	s.auth = a
+
+	s.log.Info("API created with allowed origins: %v", allowedOrigins)
+	corsWrapper := cors.New(cors.Options{
+		AllowedOrigins: allowedOrigins,
+	})
+	corsHandler := corsWrapper.Handler(s.router)
+	s.handler = s.auth.WrapHandler(corsHandler)
+
 	if !authEnabled {
 		return nil
 	}
@@ -86,9 +99,7 @@ func (s *Server) Dispatch() error {
 		return err
 	}
 	s.log.Info("HTTP API server listening on %q", s.listenAddress)
-	handler := cors.Default().Handler(s.router)
-	handler = s.auth.WrapHandler(handler)
-	s.srv = &http.Server{Handler: handler}
+	s.srv = &http.Server{Handler: s.handler}
 	return s.srv.Serve(listener)
 }
 
@@ -99,9 +110,7 @@ func (s *Server) DispatchTLS(certFile, keyFile string) error {
 		return err
 	}
 	s.log.Info("HTTPS API server listening on %q", s.listenAddress)
-	handler := cors.Default().Handler(s.router)
-	handler = s.auth.WrapHandler(handler)
-	return http.ServeTLS(listener, handler, certFile, keyFile)
+	return http.ServeTLS(listener, s.handler, certFile, keyFile)
 }
 
 // RegisterChain registers the API endpoints associated with this chain That is,
@@ -109,6 +118,14 @@ func (s *Server) DispatchTLS(certFile, keyFile string) error {
 func (s *Server) RegisterChain(chainName string, ctx *snow.Context, vmIntf interface{}) {
 	vm, ok := vmIntf.(common.VM)
 	if !ok {
+		return
+	}
+
+	ctx.Lock.Lock()
+	handlers, err := vm.CreateHandlers()
+	ctx.Lock.Unlock()
+	if err != nil {
+		s.log.Error("Failed to create %s handlers: %s", chainName, err)
 		return
 	}
 
@@ -123,7 +140,7 @@ func (s *Server) RegisterChain(chainName string, ctx *snow.Context, vmIntf inter
 	defaultEndpoint := "bc/" + ctx.ChainID.String()
 
 	// Register each endpoint
-	for extension, service := range vm.CreateHandlers() {
+	for extension, service := range handlers {
 		// Validate that the route being added is valid
 		// e.g. "/foo" and "" are ok but "\n" is not
 		_, err := url.ParseRequestURI(extension)

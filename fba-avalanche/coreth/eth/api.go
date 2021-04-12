@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -120,13 +130,14 @@ func (api *PrivateMinerAPI) Stop() {
 	api.e.StopMining()
 }
 
-// SetExtra sets the extra data string that is included when this miner mines a block.
-func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
-	if err := api.e.Miner().SetExtra([]byte(extra)); err != nil {
-		return false, err
-	}
-	return true, nil
-}
+// Original Code:
+// // SetExtra sets the extra data string that is included when this miner mines a block.
+// func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
+// 	if err := api.e.Miner().SetExtra([]byte(extra)); err != nil {
+// 		return false, err
+// 	}
+// 	return true, nil
+// }
 
 // SetGasPrice sets the minimum accepted gas price for the miner.
 func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {

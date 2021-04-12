@@ -1,3 +1,12 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
+// NOTE from Ted: make sure your solc<0.8.0, as geth 1.9.21 does not support
+// the JSON output from solc>=0.8.0:
+// See:
+// - https://github.com/ethereum/go-ethereum/issues/22041
+// - https://github.com/ethereum/go-ethereum/pull/22092
+
 package main
 
 import (
@@ -5,6 +14,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"go/build"
+	"math/big"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
 	"github.com/ava-labs/coreth"
 	"github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/core/types"
@@ -14,13 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"go/build"
-	"math/big"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"syscall"
-	"time"
 )
 
 func checkError(err error) {
@@ -32,7 +42,6 @@ func checkError(err error) {
 func main() {
 	// configure the chain
 	config := eth.DefaultConfig
-	config.ManualCanonical = true
 	chainConfig := &params.ChainConfig{
 		ChainID:             big.NewInt(1),
 		HomesteadBlock:      big.NewInt(0),
@@ -71,9 +80,8 @@ func main() {
 	//	Alloc:      core.GenesisAlloc{genKey.Address: {Balance: genBalance}},
 	//}
 
-	// grab the control of block generation and disable auto uncle
+	// grab the control of block generation
 	config.Miner.ManualMining = true
-	config.Miner.ManualUncle = true
 
 	// compile the smart contract
 	gopath := os.Getenv("GOPATH")
@@ -93,7 +101,7 @@ func main() {
 	gasPrice := big.NewInt(1000000000)
 
 	blockCount := 0
-	chain := coreth.NewETHChain(&config, nil, nil, nil)
+	chain := coreth.NewETHChain(&config, nil, nil, nil, eth.DefaultSettings)
 	newTxPoolHeadChan := make(chan core.NewTxPoolHeadEvent, 1)
 	log.Info(chain.GetGenesisBlock().Hash().Hex())
 	firstBlock := false
@@ -133,15 +141,8 @@ func main() {
 		}
 		return false
 	}
-	chain.SetOnHeaderNew(func(header *types.Header) {
-		hid := make([]byte, 32)
-		_, err := rand.Read(hid)
-		if err != nil {
-			panic("cannot generate hid")
-		}
-		header.Extra = append(header.Extra, hid...)
-	})
 	chain.SetOnSealFinish(func(block *types.Block) error {
+		chain.SetPreference(block)
 		blockCount++
 		if postGen(block) {
 			return nil
@@ -156,6 +157,8 @@ func main() {
 	// start the chain
 	chain.GetTxPool().SubscribeNewHeadEvent(newTxPoolHeadChan)
 	chain.Start()
+	chain.BlockChain().UnlockIndexing()
+	chain.SetPreference(chain.GetGenesisBlock())
 
 	_ = contract
 	code := common.Hex2Bytes(contract.Code[2:])

@@ -7,10 +7,10 @@ import (
 	"errors"
 
 	"github.com/ava-labs/avalanchego/chains/atomic"
+	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ava-labs/avalanchego/utils/codec"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
@@ -65,12 +65,14 @@ func (t *ExportTx) SyntacticVerify(
 
 // SemanticVerify that this transaction is valid to be spent.
 func (t *ExportTx) SemanticVerify(vm *VM, tx UnsignedTx, creds []verify.Verifiable) error {
-	subnetID, err := vm.ctx.SNLookup.SubnetID(t.DestinationChain)
-	if err != nil {
-		return err
-	}
-	if vm.ctx.SubnetID != subnetID || t.DestinationChain == vm.ctx.ChainID {
-		return errWrongBlockchainID
+	if vm.bootstrapped {
+		subnetID, err := vm.ctx.SNLookup.SubnetID(t.DestinationChain)
+		if err != nil {
+			return err
+		}
+		if vm.ctx.SubnetID != subnetID || t.DestinationChain == vm.ctx.ChainID {
+			return errWrongBlockchainID
+		}
 	}
 
 	for _, out := range t.ExportedOuts {

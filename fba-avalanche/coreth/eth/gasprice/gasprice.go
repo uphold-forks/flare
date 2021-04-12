@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -29,8 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-const sampleNumber = 3 // Number of transactions sampled in a block
-
 var DefaultMaxPrice = big.NewInt(500 * params.GWei)
 
 type Config struct {
@@ -50,12 +58,12 @@ type OracleBackend interface {
 // Oracle recommends gas prices based on the content of recent
 // blocks. Suitable for both light and full clients.
 type Oracle struct {
-	backend   OracleBackend
-	lastHead  common.Hash
-	lastPrice *big.Int
-	maxPrice  *big.Int
-	cacheLock sync.RWMutex
-	fetchLock sync.Mutex
+	backend     OracleBackend
+	lastHead    common.Hash
+	minGasPrice *big.Int
+	maxPrice    *big.Int
+	cacheLock   sync.RWMutex
+	fetchLock   sync.Mutex
 
 	checkBlocks int
 	percentile  int
@@ -85,7 +93,7 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 	}
 	return &Oracle{
 		backend:     backend,
-		lastPrice:   params.Default,
+		minGasPrice: params.Default,
 		maxPrice:    maxPrice,
 		checkBlocks: blocks,
 		percentile:  percent,
@@ -95,7 +103,12 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 // SuggestPrice returns a gasprice so that newly created transaction can
 // have a very high chance to be included in the following blocks.
 func (gpo *Oracle) SuggestPrice(ctx context.Context) (*big.Int, error) {
-	return params.MinGasPrice, nil
+	return gpo.minGasPrice, nil
+}
+
+// SetGasPrice sets the minimum gas price to [newGasPrice]
+func (gpo *Oracle) SetGasPrice(newGasPrice *big.Int) {
+	gpo.minGasPrice = newGasPrice
 }
 
 type getBlockPricesResult struct {

@@ -6,10 +6,10 @@ package node
 import (
 	"time"
 
-	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/genesis"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/nat"
+	"github.com/ava-labs/avalanchego/network"
 	"github.com/ava-labs/avalanchego/snow/consensus/avalanche"
 	"github.com/ava-labs/avalanchego/snow/networking/benchlist"
 	"github.com/ava-labs/avalanchego/snow/networking/router"
@@ -22,6 +22,10 @@ import (
 // Config contains all of the configurations of an Avalanche node.
 type Config struct {
 	genesis.Params
+
+	// Genesis information
+	GenesisBytes []byte
+	AvaxAssetID  ids.ID
 
 	// protocol to use for opening the network interface
 	Nat nat.Router
@@ -38,22 +42,33 @@ type Config struct {
 	// Crypto configuration
 	EnableCrypto bool
 
-	// Database to use for the node
-	DB database.Database
+	// Path to database
+	DBPath string
+
+	// If false, uses an in memory database
+	DBEnabled bool
 
 	// Staking configuration
-	StakingIP               utils.DynamicIPDesc
-	EnableP2PTLS            bool
-	EnableStaking           bool
-	StakingKeyFile          string
-	StakingCertFile         string
-	DisabledStakingWeight   uint64
-	MaxNonStakerPendingMsgs uint
+	StakingIP             utils.DynamicIPDesc
+	EnableP2PTLS          bool
+	EnableStaking         bool
+	StakingKeyFile        string
+	StakingCertFile       string
+	DisabledStakingWeight uint64
+
+	// Throttling
+	MaxNonStakerPendingMsgs uint32
 	StakerMSGPortion        float64
 	StakerCPUPortion        float64
+	SendQueueSize           uint32
+	MaxPendingMsgs          uint32
+
+	// Health
+	HealthCheckFreq time.Duration
 
 	// Network configuration
-	NetworkConfig timer.AdaptiveTimeoutConfig
+	NetworkConfig       timer.AdaptiveTimeoutConfig
+	NetworkHealthConfig network.HealthConfig
 
 	// Benchlist Configuration
 	BenchlistConfig benchlist.Config
@@ -70,6 +85,7 @@ type Config struct {
 	HTTPSCertFile       string
 	APIRequireAuthToken bool
 	APIAuthPassword     string
+	APIAllowedOrigins   []string
 
 	// Enable/Disable APIs
 	AdminAPIEnabled    bool
@@ -98,6 +114,7 @@ type Config struct {
 
 	// Router that is used to handle incoming consensus messages
 	ConsensusRouter          router.Router
+	RouterHealthConfig       router.HealthConfig
 	ConsensusGossipFrequency time.Duration
 	ConsensusShutdownTimeout time.Duration
 
@@ -121,6 +138,12 @@ type Config struct {
 	// Coreth
 	CorethConfig string
 
-	// Validator Config
-	ValidatorConfig ids.ValidatorConfig
+	// Should Bootstrap be retried
+	RetryBootstrap bool
+
+	// Max number of times to retry bootstrap
+	RetryBootstrapMaxAttempts int
+
+	// Peer alias configuration
+	PeerAliasTimeout time.Duration
 }

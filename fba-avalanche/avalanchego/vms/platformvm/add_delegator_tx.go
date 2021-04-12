@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/versiondb"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ava-labs/avalanchego/utils/codec"
 	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
@@ -25,7 +25,6 @@ import (
 var (
 	errDelegatorSubset = errors.New("delegator's time range must be a subset of the validator's time range")
 	errInvalidState    = errors.New("generated output isn't valid state")
-	errInvalidAmount   = errors.New("invalid amount")
 	errCapWeightBroken = errors.New("validator would surpass maximum weight")
 	errOverDelegated   = errors.New("validator would be over delegated")
 
@@ -106,7 +105,7 @@ func (tx *UnsignedAddDelegatorTx) Verify(
 	case !avax.IsSortedTransferableOutputs(tx.Stake, c):
 		return errOutputsNotSorted
 	case totalStakeWeight != tx.Validator.Wght:
-		return errInvalidAmount
+		return fmt.Errorf("delegator weight %d is not equal to total stake weight %d", tx.Validator.Wght, totalStakeWeight)
 	case tx.Validator.Wght < minDelegatorStake:
 		// Ensure validator is staking at least the minimum amount
 		return errWeightTooSmall
@@ -140,82 +139,84 @@ func (tx *UnsignedAddDelegatorTx) SemanticVerify(
 		return nil, nil, nil, nil, permError{err}
 	}
 
-	// Ensure the proposed validator starts after the current timestamp
-	if currentTimestamp, err := vm.getTimestamp(db); err != nil {
-		return nil, nil, nil, nil, tempError{
-			fmt.Errorf("failed to get timestamp: %w", err),
-		}
-	} else if validatorStartTime := tx.StartTime(); !currentTimestamp.Before(validatorStartTime) {
-		return nil, nil, nil, nil, permError{fmt.Errorf("chain timestamp (%s) not before validator's start time (%s)",
-			currentTimestamp,
-			validatorStartTime)}
-	} else if validatorStartTime.After(currentTimestamp.Add(maxFutureStartTime)) {
-		return nil, nil, nil, nil, permError{fmt.Errorf("validator start time (%s) more than two weeks after current chain timestamp (%s)", validatorStartTime, currentTimestamp)}
-	}
-
-	// Ensure that the period this delegator delegates is a subset of the time
-	// the validator validates.
-	vdr, isValidator, err := vm.isValidator(db, constants.PrimaryNetworkID, tx.Validator.NodeID)
-	vdrWeight := uint64(0)
-	if err != nil {
-		return nil, nil, nil, nil, tempError{
-			fmt.Errorf("failed to find whether %s is a validator: %w", tx.Validator.NodeID, err),
-		}
-	}
-	if isValidator && !tx.Validator.BoundedBy(vdr.StartTime(), vdr.EndTime()) {
-		return nil, nil, nil, nil, permError{errDelegatorSubset}
-	}
-	if !isValidator {
-		// Ensure that the period this delegator delegates is a subset of the
-		// time the validator will validates.
-		vdr, willBeValidator, err := vm.willBeValidator(db, constants.PrimaryNetworkID, tx.Validator.NodeID)
-		if err != nil {
-			return nil, nil, nil, nil, tempError{
-				fmt.Errorf("failed to find whether %s will be a validator: %w", tx.Validator.NodeID, err),
-			}
-		}
-		if !willBeValidator || !tx.Validator.BoundedBy(vdr.StartTime(), vdr.EndTime()) {
-			return nil, nil, nil, nil, permError{errDelegatorSubset}
-		}
-		vdrWeight = vdr.Weight()
-	} else {
-		vdrWeight = vdr.Weight()
-	}
-
-	maxWeight, err := vm.maxStakeAmount(db, constants.PrimaryNetworkID, tx.Validator.NodeID, tx.StartTime(), tx.EndTime())
-	if err != nil {
-		return nil, nil, nil, nil, tempError{err}
-	}
-	newWeight, err := safemath.Add64(maxWeight, tx.Validator.Wght)
-	if err != nil {
-		return nil, nil, nil, nil, permError{errStakeOverflow}
-	}
-	if newWeight > vm.maxValidatorStake {
-		return nil, nil, nil, nil, permError{errCapWeightBroken}
-	}
-
-	delegationRestrict, err := safemath.Mul64(5, vdrWeight)
-	if err != nil {
-		return nil, nil, nil, nil, permError{errStakeOverflow}
-	}
-	if newWeight > delegationRestrict {
-		return nil, nil, nil, nil, permError{errOverDelegated}
-	}
-
 	outs := make([]*avax.TransferableOutput, len(tx.Outs)+len(tx.Stake))
 	copy(outs, tx.Outs)
 	copy(outs[len(tx.Outs):], tx.Stake)
 
-	// Verify the flowcheck
-	if err := vm.semanticVerifySpend(db, tx, tx.Ins, outs, stx.Creds, 0, vm.Ctx.AVAXAssetID); err != nil {
-		switch err.(type) {
-		case permError:
-			return nil, nil, nil, nil, permError{
-				fmt.Errorf("failed semanticVerifySpend: %w", err),
-			}
-		default:
+	if vm.bootstrapped {
+		// Ensure the proposed validator starts after the current timestamp
+		if currentTimestamp, err := vm.getTimestamp(db); err != nil {
 			return nil, nil, nil, nil, tempError{
-				fmt.Errorf("failed semanticVerifySpend: %w", err),
+				fmt.Errorf("failed to get timestamp: %w", err),
+			}
+		} else if validatorStartTime := tx.StartTime(); !currentTimestamp.Before(validatorStartTime) {
+			return nil, nil, nil, nil, permError{fmt.Errorf("chain timestamp (%s) not before validator's start time (%s)",
+				currentTimestamp,
+				validatorStartTime)}
+		} else if validatorStartTime.After(currentTimestamp.Add(maxFutureStartTime)) {
+			return nil, nil, nil, nil, permError{fmt.Errorf("validator start time (%s) more than two weeks after current chain timestamp (%s)", validatorStartTime, currentTimestamp)}
+		}
+
+		// Ensure that the period this delegator delegates is a subset of the time
+		// the validator validates.
+		vdr, isValidator, err := vm.isValidator(db, constants.PrimaryNetworkID, tx.Validator.NodeID)
+		vdrWeight := uint64(0)
+		if err != nil {
+			return nil, nil, nil, nil, tempError{
+				fmt.Errorf("failed to find whether %s is a validator: %w", tx.Validator.NodeID, err),
+			}
+		}
+		if isValidator && !tx.Validator.BoundedBy(vdr.StartTime(), vdr.EndTime()) {
+			return nil, nil, nil, nil, permError{errDelegatorSubset}
+		}
+		if !isValidator {
+			// Ensure that the period this delegator delegates is a subset of the
+			// time the validator will validates.
+			vdr, willBeValidator, err := vm.willBeValidator(db, constants.PrimaryNetworkID, tx.Validator.NodeID)
+			if err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to find whether %s will be a validator: %w", tx.Validator.NodeID, err),
+				}
+			}
+			if !willBeValidator || !tx.Validator.BoundedBy(vdr.StartTime(), vdr.EndTime()) {
+				return nil, nil, nil, nil, permError{errDelegatorSubset}
+			}
+			vdrWeight = vdr.Weight()
+		} else {
+			vdrWeight = vdr.Weight()
+		}
+
+		maxWeight, err := vm.maxStakeAmount(db, constants.PrimaryNetworkID, tx.Validator.NodeID, tx.StartTime(), tx.EndTime())
+		if err != nil {
+			return nil, nil, nil, nil, tempError{err}
+		}
+		newWeight, err := safemath.Add64(maxWeight, tx.Validator.Wght)
+		if err != nil {
+			return nil, nil, nil, nil, permError{errStakeOverflow}
+		}
+		if newWeight > vm.maxValidatorStake {
+			return nil, nil, nil, nil, permError{errCapWeightBroken}
+		}
+
+		delegationRestrict, err := safemath.Mul64(5, vdrWeight)
+		if err != nil {
+			return nil, nil, nil, nil, permError{errStakeOverflow}
+		}
+		if newWeight > delegationRestrict {
+			return nil, nil, nil, nil, permError{errOverDelegated}
+		}
+
+		// Verify the flowcheck
+		if err := vm.semanticVerifySpend(db, tx, tx.Ins, outs, stx.Creds, 0, vm.Ctx.AVAXAssetID); err != nil {
+			switch err.(type) {
+			case permError:
+				return nil, nil, nil, nil, permError{
+					fmt.Errorf("failed semanticVerifySpend: %w", err),
+				}
+			default:
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed semanticVerifySpend: %w", err),
+				}
 			}
 		}
 	}

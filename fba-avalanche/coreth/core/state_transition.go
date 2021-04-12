@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2014 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -17,8 +27,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/binary"
 	"math"
 	"math/big"
 
@@ -234,7 +242,18 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
+	apricotPhase1 := st.evm.ChainConfig().IsApricotPhase1(st.evm.Time)
 	contractCreation := msg.To() == nil
+
+	// Check clauses 4-5, subtract intrinsic gas if everything is correct
+	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
+	if err != nil {
+		return nil, err
+	}
+	if st.gas < gas {
+		return nil, ErrIntrinsicGas
+	}
+	st.gas -= gas
 
 	// Check clause 6
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
@@ -244,75 +263,15 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
 	)
-	if contractCreation == false && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) && (bytes.Equal(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) ||
-		bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) ||
-		bytes.Equal(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber))) {
-
-		if bytes.Equal(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber)) ||
-			bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber)) {
-			// Increment the nonce for the next transaction
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-
-			// Fee charged for attempting to perform an underlying chain state check
-			dataFee := new(big.Int).Mul(new(big.Int).SetUint64(GetDataFee(st.evm.Context.BlockNumber)), st.gasPrice)
-			if st.state.GetBalance(st.msg.From()).Cmp(dataFee) < 0 {
-				return nil, ErrInsufficientFundsForTransfer
-			}
-			st.state.SubBalance(st.msg.From(), dataFee)
-			st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), dataFee)
-
-			checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-			if checkVmerr == nil {
-				chainConfig := st.evm.ChainConfig()
-				if StateConnectorCall(st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) == true {
-					originalCoinbase := st.evm.Context.Coinbase
-					defer func() {
-						st.evm.Context.Coinbase = originalCoinbase
-					}()
-					st.evm.Context.Coinbase = st.msg.From()
-				}
-			}
-			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		} else if bytes.Equal(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber)) {
-			checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-			if checkVmerr == nil {
-				if binary.BigEndian.Uint32(checkRet[28:32])+1 <= GetMaxAllowedChains(st.evm.Context.BlockNumber) {
-					originalCoinbase := st.evm.Context.Coinbase
-					defer func() {
-						st.evm.Context.Coinbase = originalCoinbase
-					}()
-					st.evm.Context.Coinbase = common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber))
-				}
-			}
-			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		}
+	if contractCreation {
+		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 	} else {
-		// Check clauses 4-5, subtract intrinsic gas if everything is correct
-		gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
-		if err != nil {
-			return nil, err
-		}
-		if st.gas < gas {
-			return nil, ErrIntrinsicGas
-		}
-		st.gas -= gas
-		if contractCreation {
-			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
-		} else {
-			// Increment the nonce for the next transaction
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		}
+		// Increment the nonce for the next transaction
+		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
-	st.refundGas()
-	st.state.AddBalance(common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber)), new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-
-	if vmerr == nil {
-		_, _, triggerErr := st.evm.Call(vm.AccountRef(common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))), common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber)), GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
-		if triggerErr != nil {
-			// Errors were not properly handled in try/catch statements in the trigger contracts
-		}
-	}
+	st.refundGas(apricotPhase1)
+	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),
@@ -321,13 +280,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}, nil
 }
 
-func (st *StateTransition) refundGas() {
-	// Apply refund counter, capped to half of the used gas.
-	refund := st.gasUsed() / 2
-	if refund > st.state.GetRefund() {
-		refund = st.state.GetRefund()
+func (st *StateTransition) refundGas(apricotPhase1 bool) {
+	// Inspired by: https://gist.github.com/holiman/460f952716a74eeb9ab358bb1836d821#gistcomment-3642048
+	if !apricotPhase1 {
+		// Apply refund counter, capped to half of the used gas.
+		refund := st.gasUsed() / 2
+		if refund > st.state.GetRefund() {
+			refund = st.state.GetRefund()
+		}
+		st.gas += refund
 	}
-	st.gas += refund
 
 	// Return ETH for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)

@@ -17,6 +17,11 @@ elif [[ $# -ne 0 ]]; then
     exit 1
 fi
 
+# Check if CORETH_COMMIT is set, if not retrieve the last commit from the repo.
+# This is used in the Dockerfile to allow a commit hash to be passed in without
+# including the .git/ directory within the Docker image.
+CORETH_COMMIT=${CORETH_COMMIT:-$( git rev-list -1 HEAD )}
+
 # Build Coreth, which is run as a subprocess
-echo "Building Coreth..."
-go build -o "$BINARY_PATH" "plugin/"*.go
+echo "Building Coreth from GitCommit: $CORETH_COMMIT"
+go build -ldflags "-X github.com/ava-labs/coreth/plugin/evm.GitCommit=$CORETH_COMMIT" -o "$BINARY_PATH" "plugin/"*.go
