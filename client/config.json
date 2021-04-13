@@ -18,7 +18,7 @@
   "flare": {
     "gas": "5000000",
     "contractGas": "10000000",
-    "gasPrice": "10000000",
+    "gasPrice": "10000000000000",
     "chainId": 16,
     "url": "http://127.0.0.1:9650/ext/bc/C/rpc"
 

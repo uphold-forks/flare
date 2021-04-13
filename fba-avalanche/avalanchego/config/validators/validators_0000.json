@@ -1,0 +1,20 @@
+{
+  "validators": [
+    {
+      "nodeID": "NodeID-LtahNtUH9tb4VCZZipLNqkBCxzjpFTdHs",
+      "weighting": 1
+    },
+    {
+      "nodeID": "NodeID-34KwvqefLeXYPrzcNjc4yMPRpMfE89ppw",
+      "weighting": 1
+    },
+    {
+      "nodeID": "NodeID-G9CJC4te7FyH1XyMugsRqVYYZBuTreFvd",
+      "weighting": 1
+    },
+    {
+      "nodeID": "NodeID-HhAo3hwTn73UB1LxU131gXrs7HMnMxmdE",
+      "weighting": 1
+    }
+  ]
+}

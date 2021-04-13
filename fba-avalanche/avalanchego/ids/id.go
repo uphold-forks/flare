@@ -27,6 +27,16 @@ var (
 	errMissingQuotes = errors.New("first and last characters should be quotes")
 )
 
+type ValidatorConfig struct {
+	Validators []Validator `json:"validators"`
+}
+
+type Validator struct {
+	NodeID      string `json:"nodeID"`
+	Weighting   int    `json:"weighting"`
+	ShortNodeID ShortID
+}
+
 // ID wraps a 32 byte hash used as an identifier
 type ID [32]byte
 

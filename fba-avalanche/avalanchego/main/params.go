@@ -237,6 +237,13 @@ func avalancheFlagSet() *flag.FlagSet {
 	fs.String(ipcsChainIDsKey, "", "Comma separated list of chain ids to add to the IPC engine. Example: 11111111111111111111111111111111LpoYY,4R5p2RXDGLqaifZE4hHWH9owe34pfoBULn1DrQTWivjg8o4aH")
 	fs.String(ipcsPathKey, defaultString, "The directory (Unix) or named pipe name prefix (Windows) for IPC sockets")
 
+	// Alert APIs
+	fs.String(alertAPIsKey, defaultString, "Comma-delimited list of API(s) to use for alerting this validator's administrator in the event of a problem with the state connector system.")
+	// XRP APIs
+	fs.String(xrpAPIsKey, defaultString, "Comma-delimited list of API(s) to use for attaching the state connector system to the XRP Ledger.")
+	// Unique Node List:
+	fs.String(validatorsFileKey, defaultString, "JSON file containing Node-IDs and their probability weighting of being sampled during consensus.")
+
 	return fs
 }
 
@@ -698,21 +705,11 @@ func setNodeConfig(v *viper.Viper) error {
 	Config.EnableCrypto = v.GetBool(signatureVerificationEnabledKey)
 
 	// Coreth Plugin
-	corethConfigString := v.GetString(corethConfigKey)
-	if corethConfigString != defaultString {
-		corethConfigValue := v.Get(corethConfigKey)
-		switch value := corethConfigValue.(type) {
-		case string:
-			corethConfigString = value
-		default:
-			corethConfigBytes, err := json.Marshal(value)
-			if err != nil {
-				return fmt.Errorf("couldn't parse coreth config: %w", err)
-			}
-			corethConfigString = string(corethConfigBytes)
-		}
-	}
-	Config.CorethConfig = corethConfigString
+	// corethAPIenabled := true
+	// corethConfigString := v.GetString(corethConfigKey)
+	// if corethConfigString != defaultString {
+	// 	corethAPIenabled = false
+	// }
 
 	// Bootstrap Configs
 	Config.RetryBootstrap = v.GetBool(retryBootstrap)
@@ -720,6 +717,50 @@ func setNodeConfig(v *viper.Viper) error {
 
 	// Peer alias
 	Config.PeerAliasTimeout = v.GetDuration(peerAliasTimeoutKey)
+
+	// State Connector APIs
+	alertAPIsString := v.GetString(alertAPIsKey)
+	if alertAPIsString == defaultString {
+		return fmt.Errorf("alert-apis not specified")
+	}
+	alertAPIsString = strings.ReplaceAll(alertAPIsString, " ", "")
+	xrpAPIsString := v.GetString(xrpAPIsKey)
+	if xrpAPIsString == defaultString {
+		return fmt.Errorf("xrp-apis not specified")
+	}
+	xrpAPIsString = strings.ReplaceAll(xrpAPIsString, " ", "")
+	stateHashesFilePath := v.GetString(dbPathKey)
+	if stateHashesFilePath[len(stateHashesFilePath)-1:] == "/" {
+		stateHashesFilePath = stateHashesFilePath + "stateHashes.json"
+	} else {
+		for stateHashesFilePath[len(stateHashesFilePath)-1:] == " " {
+			stateHashesFilePath = stateHashesFilePath[:len(stateHashesFilePath)-1]
+		}
+		stateHashesFilePath = stateHashesFilePath + "/stateHashes.json"
+	}
+	Config.CorethConfig = stateHashesFilePath + " " + alertAPIsString + " " + xrpAPIsString
+
+	validatorsFilePath := v.GetString(validatorsFileKey)
+	if validatorsFilePath == defaultString {
+		return fmt.Errorf("validators-file not specified")
+	}
+	_, err = os.Stat(validatorsFilePath)
+	if errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("validators-file does not exist")
+	}
+	validatorsFile, err := ioutil.ReadFile(validatorsFilePath)
+	if err != nil {
+		return fmt.Errorf("cannot read from validatorsFilePath")
+	}
+	var validators ids.ValidatorConfig
+	json.Unmarshal(validatorsFile, &validators)
+	for i, validator := range validators.Validators {
+		validators.Validators[i].ShortNodeID, err = ids.ShortFromPrefixedString(validator.NodeID, constants.NodeIDPrefix)
+		if err != nil {
+			return fmt.Errorf("couldn't parse validator NodeID: %w", err)
+		}
+	}
+	Config.ValidatorConfig = validators
 
 	return nil
 }

@@ -586,6 +586,7 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 		WhitelistedSubnets:        n.Config.WhitelistedSubnets,
 		RetryBootstrap:            n.Config.RetryBootstrap,
 		RetryBootstrapMaxAttempts: n.Config.RetryBootstrapMaxAttempts,
+		ValidatorConfig:           n.Config.ValidatorConfig,
 	})
 
 	vdrs := n.vdrs

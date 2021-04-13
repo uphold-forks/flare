@@ -141,6 +141,7 @@ type ManagerConfig struct {
 	HealthService             health.Service
 	RetryBootstrap            bool // Should Bootstrap be retried
 	RetryBootstrapMaxAttempts int  // Max number of times to retry bootstrap
+	ValidatorConfig           ids.ValidatorConfig
 }
 
 type manager struct {
@@ -279,6 +280,7 @@ func (m *manager) buildChain(chainParams ChainParameters, sb Subnet) (*chain, er
 		Metrics:              m.ConsensusParams.Metrics,
 		EpochFirstTransition: m.EpochFirstTransition,
 		EpochDuration:        m.EpochDuration,
+		ValidatorConfig:      m.ManagerConfig.ValidatorConfig,
 	}
 
 	// Get a factory for the vm we want to use on our chain

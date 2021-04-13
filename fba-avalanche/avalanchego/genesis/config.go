@@ -159,18 +159,24 @@ var (
 	// LocalConfig is the config that should be used to generate a local
 	// genesis.
 	LocalConfig Config
+
+	// CostonConfig is the config that should be used to generate the coston
+	// genesis.
+	CostonConfig Config
 )
 
 func init() {
 	unparsedMainnetConfig := UnparsedConfig{}
 	unparsedFujiConfig := UnparsedConfig{}
 	unparsedLocalConfig := UnparsedConfig{}
+	unparsedCostonConfig := UnparsedConfig{}
 
 	errs := wrappers.Errs{}
 	errs.Add(
 		json.Unmarshal([]byte(mainnetGenesisConfigJSON), &unparsedMainnetConfig),
 		json.Unmarshal([]byte(fujiGenesisConfigJSON), &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
+		json.Unmarshal([]byte(costonGenesisConfigJSON), &unparsedCostonConfig),
 	)
 	if errs.Errored() {
 		panic(errs.Err)
@@ -188,6 +194,10 @@ func init() {
 	errs.Add(err)
 	LocalConfig = localConfig
 
+	costonConfig, err := unparsedCostonConfig.Parse()
+	errs.Add(err)
+	CostonConfig = costonConfig
+
 	if errs.Errored() {
 		panic(errs.Err)
 	}
@@ -202,6 +212,8 @@ func GetConfig(networkID uint32) *Config {
 		return &FujiConfig
 	case constants.LocalID:
 		return &LocalConfig
+	case constants.CostonID:
+		return &CostonConfig
 	default:
 		tempConfig := LocalConfig
 		tempConfig.NetworkID = networkID
