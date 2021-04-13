@@ -1,20 +1,20 @@
 {
-  "validators": [
-    {
-      "nodeID": "NodeID-3417yLQiVZsF8jXg7mNLkSua7dregd33o",
-      "weighting": 1
-    },
-    {
-      "nodeID": "NodeID-Q2FTyfJfwJ5b1FSJhX6BwTnXgXxmk2gHa",
-      "weighting": 1
-    },
-    {
-      "nodeID": "NodeID-9UFZiKiQxCZJpFjmwpGTn93pnPFAzsYxc",
-      "weighting": 1
-    },
-    {
-      "nodeID": "NodeID-L6AqPw7iaH2CU7FhzAGDoBonwD2iioAo6",
-      "weighting": 1
-    }
-  ]
-}
+    "validators": [
+      {
+        "nodeID": "NodeID-HLnQwRPbn2TTBXkt7XAEoRVWCDpcVPaSh",
+        "weighting": 1
+      },
+      {
+        "nodeID": "NodeID-3VN9WkyTVGCRQHUrXtmJdxLdZRJe3Le8o",
+        "weighting": 1
+      },
+      {
+        "nodeID": "NodeID-2n6kTM5Jti4phzkv5bSjGk8q4fe9VSr82",
+        "weighting": 1
+      },
+      {
+        "nodeID": "NodeID-C8ggpWRpiMnouswVxonFc88iCPqyhs5JD",
+        "weighting": 1
+      }
+    ]
+  }
