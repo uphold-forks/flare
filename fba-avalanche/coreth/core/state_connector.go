@@ -2,27 +2,20 @@ package core
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 )
-
-var fileMutex sync.Mutex
 
 // Fixed gas used for custom block.coinbase operations
 func GetDataFee(blockNumber *big.Int) uint64 {
@@ -104,25 +97,10 @@ type StateHashes struct {
 	Hashes []string `json:"hashes"`
 }
 
-func contains(slice []string, item string) bool {
-	set := make(map[string]struct{}, len(slice))
-	for _, s := range slice {
-		set[s] = struct{}{}
-	}
-	_, ok := set[item]
-	return ok
-}
-
 // =======================================================
 // XRP
 // =======================================================
 
-type PingXRPParams struct {
-}
-type PingXRPPayload struct {
-	Method string          `json:"method"`
-	Params []PingXRPParams `json:"params"`
-}
 type GetXRPBlockRequestParams struct {
 	LedgerIndex  uint64 `json:"ledger_index"`
 	Full         bool   `json:"full"`
@@ -142,34 +120,6 @@ type GetXRPBlockResponse struct {
 	LedgerHash  string `json:"ledger_hash"`
 	LedgerIndex int    `json:"ledger_index"`
 	Validated   bool   `json:"validated"`
-}
-
-func PingXRP(chainURL string) bool {
-	data := PingXRPPayload{
-		Method: "ping",
-	}
-	payloadBytes, err := json.Marshal(data)
-	if err != nil {
-		return false
-	}
-	body := bytes.NewReader(payloadBytes)
-
-	req, err := http.NewRequest("POST", chainURL, body)
-	if err != nil {
-		return false
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
-		return true
-	} else {
-		return false
-	}
 }
 
 func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
@@ -355,15 +305,6 @@ func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, ch
 // Common
 // =======================================================
 
-func PingChain(chainId uint32, chainURL string) bool {
-	switch chainId {
-	case 0:
-		return PingXRP(chainURL)
-	default:
-		return false
-	}
-}
-
 func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainId uint32, chainURL string) (bool, bool) {
 	switch chainId {
 	case 0:
@@ -373,37 +314,24 @@ func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, 
 	}
 }
 
-func AlertAdmin(alertURLs string, errorCode int) {
-	return
-}
-
 func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, alertURLs string, chainURLs []string) bool {
 	chainId := binary.BigEndian.Uint32(checkRet[28:32])
 	if uint32(len(chainURLs)) <= chainId {
 		// This is already checked at avalanchego/main/params.go on launch, but a fail-safe
 		// is included here regardless for increased coverage
-		for {
-			AlertAdmin(alertURLs, 0)
-			time.Sleep(10 * time.Second)
-		}
+		return false
 	}
 	for {
 		for _, chainURL := range strings.Split(chainURLs[chainId], ",") {
 			if chainURL != "" {
-				pong := PingChain(chainId, chainURL)
-				if !pong {
-					AlertAdmin(alertURLs, 1)
-					continue
-				}
 				verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURL)
-				if err {
-					AlertAdmin(alertURLs, 2)
+				if !verified && err {
 					continue
+				} else {
+					return verified
 				}
-				return verified
 			}
 		}
-		AlertAdmin(alertURLs, 3)
 		time.Sleep(1 * time.Second)
 	}
 	return false
@@ -411,47 +339,5 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, a
 
 // Verify proof against underlying chain
 func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) bool {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
-	var data StateHashes
-	stateCacheFilePath := stateConnectorConfig[0]
-	rawHash := sha256.Sum256([]byte(hex.EncodeToString(functionSelector) + hex.EncodeToString(checkRet)))
-	hexHash := hex.EncodeToString(rawHash[:])
-	_, err := os.Stat(stateCacheFilePath)
-	if errors.Is(err, os.ErrNotExist) {
-		_, err = os.Create(stateCacheFilePath)
-		if err != nil {
-			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
-		}
-	} else if err != nil {
-		// Bypass caching mechanism
-		return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
-	} else {
-		file, err := ioutil.ReadFile(stateCacheFilePath)
-		if err != nil {
-			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
-		}
-		data = StateHashes{}
-		err = json.Unmarshal(file, &data)
-		if err != nil {
-			// Bypass caching mechanism
-			return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:])
-		}
-	}
-	if !contains(data.Hashes, hexHash) {
-		if ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[1], stateConnectorConfig[2:]) {
-			data.Hashes = append(data.Hashes, hexHash)
-			jsonData, err := json.Marshal(data)
-			if err == nil {
-				ioutil.WriteFile(stateCacheFilePath, jsonData, 0644)
-			}
-			return true
-		} else {
-			return false
-		}
-	}
-	// Cache contains this proof already
-	return true
+	return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[0], stateConnectorConfig[1:])
 }

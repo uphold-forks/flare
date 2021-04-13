@@ -705,11 +705,11 @@ func setNodeConfig(v *viper.Viper) error {
 	Config.EnableCrypto = v.GetBool(signatureVerificationEnabledKey)
 
 	// Coreth Plugin
-	// corethAPIenabled := true
-	// corethConfigString := v.GetString(corethConfigKey)
-	// if corethConfigString != defaultString {
-	// 	corethAPIenabled = false
-	// }
+	corethAPIstate := "api-enabled"
+	corethConfigString := v.GetString(corethConfigKey)
+	if corethConfigString != defaultString && corethConfigString != corethAPIstate {
+		corethAPIstate = "api-disabled"
+	}
 
 	// Bootstrap Configs
 	Config.RetryBootstrap = v.GetBool(retryBootstrap)
@@ -729,16 +729,8 @@ func setNodeConfig(v *viper.Viper) error {
 		return fmt.Errorf("xrp-apis not specified")
 	}
 	xrpAPIsString = strings.ReplaceAll(xrpAPIsString, " ", "")
-	stateHashesFilePath := v.GetString(dbPathKey)
-	if stateHashesFilePath[len(stateHashesFilePath)-1:] == "/" {
-		stateHashesFilePath = stateHashesFilePath + "stateHashes.json"
-	} else {
-		for stateHashesFilePath[len(stateHashesFilePath)-1:] == " " {
-			stateHashesFilePath = stateHashesFilePath[:len(stateHashesFilePath)-1]
-		}
-		stateHashesFilePath = stateHashesFilePath + "/stateHashes.json"
-	}
-	Config.CorethConfig = stateHashesFilePath + " " + alertAPIsString + " " + xrpAPIsString
+
+	Config.CorethConfig = corethAPIstate + " " + alertAPIsString + " " + xrpAPIsString
 
 	validatorsFilePath := v.GetString(validatorsFileKey)
 	if validatorsFilePath == defaultString {

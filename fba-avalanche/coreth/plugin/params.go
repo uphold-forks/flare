@@ -28,18 +28,24 @@ func init() {
 		return
 	}
 
-	cliConfig.EthAPIEnabled = true
-	cliConfig.PersonalAPIEnabled = true
-	cliConfig.TxPoolAPIEnabled = true
-	cliConfig.NetAPIEnabled = true
-	cliConfig.Web3APIEnabled = true
 	cliConfig.RPCGasCap = 2500000000 // 25000000 x 100
 	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
 
 	if *config != "default" {
-		for _, value := range strings.Split(*config, " ") {
+		for i, value := range strings.Split(*config, " ") {
 			if value != "" {
-				cliConfig.StateConnectorConfig = append(cliConfig.StateConnectorConfig, value)
+				if i == 0 {
+					if value == "api-enabled" {
+						cliConfig.EthAPIEnabled = true
+						cliConfig.PersonalAPIEnabled = true
+						cliConfig.TxPoolAPIEnabled = true
+						cliConfig.NetAPIEnabled = true
+						cliConfig.Web3APIEnabled = true
+						cliConfig.DebugAPIEnabled = true
+					}
+				} else {
+					cliConfig.StateConnectorConfig = append(cliConfig.StateConnectorConfig, value)
+				}
 			} else {
 				cliConfig.ParsingError = fmt.Errorf("StateConnectorConfig contains empty string")
 				return
