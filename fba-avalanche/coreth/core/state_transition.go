@@ -334,14 +334,14 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 func (st *StateTransition) refundGas(apricotPhase1 bool) {
 	// Inspired by: https://gist.github.com/holiman/460f952716a74eeb9ab358bb1836d821#gistcomment-3642048
-	if !apricotPhase1 {
-		// Apply refund counter, capped to half of the used gas.
-		refund := st.gasUsed() / 2
-		if refund > st.state.GetRefund() {
-			refund = st.state.GetRefund()
-		}
-		st.gas += refund
+	// if !apricotPhase1 {
+	// Apply refund counter, capped to half of the used gas.
+	refund := st.gasUsed() / 2
+	if refund > st.state.GetRefund() {
+		refund = st.state.GetRefund()
 	}
+	st.gas += refund
+	// }
 
 	// Return ETH for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)

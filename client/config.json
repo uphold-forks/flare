@@ -20,6 +20,5 @@
     "gasPrice": "470000000000",
     "chainId": 16,
     "url": "http://127.0.0.1:9650/ext/bc/C/rpc"
-
   }
 }
