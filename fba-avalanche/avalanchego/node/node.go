@@ -522,8 +522,6 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 	// If any of these chains die, the node shuts down
 	criticalChains := ids.Set{}
 	criticalChains.Add(
-		constants.PlatformChainID,
-		xChainID,
 		cChainID,
 	)
 
@@ -745,11 +743,9 @@ func (n *Node) initHealthAPI() error {
 	isBootstrappedFunc := func() (interface{}, error) {
 		if pChainID, err := n.chainManager.Lookup("P"); err != nil {
 			return nil, errors.New("P-Chain not created")
-		} else if xChainID, err := n.chainManager.Lookup("X"); err != nil {
-			return nil, errors.New("X-Chain not created")
 		} else if cChainID, err := n.chainManager.Lookup("C"); err != nil {
 			return nil, errors.New("C-Chain not created")
-		} else if !n.chainManager.IsBootstrapped(pChainID) || !n.chainManager.IsBootstrapped(xChainID) || !n.chainManager.IsBootstrapped(cChainID) {
+		} else if !n.chainManager.IsBootstrapped(pChainID) || !n.chainManager.IsBootstrapped(cChainID) {
 			return nil, errPrimarySubnetNotBootstrapped
 		}
 
