@@ -23,10 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-const (
-	version = "coreth-v0.3.15"
-)
-
 // test constants
 const (
 	GenesisTestAddr = "0x751a0b96e1042bee789452ecb20253fba40dbe85"
@@ -63,7 +59,7 @@ func (s *NetAPI) Version() string { return fmt.Sprintf("%d", s.vm.networkID) }
 type Web3API struct{}
 
 // ClientVersion returns the version of the vm running
-func (s *Web3API) ClientVersion() string { return version }
+func (s *Web3API) ClientVersion() string { return Version }
 
 // Sha3 returns the bytes returned by hashing [input] with Keccak256
 func (s *Web3API) Sha3(input hexutil.Bytes) hexutil.Bytes { return ethcrypto.Keccak256(input) }
@@ -101,9 +97,6 @@ func (service *AvaxAPI) parseAssetID(assetID string) (ids.ID, error) {
 		return ids.FromString(assetID)
 	}
 }
-
-// ClientVersion returns the version of the vm running
-func (service *AvaxAPI) ClientVersion() string { return version }
 
 // ExportKeyArgs are arguments for ExportKey
 type ExportKeyArgs struct {
@@ -172,7 +165,10 @@ func (service *AvaxAPI) ImportKey(r *http.Request, args *ImportKeyArgs, reply *a
 	if err != nil {
 		return fmt.Errorf("problem parsing private key: %w", err)
 	}
-	sk := skIntf.(*crypto.PrivateKeySECP256K1R)
+	sk, ok := skIntf.(*crypto.PrivateKeySECP256K1R)
+	if !ok {
+		return fmt.Errorf("expected *crypto.PrivateKeySECP256K1R but got %T", skIntf)
+	}
 
 	// TODO: return eth address here
 	reply.Address = FormatEthAddress(GetEthAddress(sk))
@@ -330,7 +326,6 @@ func (service *AvaxAPI) GetUTXOs(r *http.Request, args *api.GetUTXOsArgs, reply 
 		return fmt.Errorf("number of addresses given, %d, exceeds maximum, %d", len(args.Addresses), maxGetUTXOsAddrs)
 	}
 
-	sourceChain := ids.ID{}
 	if args.SourceChain == "" {
 		return errNoSourceChain
 	}
@@ -339,7 +334,7 @@ func (service *AvaxAPI) GetUTXOs(r *http.Request, args *api.GetUTXOsArgs, reply 
 	if err != nil {
 		return fmt.Errorf("problem parsing source chainID %q: %w", args.SourceChain, err)
 	}
-	sourceChain = chainID
+	sourceChain := chainID
 
 	addrSet := ids.ShortSet{}
 	for _, addrStr := range args.Addresses {
@@ -416,12 +411,7 @@ func (service *AvaxAPI) IssueTx(r *http.Request, args *api.FormattedTx, response
 		return fmt.Errorf("problem initializing transaction: %w", err)
 	}
 
-	utx, ok := tx.UnsignedTx.(UnsignedAtomicTx)
-	if !ok {
-		return errors.New("cannot issue non-atomic transaction through IssueTx API")
-	}
-
-	if err := utx.SemanticVerify(service.vm, tx); err != nil {
+	if err := tx.UnsignedAtomicTx.SemanticVerify(service.vm, tx, service.vm.useApricotPhase1()); err != nil {
 		return err
 	}
 

@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2016 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -324,13 +334,13 @@ func toBlockNumArg(number *big.Int) string {
 	return hexutil.EncodeBig(number)
 }
 
-type rpcProgress struct {
-	StartingBlock hexutil.Uint64
-	CurrentBlock  hexutil.Uint64
-	HighestBlock  hexutil.Uint64
-	PulledStates  hexutil.Uint64
-	KnownStates   hexutil.Uint64
-}
+// type rpcProgress struct {
+// 	StartingBlock hexutil.Uint64
+// 	CurrentBlock  hexutil.Uint64
+// 	HighestBlock  hexutil.Uint64
+// 	PulledStates  hexutil.Uint64
+// 	KnownStates   hexutil.Uint64
+// }
 
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
 // no sync currently running, it returns nil.
@@ -391,7 +401,7 @@ func (ec *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 // The block number can be nil, in which case the balance is taken from the latest known block.
 func (ec *Client) AssetBalanceAt(ctx context.Context, account common.Address, assetID ids.ID, blockNumber *big.Int) (*big.Int, error) {
 	var result hexutil.Big
-	err := ec.c.CallContext(ctx, &result, "eth_getBalance", account, toBlockNumArg(blockNumber), assetID)
+	err := ec.c.CallContext(ctx, &result, "eth_getAssetBalance", account, toBlockNumArg(blockNumber), assetID)
 	return (*big.Int)(&result), err
 }
 

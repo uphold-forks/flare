@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -57,10 +67,19 @@ var (
 	constantinopleInstructionSet   = newConstantinopleInstructionSet()
 	istanbulInstructionSet         = newIstanbulInstructionSet()
 	yoloV1InstructionSet           = newYoloV1InstructionSet()
+	apricotPhase1InstructionSet    = newApricotPhase1InstructionSet()
 )
 
 // JumpTable contains the EVM opcodes supported at a given fork.
 type JumpTable [256]*operation
+
+func newApricotPhase1InstructionSet() JumpTable {
+	instructionSet := newIstanbulInstructionSet()
+
+	enableAP1(&instructionSet)
+
+	return instructionSet
+}
 
 func newYoloV1InstructionSet() JumpTable {
 	instructionSet := newIstanbulInstructionSet()

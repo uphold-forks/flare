@@ -1,9 +1,14 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package coreth
 
 import (
 	"crypto/ecdsa"
 	"io"
+	"math/big"
 	"os"
+	"time"
 
 	"github.com/ava-labs/coreth/consensus/dummy"
 	"github.com/ava-labs/coreth/core"
@@ -18,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/trie"
 	"github.com/mattn/go-isatty"
 )
 
@@ -40,12 +44,8 @@ type ETHChain struct {
 	bcb     *eth.BackendCallbacks
 }
 
-func isLocalBlock(block *types.Block) bool {
-	return false
-}
-
 // NewETHChain creates an Ethereum blockchain with the given configs.
-func NewETHChain(config *eth.Config, nodecfg *node.Config, etherBase *common.Address, chainDB ethdb.Database) *ETHChain {
+func NewETHChain(config *eth.Config, nodecfg *node.Config, etherBase *common.Address, chainDB ethdb.Database, settings eth.Settings) *ETHChain {
 	if config == nil {
 		config = &eth.DefaultConfig
 	}
@@ -63,7 +63,7 @@ func NewETHChain(config *eth.Config, nodecfg *node.Config, etherBase *common.Add
 	cb := new(dummy.ConsensusCallbacks)
 	mcb := new(miner.MinerCallbacks)
 	bcb := new(eth.BackendCallbacks)
-	backend, _ := eth.New(node, config, cb, mcb, bcb, chainDB)
+	backend, _ := eth.New(node, config, cb, mcb, bcb, chainDB, settings)
 	chain := &ETHChain{backend: backend, cb: cb, mcb: mcb, bcb: bcb}
 	if etherBase == nil {
 		etherBase = &BlackholeAddr
@@ -74,6 +74,7 @@ func NewETHChain(config *eth.Config, nodecfg *node.Config, etherBase *common.Add
 
 func (self *ETHChain) Start() {
 	self.backend.StartMining(0)
+	self.backend.Start()
 }
 
 func (self *ETHChain) Stop() {
@@ -92,14 +93,8 @@ func (self *ETHChain) BlockChain() *core.BlockChain {
 	return self.backend.BlockChain()
 }
 
-func (self *ETHChain) VerifyBlock(block *types.Block) bool {
-	txnHash := types.DeriveSha(block.Transactions(), new(trie.Trie))
-	uncleHash := types.CalcUncleHash(block.Uncles())
-	ethHeader := block.Header()
-	if txnHash != ethHeader.TxHash || uncleHash != ethHeader.UncleHash {
-		return false
-	}
-	return true
+func (self *ETHChain) UnlockIndexing() {
+	self.backend.BlockChain().UnlockIndexing()
 }
 
 func (self *ETHChain) PendingSize() (int, error) {
@@ -129,10 +124,6 @@ func (self *ETHChain) SetOnSealHash(cb func(*types.Header)) {
 
 func (self *ETHChain) SetOnSealFinish(cb func(*types.Block) error) {
 	self.mcb.OnSealFinish = cb
-}
-
-func (self *ETHChain) SetOnHeaderNew(cb func(*types.Header)) {
-	self.mcb.OnHeaderNew = cb
 }
 
 func (self *ETHChain) SetOnSealDrop(cb func(*types.Block)) {
@@ -174,10 +165,40 @@ func (self *ETHChain) GetBlockByHash(hash common.Hash) *types.Block {
 	return self.backend.BlockChain().GetBlockByHash(hash)
 }
 
-// SetTail sets the current head block to the one defined by the hash
-// irrelevant what the chain contents were prior.
-func (self *ETHChain) SetTail(hash common.Hash) error {
-	return self.backend.BlockChain().ManualHead(hash)
+// Retrives a block from the database by number.
+func (self *ETHChain) GetBlockByNumber(num uint64) *types.Block {
+	return self.backend.BlockChain().GetBlockByNumber(num)
+}
+
+// Retrives a block from the database by number.
+func (self *ETHChain) GetBlockByNumberUnfinalized(num uint64) *types.Block {
+	return self.backend.BlockChain().GetBlockByNumberUnfinalized(num)
+}
+
+// Validate the canonical chain from current block to the genesis.
+// This should only be called as a convenience method in tests, not
+// in production as it traverses the entire chain.
+func (self *ETHChain) ValidateCanonicalChain() error {
+	return self.backend.BlockChain().ValidateCanonicalChain()
+}
+
+// WriteCanonicalFromCurrentBlock writes the canonical chain from the
+// current block to the genesis.
+func (self *ETHChain) WriteCanonicalFromCurrentBlock(toBlock *types.Block) error {
+	return self.backend.BlockChain().WriteCanonicalFromCurrentBlock(toBlock)
+}
+
+// SetPreference sets the current head block to the one provided as an argument
+// regardless of what the chain contents were prior.
+func (self *ETHChain) SetPreference(block *types.Block) error {
+	return self.BlockChain().SetPreference(block)
+}
+
+// Accept sets a minimum height at which no reorg can pass. Additionally,
+// this function may trigger a reorg if the block being accepted is not in the
+// canonical chain.
+func (self *ETHChain) Accept(block *types.Block) error {
+	return self.BlockChain().Accept(block)
 }
 
 func (self *ETHChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
@@ -192,8 +213,8 @@ func (self *ETHChain) InsertChain(chain []*types.Block) (int, error) {
 	return self.backend.BlockChain().InsertChain(chain)
 }
 
-func (self *ETHChain) NewRPCHandler() *rpc.Server {
-	return rpc.NewServer()
+func (self *ETHChain) NewRPCHandler(maximumDuration time.Duration) *rpc.Server {
+	return rpc.NewServer(maximumDuration)
 }
 
 func (self *ETHChain) AttachEthService(handler *rpc.Server, namespaces []string) {
@@ -215,6 +236,11 @@ func (self *ETHChain) GetTxSubmitCh() <-chan struct{} {
 
 func (self *ETHChain) GetTxPool() *core.TxPool {
 	return self.backend.TxPool()
+}
+
+// SetGasPrice sets the gas price on the backend
+func (self *ETHChain) SetGasPrice(newGasPrice *big.Int) {
+	self.backend.SetGasPrice(newGasPrice)
 }
 
 type Key struct {

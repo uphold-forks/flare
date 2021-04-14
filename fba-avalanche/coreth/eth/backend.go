@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2014 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -21,15 +31,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime"
 	"sync"
-	//"sync/atomic"
 
 	"github.com/ava-labs/coreth/accounts"
 	"github.com/ava-labs/coreth/consensus"
-	"github.com/ava-labs/coreth/consensus/clique"
 	"github.com/ava-labs/coreth/consensus/dummy"
-	"github.com/ava-labs/coreth/consensus/ethash"
 	"github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/core/bloombits"
 	"github.com/ava-labs/coreth/core/rawdb"
@@ -43,18 +49,34 @@ import (
 	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/coreth/rpc"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/rlp"
+)
+
+// ProtocolVersions are the supported versions of the eth protocol (first is primary).
+var ProtocolVersions = []uint{eth65, eth64, eth63}
+
+// Constants to match up protocol versions and messages
+const (
+	eth63 = 63
+	eth64 = 64
+	eth65 = 65
 )
 
 type BackendCallbacks struct {
 	OnQueryAcceptedBlock func() *types.Block
+}
+
+var (
+	DefaultSettings Settings = Settings{MaxBlocksPerRequest: 2000}
+)
+
+type Settings struct {
+	MaxBlocksPerRequest int64 // Maximum number of blocks to serve per getLogs request
 }
 
 // Ethereum implements the Ethereum full node service.
@@ -93,6 +115,8 @@ type Ethereum struct {
 
 	txSubmitChan chan struct{}
 	bcb          *BackendCallbacks
+
+	settings Settings // Settings for Ethereum API
 }
 
 // New creates a new Ethereum object (including the
@@ -101,7 +125,9 @@ func New(stack *node.Node, config *Config,
 	cb *dummy.ConsensusCallbacks,
 	mcb *miner.MinerCallbacks,
 	bcb *BackendCallbacks,
-	chainDb ethdb.Database) (*Ethereum, error) {
+	chainDb ethdb.Database,
+	settings Settings,
+) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -133,7 +159,7 @@ func New(stack *node.Node, config *Config,
 		}
 	}
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
-	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
+	if genesisErr != nil {
 		return nil, genesisErr
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
@@ -143,7 +169,7 @@ func New(stack *node.Node, config *Config,
 		chainDb:           chainDb,
 		eventMux:          stack.EventMux(),
 		accountManager:    stack.AccountManager(),
-		engine:            CreateConsensusEngine(stack, chainConfig, &config.Ethash, config.Miner.Notify, config.Miner.Noverify, chainDb, cb),
+		engine:            CreateConsensusEngine(cb),
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
@@ -153,6 +179,7 @@ func New(stack *node.Node, config *Config,
 		p2pServer:         stack.Server(),
 		txSubmitChan:      make(chan struct{}, 1),
 		bcb:               bcb,
+		settings:          settings,
 	}
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -175,6 +202,7 @@ func New(stack *node.Node, config *Config,
 			EnablePreimageRecording: config.EnablePreimageRecording,
 			EWASMInterpreter:        config.EWASMInterpreter,
 			EVMInterpreter:          config.EVMInterpreter,
+			AllowUnfinalizedQueries: config.AllowUnfinalizedQueries,
 		}
 		cacheConfig = &core.CacheConfig{
 			TrieCleanLimit:      config.TrieCleanCache,
@@ -187,7 +215,7 @@ func New(stack *node.Node, config *Config,
 			SnapshotLimit:       config.SnapshotCache,
 		}
 	)
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, &config.TxLookupLimit, config.ManualCanonical)
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, &config.TxLookupLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +242,7 @@ func New(stack *node.Node, config *Config,
 	//	return nil, err
 	//}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock, mcb)
-	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
+	// eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
 	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), eth, nil}
 	gpoParams := config.GPO
@@ -238,25 +266,26 @@ func New(stack *node.Node, config *Config,
 	return eth, nil
 }
 
-func makeExtraData(extra []byte) []byte {
-	if len(extra) == 0 {
-		// create default extradata
-		extra, _ = rlp.EncodeToBytes([]interface{}{
-			uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch),
-			"geth",
-			runtime.Version(),
-			runtime.GOOS,
-		})
-	}
-	if uint64(len(extra)) > params.MaximumExtraDataSize {
-		log.Warn("Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
-		extra = nil
-	}
-	return extra
-}
+// Original code:
+// func makeExtraData(extra []byte) []byte {
+// 	if len(extra) == 0 {
+// 		// create default extradata
+// 		extra, _ = rlp.EncodeToBytes([]interface{}{
+// 			uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch),
+// 			"geth",
+// 			runtime.Version(),
+// 			runtime.GOOS,
+// 		})
+// 	}
+// 	if uint64(len(extra)) > params.MaximumExtraDataSize {
+// 		log.Warn("Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
+// 		extra = nil
+// 	}
+// 	return extra
+// }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database, cb *dummy.ConsensusCallbacks) consensus.Engine {
+func CreateConsensusEngine(cb *dummy.ConsensusCallbacks) consensus.Engine {
 	return dummy.NewDummyEngine(cb)
 }
 
@@ -293,7 +322,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
+			Service:   filters.NewPublicFilterAPI(s.APIBackend, false, s.settings.MaxBlocksPerRequest),
 			Public:    true,
 		}, {
 			Namespace: "admin",
@@ -318,7 +347,7 @@ func (s *Ethereum) APIs() []rpc.API {
 }
 
 func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
-	s.blockchain.ResetWithGenesisBlock(gb)
+	s.blockchain.ResetWithGenesisBlock(gb, false)
 }
 
 func (s *Ethereum) Etherbase() (eb common.Address, err error) {
@@ -392,9 +421,10 @@ func (s *Ethereum) shouldPreserve(block *types.Block) bool {
 	// is A, F and G sign the block of round5 and reject the block of opponents
 	// and in the round6, the last available signer B is offline, the whole
 	// network is stuck.
-	if _, ok := s.engine.(*clique.Clique); ok {
-		return false
-	}
+	// Original Code:
+	// if _, ok := s.engine.(*clique.Clique); ok {
+	// 	return false
+	// }
 	return s.isLocalBlock(block)
 }
 
@@ -498,13 +528,13 @@ func (s *Ethereum) Start() error {
 	s.startBloomHandlers(params.BloomBitsBlocks)
 
 	// Figure out a max peers count based on the server limits
-	maxPeers := s.p2pServer.MaxPeers
-	if s.config.LightServ > 0 {
-		if s.config.LightPeers >= s.p2pServer.MaxPeers {
-			return fmt.Errorf("invalid peer config: light peer count (%d) >= total peer count (%d)", s.config.LightPeers, s.p2pServer.MaxPeers)
-		}
-		maxPeers -= s.config.LightPeers
-	}
+	// maxPeers := s.p2pServer.MaxPeers
+	// if s.config.LightServ > 0 {
+	// 	if s.config.LightPeers >= s.p2pServer.MaxPeers {
+	// 		return fmt.Errorf("invalid peer config: light peer count (%d) >= total peer count (%d)", s.config.LightPeers, s.p2pServer.MaxPeers)
+	// 	}
+	// 	maxPeers -= s.config.LightPeers
+	// }
 	// Start the networking layer and the light server if requested
 	//s.protocolManager.Start(maxPeers)
 	return nil
@@ -550,4 +580,14 @@ func (s *Ethereum) AcceptedBlock() *types.Block {
 		return cb()
 	}
 	return s.blockchain.CurrentBlock()
+}
+
+// SetGasPrice sets the minimum gas price to [newGasPrice]
+// sets the price on [s], [txPool], and the gas price oracle
+func (s *Ethereum) SetGasPrice(newGasPrice *big.Int) {
+	s.lock.Lock()
+	s.gasPrice = newGasPrice
+	s.lock.Unlock()
+	s.txPool.SetGasPrice(newGasPrice)
+	s.APIBackend.gpo.SetGasPrice(newGasPrice)
 }

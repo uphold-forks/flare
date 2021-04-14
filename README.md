@@ -36,7 +36,7 @@ Configure and launch a 4-node network
 First, set an environment variable listing your preferred XRP Ledger APIs for use with the state connector system. Each successive URL included works as a backup to its preceeding URL in case the preceeding URL fails.
 
 ```
-export XRP_APIs="https://xrpl-1.flare.network:443, https://xrplcluster.com"
+export XRP_APIs="https://xrpl.flare.network:443,https://xrpl-1.flare.network:443,https://xrplcluster.com"
 ```
 
 Then, launch the network:
@@ -78,18 +78,12 @@ yarn
 Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F. Run the following command in a separate terminal window:
 
 ```
-node prove xrp C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F
+node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
 ## Connect a Node to the Coston Testnet
 
-The Coston testnet has a public RPC endpoint at:
-
-- Chain ID: [16](https://github.com/ethereum-lists/chains/blob/master/_data/chains/eip155-16.json)
-- Asset Code: CFLR
-- Public RPC Endpoint: https://coston.flare.network/ext/bc/C/rpc
-
-that you can use with MetaMask, Web3 JS (https://web3js.readthedocs.io/en/v1.3.4/), etc right away without running your own Flare node. However, you can also run your own Flare node and peer it with the Coston testnet using the following command:
+To run your own Flare node and peer it with the Coston testnet launch the following command after stopping all other instances of the Flare node on your machine:
 
 ```
 ./coston.sh

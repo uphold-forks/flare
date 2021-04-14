@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2016 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -101,15 +111,15 @@ func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }
 
-func CanTransferMC(db vm.StateDB, addr common.Address, to common.Address, coinID *common.Hash, amount *big.Int) int {
+func CanTransferMC(db vm.StateDB, addr common.Address, to common.Address, coinID *common.Hash, amount *big.Int) bool {
 	if coinID == nil {
-		return 0
+		return true
 	}
 	if db.GetBalanceMultiCoin(addr, *coinID).Cmp(amount) >= 0 {
-		return 0
+		return true
 	}
 	// insufficient balance
-	return 1
+	return false
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db

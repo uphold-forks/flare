@@ -6,6 +6,9 @@ package genesis
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"path"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/constants"
@@ -75,7 +78,7 @@ type Config struct {
 	StartTime                  uint64        `json:"startTime"`
 	InitialStakeDuration       uint64        `json:"initialStakeDuration"`
 	InitialStakeDurationOffset uint64        `json:"initialStakeDurationOffset"`
-	InitialStakedFunds         []ids.ShortID `json:"unitialStakedFunds"`
+	InitialStakedFunds         []ids.ShortID `json:"initialStakedFunds"`
 	InitialStakers             []Staker      `json:"initialStakers"`
 
 	CChainGenesis string `json:"cChainGenesis"`
@@ -157,10 +160,6 @@ var (
 	// genesis.
 	LocalConfig Config
 
-	// FlareConfig is the config that should be used to generate the flare
-	// genesis.
-	FlareConfig Config
-
 	// CostonConfig is the config that should be used to generate the coston
 	// genesis.
 	CostonConfig Config
@@ -170,7 +169,6 @@ func init() {
 	unparsedMainnetConfig := UnparsedConfig{}
 	unparsedFujiConfig := UnparsedConfig{}
 	unparsedLocalConfig := UnparsedConfig{}
-	unparsedFlareConfig := UnparsedConfig{}
 	unparsedCostonConfig := UnparsedConfig{}
 
 	errs := wrappers.Errs{}
@@ -178,7 +176,6 @@ func init() {
 		json.Unmarshal([]byte(mainnetGenesisConfigJSON), &unparsedMainnetConfig),
 		json.Unmarshal([]byte(fujiGenesisConfigJSON), &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
-		json.Unmarshal([]byte(flareGenesisConfigJSON), &unparsedFlareConfig),
 		json.Unmarshal([]byte(costonGenesisConfigJSON), &unparsedCostonConfig),
 	)
 	if errs.Errored() {
@@ -196,10 +193,6 @@ func init() {
 	localConfig, err := unparsedLocalConfig.Parse()
 	errs.Add(err)
 	LocalConfig = localConfig
-
-	flareConfig, err := unparsedFlareConfig.Parse()
-	errs.Add(err)
-	FlareConfig = flareConfig
 
 	costonConfig, err := unparsedCostonConfig.Parse()
 	errs.Add(err)
@@ -219,8 +212,6 @@ func GetConfig(networkID uint32) *Config {
 		return &FujiConfig
 	case constants.LocalID:
 		return &LocalConfig
-	case constants.FlareID:
-		return &FlareConfig
 	case constants.CostonID:
 		return &CostonConfig
 	default:
@@ -228,4 +219,25 @@ func GetConfig(networkID uint32) *Config {
 		tempConfig.NetworkID = networkID
 		return &tempConfig
 	}
+}
+
+// GetConfigFile loads a *Config from a provided
+// filepath.
+func GetConfigFile(filepath string) (*Config, error) {
+	b, err := ioutil.ReadFile(path.Clean(filepath))
+	if err != nil {
+		return nil, fmt.Errorf("unable to load file %s: %w", filepath, err)
+	}
+
+	var unparsedConfig UnparsedConfig
+	if err := json.Unmarshal(b, &unparsedConfig); err != nil {
+		return nil, fmt.Errorf("could not unmarshal JSON: %w", err)
+	}
+
+	config, err := unparsedConfig.Parse()
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse config: %w", err)
+	}
+
+	return &config, nil
 }

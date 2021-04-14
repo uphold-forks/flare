@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -21,7 +31,7 @@ import "math/big"
 const (
 	GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
 	MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
-	GenesisGasLimit      uint64 = 100000000 // Gas limit of the Genesis block.
+	GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
 
 	MaximumExtraDataSize  uint64 = 64    // Maximum size extra data may be after Genesis.
 	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.
@@ -150,8 +160,4 @@ var (
 	GenesisDifficulty      = big.NewInt(131072) // Difficulty of the Genesis block.
 	MinimumDifficulty      = big.NewInt(131072) // The minimum that the difficulty may ever be.
 	DurationLimit          = big.NewInt(13)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
-
-	// MinGasPrice is the number of nAVAX required per gas unit for a transaction
-	// to be valid, measured in wei
-	MinGasPrice = big.NewInt(10000)
 )

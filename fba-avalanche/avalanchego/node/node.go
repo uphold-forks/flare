@@ -64,10 +64,14 @@ const (
 )
 
 var (
+	errPrimarySubnetNotBootstrapped = errors.New("primary subnet has not finished bootstrapping")
+)
+
+var (
 	genesisHashKey = []byte("genesisID")
 
 	// Version is the version of this code
-	Version                 = version.NewDefaultVersion(constants.PlatformName, 1, 1, 0)
+	Version                 = version.NewDefaultVersion(constants.PlatformName, 1, 3, 1)
 	versionParser           = version.NewDefaultParser()
 	beaconConnectionTimeout = 1 * time.Minute
 )
@@ -92,13 +96,16 @@ type Node struct {
 	sharedMemory atomic.Memory
 
 	// Monitors node health and runs health checks
-	healthService *health.Health
+	healthService health.Service
 
 	// Manages creation of blockchains and routing messages to them
 	chainManager chains.Manager
 
 	// Manages Virtual Machines
 	vmManager vms.Manager
+
+	// Manages validator benching
+	benchlistManager benchlist.Manager
 
 	// dispatcher for events as they happen in consensus
 	DecisionDispatcher  *triggers.EventDispatcher
@@ -185,6 +192,10 @@ func (n *Node) initNetworking() error {
 		return err
 	}
 
+	// Configure benchlist
+	n.Config.BenchlistConfig.Validators = n.vdrs
+	n.benchlistManager = benchlist.NewManager(&n.Config.BenchlistConfig)
+
 	consensusRouter := n.Config.ConsensusRouter
 	if !n.Config.EnableStaking {
 		if err := primaryNetworkValidators.AddWeight(n.ID, n.Config.DisabledStakingWeight); err != nil {
@@ -245,6 +256,10 @@ func (n *Node) initNetworking() error {
 		n.Config.DisconnectedCheckFreq,
 		n.Config.DisconnectedRestartTimeout,
 		n.Config.ApricotPhase0Time,
+		n.Config.SendQueueSize,
+		n.Config.NetworkHealthConfig,
+		n.benchlistManager,
+		n.Config.PeerAliasTimeout,
 	)
 
 	n.nodeCloser = utils.HandleSignals(func(os.Signal) {
@@ -318,22 +333,20 @@ func (b *beaconManager) Disconnected(vdrID ids.ShortID) {
 func (n *Node) Dispatch() error {
 	// Start the HTTP API server
 	go n.Log.RecoverAndPanic(func() {
+		var err error
 		if n.Config.HTTPSEnabled {
 			n.Log.Debug("initializing API server with TLS")
-			err := n.APIServer.DispatchTLS(n.Config.HTTPSCertFile, n.Config.HTTPSKeyFile)
-			n.Log.Warn("TLS enabled API server dispatch failed with %s. Attempting to create insecure API server", err)
+			err = n.APIServer.DispatchTLS(n.Config.HTTPSCertFile, n.Config.HTTPSKeyFile)
+		} else {
+			n.Log.Debug("initializing API server without TLS")
+			err = n.APIServer.Dispatch()
 		}
-
-		n.Log.Debug("initializing API server without TLS")
-		err := n.APIServer.Dispatch()
-
 		// When [n].Shutdown() is called, [n.APIServer].Close() is called.
 		// This causes [n.APIServer].Dispatch() to return an error.
 		// If that happened, don't log/return an error here.
 		if !n.shuttingDown.GetValue() {
 			n.Log.Fatal("API server dispatch failed with %s", err)
 		}
-
 		// If the API server isn't running, shut down the node.
 		// If node is already shutting down, this does nothing.
 		n.Shutdown()
@@ -366,14 +379,10 @@ func (n *Node) Dispatch() error {
  ******************************************************************************
  */
 
-func (n *Node) initDatabase() error {
-	n.DB = n.Config.DB
+func (n *Node) initDatabase(db database.Database) error {
+	n.DB = db
 
-	expectedGenesis, _, err := genesis.Genesis(n.Config.NetworkID)
-	if err != nil {
-		return err
-	}
-	rawExpectedGenesisHash := hashing.ComputeHash256(expectedGenesis)
+	rawExpectedGenesisHash := hashing.ComputeHash256(n.Config.GenesisBytes)
 
 	rawGenesisHash, err := n.DB.Get(genesisHashKey)
 	if err == database.ErrNotFound {
@@ -405,8 +414,8 @@ func (n *Node) initDatabase() error {
 // uses for P2P communication
 func (n *Node) initNodeID() error {
 	if !n.Config.EnableP2PTLS {
-		n.ID = ids.NewShortID(hashing.ComputeHash160Array([]byte(n.Config.StakingIP.IP().String())))
-		n.Log.Info("Set the node's ID to %s", n.ID)
+		n.ID = ids.ShortID(hashing.ComputeHash160Array([]byte(n.Config.StakingIP.IP().String())))
+		n.Log.Info("Set the node's ID to %s", n.ID.PrefixedString(constants.NodeIDPrefix))
 		return nil
 	}
 
@@ -424,7 +433,7 @@ func (n *Node) initNodeID() error {
 	if err != nil {
 		return fmt.Errorf("problem deriving staker ID from certificate: %w", err)
 	}
-	n.Log.Info("Set node's ID to %s", n.ID)
+	n.Log.Info("Set node's ID to %s", n.ID.PrefixedString(constants.NodeIDPrefix))
 	return nil
 }
 
@@ -467,9 +476,8 @@ func (n *Node) initIPCs() error {
 }
 
 // Initializes the Platform chain.
-// Its genesis data specifies the other chains that should
-// be created.
-func (n *Node) initChains(genesisBytes []byte, avaxAssetID ids.ID) error {
+// Its genesis data specifies the other chains that should be created.
+func (n *Node) initChains(genesisBytes []byte) {
 	n.Log.Info("initializing chains")
 
 	// Create the Platform Chain
@@ -480,8 +488,6 @@ func (n *Node) initChains(genesisBytes []byte, avaxAssetID ids.ID) error {
 		VMAlias:       platformvm.ID.String(),
 		CustomBeacons: n.beacons,
 	})
-
-	return nil
 }
 
 // initAPIServer initializes the server that handles HTTP calls
@@ -495,6 +501,7 @@ func (n *Node) initAPIServer() error {
 		n.Config.HTTPPort,
 		n.Config.APIRequireAuthToken,
 		n.Config.APIAuthPassword,
+		n.Config.APIAllowedOrigins,
 	)
 }
 
@@ -504,69 +511,82 @@ func (n *Node) initAPIServer() error {
 func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 	n.vmManager = vms.NewManager(&n.APIServer, n.HTTPLog)
 
-	createAVMTx, err := genesis.VMGenesis(n.Config.NetworkID, avm.ID)
+	createAVMTx, err := genesis.VMGenesis(n.Config.GenesisBytes, avm.ID)
 	if err != nil {
 		return err
 	}
 	xChainID := createAVMTx.ID()
 
+	createEVMTx, err := genesis.VMGenesis(n.Config.GenesisBytes, evm.ID)
+	if err != nil {
+		return err
+	}
+	cChainID := createEVMTx.ID()
+
 	// If any of these chains die, the node shuts down
 	criticalChains := ids.Set{}
-	criticalChains.Add(constants.PlatformChainID, createAVMTx.ID())
-
-	// Set Prometheus metrics info
-	n.Config.NetworkConfig.Namespace = constants.PlatformName
-	n.Config.NetworkConfig.Registerer = n.Config.ConsensusParams.Metrics
-
-	// Configure benchlist
-	n.Config.BenchlistConfig.Validators = n.vdrs
-	benchlistManager := benchlist.NewManager(&n.Config.BenchlistConfig)
+	criticalChains.Add(
+		constants.PlatformChainID,
+		xChainID,
+		cChainID,
+	)
 
 	// Manages network timeouts
-	timeoutManager := timeout.Manager{}
-	if err := timeoutManager.Initialize(&n.Config.NetworkConfig, benchlistManager); err != nil {
+	timeoutManager := &timeout.Manager{}
+	if err := timeoutManager.Initialize(&n.Config.NetworkConfig, n.benchlistManager); err != nil {
 		return err
 	}
 	go n.Log.RecoverAndPanic(timeoutManager.Dispatch)
 
 	// Routes incoming messages from peers to the appropriate chain
-	n.Config.ConsensusRouter.Initialize(
+	err = n.Config.ConsensusRouter.Initialize(
 		n.ID,
 		n.Log,
-		&timeoutManager,
+		timeoutManager,
 		n.Config.ConsensusGossipFrequency,
 		n.Config.ConsensusShutdownTimeout,
 		criticalChains,
 		n.Shutdown,
+		n.Config.RouterHealthConfig,
+		n.Config.NetworkConfig.MetricsNamespace,
+		n.Config.NetworkConfig.Registerer,
 	)
+	if err != nil {
+		return fmt.Errorf("couldn't initialize chain router: %w", err)
+	}
 
 	n.chainManager = chains.New(&chains.ManagerConfig{
-		StakingEnabled:          n.Config.EnableStaking,
-		MaxNonStakerPendingMsgs: uint32(n.Config.MaxNonStakerPendingMsgs),
-		StakerMSGPortion:        n.Config.StakerMSGPortion,
-		StakerCPUPortion:        n.Config.StakerCPUPortion,
-		Log:                     n.Log,
-		LogFactory:              n.LogFactory,
-		VMManager:               n.vmManager,
-		DecisionEvents:          n.DecisionDispatcher,
-		ConsensusEvents:         n.ConsensusDispatcher,
-		DB:                      n.DB,
-		Router:                  n.Config.ConsensusRouter,
-		Net:                     n.Net,
-		ConsensusParams:         n.Config.ConsensusParams,
-		Validators:              n.vdrs,
-		NodeID:                  n.ID,
-		NetworkID:               n.Config.NetworkID,
-		Server:                  &n.APIServer,
-		Keystore:                &n.keystoreServer,
-		AtomicMemory:            &n.sharedMemory,
-		AVAXAssetID:             avaxAssetID,
-		XChainID:                xChainID,
-		CriticalChains:          criticalChains,
-		TimeoutManager:          &timeoutManager,
-		HealthService:           n.healthService,
-		WhitelistedSubnets:      n.Config.WhitelistedSubnets,
-		ValidatorConfig:		 n.Config.ValidatorConfig,
+		StakingEnabled:            n.Config.EnableStaking,
+		MaxPendingMsgs:            n.Config.MaxPendingMsgs,
+		MaxNonStakerPendingMsgs:   n.Config.MaxNonStakerPendingMsgs,
+		StakerMSGPortion:          n.Config.StakerMSGPortion,
+		StakerCPUPortion:          n.Config.StakerCPUPortion,
+		Log:                       n.Log,
+		LogFactory:                n.LogFactory,
+		VMManager:                 n.vmManager,
+		DecisionEvents:            n.DecisionDispatcher,
+		ConsensusEvents:           n.ConsensusDispatcher,
+		DB:                        n.DB,
+		Router:                    n.Config.ConsensusRouter,
+		Net:                       n.Net,
+		ConsensusParams:           n.Config.ConsensusParams,
+		EpochFirstTransition:      n.Config.EpochFirstTransition,
+		EpochDuration:             n.Config.EpochDuration,
+		Validators:                n.vdrs,
+		NodeID:                    n.ID,
+		NetworkID:                 n.Config.NetworkID,
+		Server:                    &n.APIServer,
+		Keystore:                  &n.keystoreServer,
+		AtomicMemory:              &n.sharedMemory,
+		AVAXAssetID:               avaxAssetID,
+		XChainID:                  xChainID,
+		CriticalChains:            criticalChains,
+		TimeoutManager:            timeoutManager,
+		HealthService:             n.healthService,
+		WhitelistedSubnets:        n.Config.WhitelistedSubnets,
+		RetryBootstrap:            n.Config.RetryBootstrap,
+		RetryBootstrapMaxAttempts: n.Config.RetryBootstrapMaxAttempts,
+		ValidatorConfig:           n.Config.ValidatorConfig,
 	})
 
 	vdrs := n.vdrs
@@ -653,6 +673,9 @@ func (n *Node) initMetricsAPI() error {
 	// It is assumed by components of the system that the Metrics interface is
 	// non-nil. So, it is set regardless of if the metrics API is available or not.
 	n.Config.ConsensusParams.Metrics = registry
+	n.Config.NetworkConfig.MetricsNamespace = constants.PlatformName
+	n.Config.NetworkConfig.Registerer = registry
+
 	if !n.Config.MetricsAPIEnabled {
 		n.Log.Info("skipping metrics API initialization because it has been disabled")
 		return nil
@@ -711,41 +734,54 @@ func (n *Node) initInfoAPI() error {
 // Assumes n.Log, n.Net, n.APIServer, n.HTTPLog already initialized
 func (n *Node) initHealthAPI() error {
 	if !n.Config.HealthAPIEnabled {
+		n.healthService = health.NewNoOpService()
 		n.Log.Info("skipping health API initialization because it has been disabled")
 		return nil
 	}
+
 	n.Log.Info("initializing Health API")
-	service := health.NewService(n.Log)
-	if err := service.RegisterHeartbeat("network.validators.heartbeat", n.Net, 5*time.Minute); err != nil {
-		return fmt.Errorf("couldn't register heartbeat health check: %w", err)
-	}
-	isBootstrappedFunc := func() (interface{}, error) {
-		if pChainID, err := n.chainManager.Lookup("P"); err != nil {
-			return nil, errors.New("P-Chain not created")
-		} else if !n.chainManager.IsBootstrapped(pChainID) {
-			return nil, errors.New("P-Chain not bootstrapped")
-		}
-		if xChainID, err := n.chainManager.Lookup("X"); err != nil {
-			return nil, errors.New("X-Chain not created")
-		} else if !n.chainManager.IsBootstrapped(xChainID) {
-			return nil, errors.New("X-Chain not bootstrapped")
-		}
-		if cChainID, err := n.chainManager.Lookup("C"); err != nil {
-			return nil, errors.New("C-Chain not created")
-		} else if !n.chainManager.IsBootstrapped(cChainID) {
-			return nil, errors.New("C-Chain not bootstrapped")
-		}
-		return nil, nil
-	}
-	// Passes if the P, X and C chains are finished bootstrapping
-	if err := service.RegisterMonotonicCheckFunc("chains.default.bootstrapped", isBootstrappedFunc); err != nil {
-		return err
-	}
-	handler, err := service.Handler()
+	healthService, err := health.NewService(n.Config.HealthCheckFreq, n.Log, n.Config.NetworkConfig.MetricsNamespace, n.Config.ConsensusParams.Metrics)
 	if err != nil {
 		return err
 	}
-	n.healthService = service
+	n.healthService = healthService
+
+	isBootstrappedFunc := func() (interface{}, error) {
+		if pChainID, err := n.chainManager.Lookup("P"); err != nil {
+			return nil, errors.New("P-Chain not created")
+		} else if xChainID, err := n.chainManager.Lookup("X"); err != nil {
+			return nil, errors.New("X-Chain not created")
+		} else if cChainID, err := n.chainManager.Lookup("C"); err != nil {
+			return nil, errors.New("C-Chain not created")
+		} else if !n.chainManager.IsBootstrapped(pChainID) || !n.chainManager.IsBootstrapped(xChainID) || !n.chainManager.IsBootstrapped(cChainID) {
+			return nil, errPrimarySubnetNotBootstrapped
+		}
+
+		return nil, nil
+	}
+	// Passes if the P, X and C chains are finished bootstrapping
+	err = n.healthService.RegisterMonotonicCheck("isBootstrapped", isBootstrappedFunc)
+	if err != nil {
+		return fmt.Errorf("couldn't register isBootstrapped health check: %w", err)
+	}
+
+	// Register the network layer with the health service
+	err = n.healthService.RegisterCheck("network", n.Net.HealthCheck)
+	if err != nil {
+		return fmt.Errorf("couldn't register network health check")
+	}
+
+	// Register the router with the health service
+	err = n.healthService.RegisterCheck("router", n.Config.ConsensusRouter.HealthCheck)
+	if err != nil {
+		return fmt.Errorf("couldn't register router health check")
+	}
+
+	handler, err := n.healthService.Handler()
+	if err != nil {
+		return err
+	}
+
 	return n.APIServer.AddRoute(handler, &sync.RWMutex{}, "health", "", n.HTTPLog)
 }
 
@@ -797,6 +833,7 @@ func (n *Node) initAliases(genesisBytes []byte) error {
 // Initialize this node
 func (n *Node) Initialize(
 	config *Config,
+	db database.Database,
 	logger logging.Logger,
 	logFactory logging.Factory,
 	restarter utils.Restarter,
@@ -814,7 +851,7 @@ func (n *Node) Initialize(
 	}
 	n.HTTPLog = httpLog
 
-	if err := n.initDatabase(); err != nil { // Set up the node's database
+	if err := n.initDatabase(db); err != nil { // Set up the node's database
 		return fmt.Errorf("problem initializing database: %w", err)
 	}
 	if err = n.initNodeID(); err != nil { // Derive this node's ID
@@ -844,16 +881,14 @@ func (n *Node) Initialize(
 	if err = n.initEventDispatcher(); err != nil { // Set up the event dipatcher
 		return fmt.Errorf("problem initializing event dispatcher: %w", err)
 	}
-	genesisBytes, avaxAssetID, err := genesis.Genesis(n.Config.NetworkID)
-	if err != nil {
-		return fmt.Errorf("couldn't create genesis bytes: %w", err)
-	}
+
 	// Start the Health API
 	// Has to be initialized before chain manager
+	// [n.Net] must already be set
 	if err := n.initHealthAPI(); err != nil {
 		return fmt.Errorf("couldn't initialize health API: %w", err)
 	}
-	if err := n.initChainManager(avaxAssetID); err != nil { // Set up the chain manager
+	if err := n.initChainManager(n.Config.AvaxAssetID); err != nil { // Set up the chain manager
 		return fmt.Errorf("couldn't initialize chain manager: %w", err)
 	}
 	if err := n.initAdminAPI(); err != nil { // Start the Admin API
@@ -868,12 +903,11 @@ func (n *Node) Initialize(
 	if err := n.initIPCAPI(); err != nil { // Start the IPC API
 		return fmt.Errorf("couldn't initialize the IPC API: %w", err)
 	}
-	if err := n.initAliases(genesisBytes); err != nil { // Set up aliases
+	if err := n.initAliases(n.Config.GenesisBytes); err != nil { // Set up aliases
 		return fmt.Errorf("couldn't initialize aliases: %w", err)
 	}
-	if err := n.initChains(genesisBytes, avaxAssetID); err != nil { // Start the Platform chain
-		return fmt.Errorf("couldn't initialize chains: %w", err)
-	}
+	// Start the Platform chain
+	n.initChains(n.Config.GenesisBytes)
 	return nil
 }
 

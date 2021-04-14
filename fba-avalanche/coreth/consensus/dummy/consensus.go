@@ -1,19 +1,22 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package dummy
 
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/sha3"
 	"math/big"
 	"runtime"
 	"time"
+
+	"golang.org/x/crypto/sha3"
 
 	"github.com/ava-labs/coreth/consensus"
 	"github.com/ava-labs/coreth/core/state"
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/coreth/rpc"
-	mapset "github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
@@ -38,7 +41,9 @@ type DummyEngine struct {
 }
 
 func NewDummyEngine(cb *ConsensusCallbacks) *DummyEngine {
-	return &DummyEngine{cb: cb}
+	return &DummyEngine{
+		cb: cb,
+	}
 }
 
 var (
@@ -46,30 +51,27 @@ var (
 )
 
 var (
-	maxUncles = 2 // Maximum number of uncles allowed in a single block
-
-	errTooManyUncles   = errors.New("too many uncles")
-	errZeroBlockTime   = errors.New("timestamp equals parent's")
-	errDuplicateUncle  = errors.New("duplicate uncle")
-	errUncleIsAncestor = errors.New("uncle is ancestor")
-	errDanglingUncle   = errors.New("uncle's parent is not ancestor")
+	errInvalidBlockTime  = errors.New("timestamp less than parent's")
+	errUnclesUnsupported = errors.New("uncles unsupported")
 )
 
 // modified from consensus.go
 func (self *DummyEngine) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header, uncle bool, seal bool) error {
+	// Ensure that we do not verify an uncle
+	if uncle {
+		return errUnclesUnsupported
+	}
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
 	}
 	// Verify the header's timestamp
-	if !uncle {
-		if header.Time > uint64(time.Now().Add(allowedFutureBlockTime).Unix()) {
-			return consensus.ErrFutureBlock
-		}
+	if header.Time > uint64(time.Now().Add(allowedFutureBlockTime).Unix()) {
+		return consensus.ErrFutureBlock
 	}
 	//if header.Time <= parent.Time {
 	if header.Time < parent.Time {
-		return errZeroBlockTime
+		return errInvalidBlockTime
 	}
 	// Verify that the gas limit is <= 2^63-1
 	cap := uint64(0x7fffffffffffffff)
@@ -81,16 +83,23 @@ func (self *DummyEngine) verifyHeader(chain consensus.ChainHeaderReader, header,
 		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
 	}
 
-	// Verify that the gas limit remains within allowed bounds
-	diff := int64(parent.GasLimit) - int64(header.GasLimit)
-	if diff < 0 {
-		diff *= -1
-	}
-	limit := parent.GasLimit / params.GasLimitBoundDivisor
+	if config := chain.Config(); config.IsApricotPhase1(new(big.Int).SetUint64((header.Time))) {
+		if header.GasLimit != params.ApricotPhase1GasLimit {
+			return fmt.Errorf("expected gas limit to be %d, but found %d", params.ApricotPhase1GasLimit, header.GasLimit)
+		}
+	} else {
+		// Verify that the gas limit remains within allowed bounds
+		diff := int64(parent.GasLimit) - int64(header.GasLimit)
+		if diff < 0 {
+			diff *= -1
+		}
+		limit := parent.GasLimit / params.GasLimitBoundDivisor
 
-	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
+		if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
+			return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
+		}
 	}
+
 	// Verify that the block number is parent's +1
 	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
 		return consensus.ErrInvalidNumber
@@ -192,50 +201,8 @@ func (self *DummyEngine) VerifyHeaders(chain consensus.ChainHeaderReader, header
 }
 
 func (self *DummyEngine) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
-	// Verify that there are at most 2 uncles included in this block
-	if len(block.Uncles()) > maxUncles {
-		return errTooManyUncles
-	}
-	if len(block.Uncles()) == 0 {
-		return nil
-	}
-	// Gather the set of past uncles and ancestors
-	uncles, ancestors := mapset.NewSet(), make(map[common.Hash]*types.Header)
-
-	number, parent := block.NumberU64()-1, block.ParentHash()
-	for i := 0; i < 7; i++ {
-		ancestor := chain.GetBlock(parent, number)
-		if ancestor == nil {
-			break
-		}
-		ancestors[ancestor.Hash()] = ancestor.Header()
-		for _, uncle := range ancestor.Uncles() {
-			uncles.Add(uncle.Hash())
-		}
-		parent, number = ancestor.ParentHash(), number-1
-	}
-	ancestors[block.Hash()] = block.Header()
-	uncles.Add(block.Hash())
-
-	// Verify each of the uncles that it's recent, but not an ancestor
-	for _, uncle := range block.Uncles() {
-		// Make sure every uncle is rewarded only once
-		hash := uncle.Hash()
-		if uncles.Contains(hash) {
-			return errDuplicateUncle
-		}
-		uncles.Add(hash)
-
-		// Make sure the uncle has a valid ancestry
-		if ancestors[hash] != nil {
-			return errUncleIsAncestor
-		}
-		if ancestors[uncle.ParentHash] == nil || uncle.ParentHash == block.ParentHash() {
-			return errDanglingUncle
-		}
-		if err := self.verifyHeader(chain, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
-			return err
-		}
+	if len(block.Uncles()) > 0 {
+		return errUnclesUnsupported
 	}
 	return nil
 }
@@ -274,7 +241,10 @@ func (self *DummyEngine) FinalizeAndAssemble(chain consensus.ChainHeaderReader, 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, receipts, new(trie.Trie), extdata), nil
+	return types.NewBlock(
+		header, txs, uncles, receipts, new(trie.Trie), extdata,
+		chain.Config().IsApricotPhase1(new(big.Int).SetUint64(header.Time)),
+	), nil
 }
 
 func (self *DummyEngine) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) (err error) {

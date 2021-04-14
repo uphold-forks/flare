@@ -1,8 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package main
 
 import (
 	"crypto/rand"
 	"fmt"
+	"math/big"
+
 	"github.com/ava-labs/coreth"
 	"github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/core/types"
@@ -11,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
-	"math/big"
 )
 
 func checkError(err error) {
@@ -23,7 +27,6 @@ func checkError(err error) {
 func main() {
 	// configure the chain
 	config := eth.DefaultConfig
-	config.ManualCanonical = true
 	chainConfig := &params.ChainConfig{
 		ChainID:             big.NewInt(1),
 		HomesteadBlock:      big.NewInt(0),
@@ -54,9 +57,8 @@ func main() {
 		Alloc:      core.GenesisAlloc{genKey.Address: {Balance: genBalance}},
 	}
 
-	// grab the control of block generation and disable auto uncle
+	// grab the control of block generation
 	config.Miner.ManualMining = true
-	config.Miner.DisableUncle = true
 
 	// info required to generate a transaction
 	chainID := chainConfig.ChainID
@@ -67,21 +69,13 @@ func main() {
 	bob, err := coreth.NewKey(rand.Reader)
 	checkError(err)
 
-	chain := coreth.NewETHChain(&config, nil, nil, nil)
+	chain := coreth.NewETHChain(&config, nil, nil, nil, eth.DefaultSettings)
 	showBalance := func() {
 		state, err := chain.CurrentState()
 		checkError(err)
 		log.Info(fmt.Sprintf("genesis balance = %s", state.GetBalance(genKey.Address)))
 		log.Info(fmt.Sprintf("bob's balance = %s", state.GetBalance(bob.Address)))
 	}
-	chain.SetOnHeaderNew(func(header *types.Header) {
-		hid := make([]byte, 32)
-		_, err := rand.Read(hid)
-		if err != nil {
-			panic("cannot generate hid")
-		}
-		header.Extra = append(header.Extra, hid...)
-	})
 	newBlockChan := make(chan *types.Block)
 	newTxPoolHeadChan := make(chan core.NewTxPoolHeadEvent, 1)
 	chain.SetOnSealFinish(func(block *types.Block) error {
@@ -92,6 +86,8 @@ func main() {
 	chain.GetTxPool().SubscribeNewHeadEvent(newTxPoolHeadChan)
 	// start the chain
 	chain.Start()
+	chain.BlockChain().UnlockIndexing()
+	chain.SetPreference(chain.GetGenesisBlock())
 	for i := 0; i < 42; i++ {
 		tx := types.NewTransaction(nonce, bob.Address, value, uint64(gasLimit), gasPrice, nil)
 		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), genKey.PrivateKey)
@@ -102,6 +98,7 @@ func main() {
 		block := <-newBlockChan
 		<-newTxPoolHeadChan
 		log.Info("finished generating block, starting the next iteration", "height", block.Number())
+		chain.SetPreference(block)
 	}
 	showBalance()
 	chain.Stop()

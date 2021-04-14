@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -52,22 +62,24 @@ type filter struct {
 // PublicFilterAPI offers support to create and manage filters. This will allow external clients to retrieve various
 // information related to the Ethereum protocol such als blocks, transactions and logs.
 type PublicFilterAPI struct {
-	backend   Backend
-	mux       *event.TypeMux
-	quit      chan struct{}
-	chainDb   ethdb.Database
-	events    *EventSystem
-	filtersMu sync.Mutex
-	filters   map[rpc.ID]*filter
+	backend             Backend
+	mux                 *event.TypeMux
+	quit                chan struct{}
+	chainDb             ethdb.Database
+	events              *EventSystem
+	filtersMu           sync.Mutex
+	filters             map[rpc.ID]*filter
+	maxBlocksPerRequest int64
 }
 
 // NewPublicFilterAPI returns a new PublicFilterAPI instance.
-func NewPublicFilterAPI(backend Backend, lightMode bool) *PublicFilterAPI {
+func NewPublicFilterAPI(backend Backend, lightMode bool, maxBlocksPerRequest int64) *PublicFilterAPI {
 	api := &PublicFilterAPI{
-		backend: backend,
-		chainDb: backend.ChainDb(),
-		events:  NewEventSystem(backend, lightMode),
-		filters: make(map[rpc.ID]*filter),
+		backend:             backend,
+		chainDb:             backend.ChainDb(),
+		events:              NewEventSystem(backend, lightMode),
+		filters:             make(map[rpc.ID]*filter),
+		maxBlocksPerRequest: maxBlocksPerRequest,
 	}
 	go api.timeoutLoop()
 
@@ -341,6 +353,9 @@ func (api *PublicFilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([
 			end = crit.ToBlock.Int64()
 		}
 		// Construct the range filter
+		if end-begin > api.maxBlocksPerRequest && api.maxBlocksPerRequest > 0 {
+			return nil, fmt.Errorf("requested too many blocks from %d to %d, maximum is set to %d", begin, end, api.maxBlocksPerRequest)
+		}
 		filter = NewRangeFilter(api.backend, begin, end, crit.Addresses, crit.Topics)
 	}
 	// Run the filter and return all the logs
@@ -399,6 +414,9 @@ func (api *PublicFilterAPI) GetFilterLogs(ctx context.Context, id rpc.ID) ([]*ty
 			end = f.crit.ToBlock.Int64()
 		}
 		// Construct the range filter
+		if end-begin > api.maxBlocksPerRequest && api.maxBlocksPerRequest > 0 {
+			return nil, fmt.Errorf("requested too many blocks from %d to %d, maximum is set to %d", begin, end, api.maxBlocksPerRequest)
+		}
 		filter = NewRangeFilter(api.backend, begin, end, f.crit.Addresses, f.crit.Topics)
 	}
 	// Run the filter and return all the logs

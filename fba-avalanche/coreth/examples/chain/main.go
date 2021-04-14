@@ -1,8 +1,14 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package main
 
 import (
 	"crypto/rand"
 	"fmt"
+	"math/big"
+	"sync"
+
 	"github.com/ava-labs/coreth"
 	"github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/core/types"
@@ -12,8 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"math/big"
-	"sync"
 )
 
 func checkError(err error) {
@@ -46,18 +50,10 @@ func NewTestChain(name string, config *eth.Config,
 		hasBlock:   make(map[common.Hash]struct{}),
 		blocks:     make([]common.Hash, 0),
 		blkCount:   0,
-		chain:      coreth.NewETHChain(config, nil, nil, nil),
+		chain:      coreth.NewETHChain(config, nil, nil, nil, eth.DefaultSettings),
 		outBlockCh: outBlockCh,
 	}
 	tc.insertBlock(tc.chain.GetGenesisBlock())
-	tc.chain.SetOnHeaderNew(func(header *types.Header) {
-		hid := make([]byte, 32)
-		_, err := rand.Read(hid)
-		if err != nil {
-			panic("cannot generate hid")
-		}
-		header.Extra = append(header.Extra, hid...)
-	})
 	tc.chain.SetOnSealFinish(func(block *types.Block) error {
 		blkID := tc.blkCount
 		tc.blkCount++
@@ -91,9 +87,7 @@ func NewTestChain(name string, config *eth.Config,
 				if err != nil {
 					panic(err)
 				}
-				if !tc.chain.VerifyBlock(block) {
-					panic("invalid block")
-				}
+				// TODO: verify block is well formed
 				tc.chain.InsertChain([]*types.Block{block})
 				tc.insertBlock(block)
 				log.Info(fmt.Sprintf("%s: got block %s, sending ack", name, block.Hash().Hex()))
@@ -106,6 +100,7 @@ func NewTestChain(name string, config *eth.Config,
 
 func (tc *TestChain) Start() {
 	tc.chain.Start()
+	tc.chain.BlockChain().UnlockIndexing()
 }
 
 func (tc *TestChain) Stop() {
@@ -122,7 +117,7 @@ func (tc *TestChain) GenRandomTree(n int, max int) {
 		pb, _ := rand.Int(rand.Reader, big.NewInt((int64)(m)))
 		pn := pb.Int64()
 		tc.parentBlock = tc.blocks[nblocks-1-(int)(pn)]
-		tc.chain.SetTail(tc.parentBlock)
+		tc.chain.SetPreference(tc.chain.GetBlockByHash(tc.parentBlock))
 		tc.blockWait.Add(1)
 		tc.chain.GenBlock()
 		tc.blockWait.Wait()
@@ -194,7 +189,6 @@ func run(config *eth.Config, a1, a2, b1, b2 int) {
 func main() {
 	// configure the chain
 	config := eth.DefaultConfig
-	config.ManualCanonical = true
 	chainConfig := &params.ChainConfig{
 		ChainID:             big.NewInt(1),
 		HomesteadBlock:      big.NewInt(0),
@@ -225,9 +219,8 @@ func main() {
 		Alloc:      core.GenesisAlloc{genKey.Address: {Balance: genBalance}},
 	}
 
-	// grab the control of block generation and disable auto uncle
+	// grab the control of block generation
 	config.Miner.ManualMining = true
-	config.Miner.DisableUncle = true
 
 	run(&config, 60, 1, 60, 1)
 	run(&config, 500, 10, 500, 5)

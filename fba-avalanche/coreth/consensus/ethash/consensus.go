@@ -1,3 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc.
+//
+// This file is a derived work, based on the go-ethereum library whose original
+// notices appear below.
+//
+// It is distributed under a license compatible with the licensing terms of the
+// original code from which it is derived.
+//
+// Much love to the original authors for their work.
+// **********
 // Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -584,7 +594,7 @@ func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainHeaderReader, hea
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, receipts, new(trie.Trie), nil), nil
+	return types.NewBlock(header, txs, uncles, receipts, new(trie.Trie), nil, false), nil
 }
 
 // SealHash returns the hash of a block prior to it being sealed.

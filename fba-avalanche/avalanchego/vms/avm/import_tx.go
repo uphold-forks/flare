@@ -6,10 +6,10 @@ package avm
 import (
 	"errors"
 
+	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
-	"github.com/ava-labs/avalanchego/utils/codec"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 )
@@ -94,16 +94,20 @@ func (t *ImportTx) SyntacticVerify(
 
 // SemanticVerify that this transaction is well-formed.
 func (t *ImportTx) SemanticVerify(vm *VM, tx UnsignedTx, creds []verify.Verifiable) error {
+	if err := t.BaseTx.SemanticVerify(vm, tx, creds); err != nil {
+		return err
+	}
+
+	if !vm.bootstrapped {
+		return nil
+	}
+
 	subnetID, err := vm.ctx.SNLookup.SubnetID(t.SourceChain)
 	if err != nil {
 		return err
 	}
 	if vm.ctx.SubnetID != subnetID || t.SourceChain == vm.ctx.ChainID {
 		return errWrongBlockchainID
-	}
-
-	if err := t.BaseTx.SemanticVerify(vm, tx, creds); err != nil {
-		return err
 	}
 
 	utxoIDs := make([][]byte, len(t.ImportedIns))

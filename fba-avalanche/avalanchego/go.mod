@@ -9,7 +9,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v3 v3.0.0-20200627015759-01fd2de07837
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/golang/protobuf v1.4.2
-	github.com/golang/snappy v0.0.2-0.20200707131729-196ae77b8a26 // indirect
+	github.com/golang/snappy v0.0.3 // indirect
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/rpc v1.2.0
@@ -19,6 +19,7 @@ require (
 	github.com/huin/goupnp v1.0.0
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
@@ -37,5 +38,6 @@ require (
 	golang.org/x/sys v0.0.0-20200824131525-c12d262b63d8 // indirect
 	google.golang.org/genproto v0.0.0-20200218151345-dad8c97a84f5 // indirect
 	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.23.0
 	gotest.tools v2.2.0+incompatible
 )

@@ -28,12 +28,12 @@ var (
 )
 
 type ValidatorConfig struct {
-	Validators	[]Validator 	`json:"validators"`
+	Validators []Validator `json:"validators"`
 }
 
 type Validator struct {
-	NodeID		string 			`json:"nodeID"`
-	Weighting 	int 			`json:"weighting"`
+	NodeID      string `json:"nodeID"`
+	Weighting   int    `json:"weighting"`
 	ShortNodeID ShortID
 }
 

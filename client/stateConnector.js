@@ -198,7 +198,7 @@ async function initialiseChains() {
 		var rawTx = {
 			nonce: contractData[1],
 			gasPrice: web3.utils.toHex(config.flare.gasPrice),
-			gas: web3.utils.toHex(config.flare.contractGas),
+			gas: web3.utils.toHex(config.flare.gas),
 			chainId: config.flare.chainId,
 			from: config.accounts[0].address,
 			to: stateConnector.options.address,

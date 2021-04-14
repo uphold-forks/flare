@@ -1,8 +1,13 @@
+// (c) 2019-2020, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
 package main
 
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/ava-labs/coreth"
 	"github.com/ava-labs/coreth/core"
 	"github.com/ava-labs/coreth/core/types"
@@ -12,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"math/big"
 )
 
 func checkError(err error) {
@@ -24,7 +28,6 @@ func checkError(err error) {
 func main() {
 	// configure the chain
 	config := eth.DefaultConfig
-	config.ManualCanonical = true
 	chainConfig := &params.ChainConfig{
 		ChainID:             big.NewInt(1),
 		HomesteadBlock:      big.NewInt(0),
@@ -57,11 +60,10 @@ func main() {
 		Alloc:      core.GenesisAlloc{genKey.Address: {Balance: genBalance}},
 	}
 
-	// grab the control of block generation and disable auto uncle
+	// grab the control of block generation
 	config.Miner.ManualMining = true
-	config.Miner.DisableUncle = true
 
-	chain := coreth.NewETHChain(&config, nil, nil, nil)
+	chain := coreth.NewETHChain(&config, nil, nil, nil, eth.DefaultSettings)
 	buff := new(bytes.Buffer)
 	blk := chain.GetGenesisBlock()
 	err := blk.EncodeRLPEth(buff)
@@ -105,7 +107,7 @@ func main() {
 	checkError(err)
 	buff.Reset()
 	extra, err := rlp.EncodeToBytes("test extra data")
-	blk2.SetExtraData(extra)
+	blk2.SetExtData(extra, false)
 	err = blk2.EncodeRLPTest(buff, 0xffffffff)
 	checkError(err)
 	buff.WriteString("somesuffix")
@@ -114,9 +116,9 @@ func main() {
 
 	err = rlp.Decode(buff, blk2)
 	checkError(err)
-	fmt.Println(buff.Len(), (string)(blk2.ExtraData()), blk2.Hash().Hex())
+	fmt.Println(buff.Len(), (string)(blk2.ExtData()), blk2.Hash().Hex())
 	decoded1 := new(string)
-	err = rlp.DecodeBytes(blk2.ExtraData(), decoded1)
+	err = rlp.DecodeBytes(blk2.ExtData(), decoded1)
 	checkError(err)
 	fmt.Println(buff.Len(), decoded1)
 	fmt.Println(common.ToHex(buff.Bytes()))
@@ -137,14 +139,14 @@ func main() {
 		X: 4200, Y: 4300, Msg: "hello", Inner: NestedData{A: 1, B: 2, S: "world"},
 	})
 	checkError(err)
-	blk2.SetExtraData(extra)
+	blk2.SetExtData(extra, false)
 	err = blk2.EncodeRLPTest(buff, 0xfffffffe)
 	checkError(err)
 	fmt.Println(blk2.Hash().Hex())
 	err = rlp.Decode(buff, blk2)
 	checkError(err)
 	decoded2 := new(MyData)
-	err = rlp.DecodeBytes(blk2.ExtraData(), decoded2)
+	err = rlp.DecodeBytes(blk2.ExtData(), decoded2)
 	checkError(err)
 	fmt.Println(buff.Len(), decoded2, blk2.Hash().Hex())
 	buff.Reset()

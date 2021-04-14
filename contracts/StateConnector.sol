@@ -57,8 +57,8 @@ contract StateConnector {
 
     function initialiseChains() public returns (bool success) {
         require(!initialised, 'initialised != false');
-        governanceContract = 0xff50eF6F4b0568493175defa3655b10d68Bf41FB;
-        chains[0] = Chain(true, 62395000, 30, 0, 0, 62395000, block.timestamp, 120, 0); //XRP
+        governanceContract = 0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7;
+        chains[0] = Chain(true, 62880000, 30, 0, 0, 62880000, block.timestamp, 120, 0); //XRP
         numChains = 1;
         initialised = true;
         return true;
@@ -87,6 +87,17 @@ contract StateConnector {
             numChains = numChains+1;
         }
         return _currNumChains;
+    }
+
+    // Solution if an underlying chain loses liveness is to disable that chain temporarily
+    function disableChain(uint32 chainId) external onlyGovernance chainExists(chainId) {
+        chains[chainId].exists = false;
+    }
+
+    function enableChain(uint32 chainId) external onlyGovernance {
+        require(chainId < numChains, 'chainId >= numChains');
+        require(chains[chainId].exists == false, 'chains[chainId].exists == true');
+        chains[chainId].exists = true;
     }
 
     function updateChainTiming(uint32 chainId, uint256 timeDiffExpected) external onlyGovernance chainExists(chainId) {
