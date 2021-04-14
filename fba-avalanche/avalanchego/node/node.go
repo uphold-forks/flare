@@ -48,12 +48,8 @@ import (
 	"github.com/ava-labs/avalanchego/vms"
 	"github.com/ava-labs/avalanchego/vms/avm"
 	"github.com/ava-labs/avalanchego/vms/evm"
-	"github.com/ava-labs/avalanchego/vms/nftfx"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
-	"github.com/ava-labs/avalanchego/vms/propertyfx"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm"
-	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-	"github.com/ava-labs/avalanchego/vms/timestampvm"
 
 	ipcsapi "github.com/ava-labs/avalanchego/api/ipcs"
 )
@@ -617,18 +613,18 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 			StakeMintingPeriod: n.Config.StakeMintingPeriod,
 			ApricotPhase0Time:  n.Config.ApricotPhase0Time,
 		}),
-		n.vmManager.RegisterVMFactory(avm.ID, &avm.Factory{
-			CreationFee: n.Config.CreationTxFee,
-			Fee:         n.Config.TxFee,
-		}),
+		// n.vmManager.RegisterVMFactory(avm.ID, &avm.Factory{
+		// 	CreationFee: n.Config.CreationTxFee,
+		// 	Fee:         n.Config.TxFee,
+		// }),
 		n.vmManager.RegisterVMFactory(evm.ID, &rpcchainvm.Factory{
 			Path:   filepath.Join(n.Config.PluginDir, "evm"),
 			Config: n.Config.CorethConfig,
 		}),
-		n.vmManager.RegisterVMFactory(timestampvm.ID, &timestampvm.Factory{}),
-		n.vmManager.RegisterVMFactory(secp256k1fx.ID, &secp256k1fx.Factory{}),
-		n.vmManager.RegisterVMFactory(nftfx.ID, &nftfx.Factory{}),
-		n.vmManager.RegisterVMFactory(propertyfx.ID, &propertyfx.Factory{}),
+		// n.vmManager.RegisterVMFactory(timestampvm.ID, &timestampvm.Factory{}),
+		// n.vmManager.RegisterVMFactory(secp256k1fx.ID, &secp256k1fx.Factory{}),
+		// n.vmManager.RegisterVMFactory(nftfx.ID, &nftfx.Factory{}),
+		// n.vmManager.RegisterVMFactory(propertyfx.ID, &propertyfx.Factory{}),
 	)
 	if errs.Errored() {
 		return errs.Err

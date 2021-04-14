@@ -225,7 +225,7 @@ func (m *manager) ForceCreateChain(chainParams ChainParameters) {
 	if err != nil {
 		sb.removeChain(chainParams.ID)
 
-		m.Log.Error("Error while creating new chain: %s", err)
+		// m.Log.Error("Error while creating new chain: %s", err)
 		return
 	}
 
@@ -652,8 +652,10 @@ func (m *manager) createSnowmanChain(
 		defer ctx.Lock.Unlock()
 		return engine.HealthCheck()
 	}
-	if err := m.HealthService.RegisterCheck(chainAlias, checkFn); err != nil {
-		return nil, fmt.Errorf("couldn't add health check for chain %s: %w", chainAlias, err)
+	if chainAlias == "C" {
+		if err := m.HealthService.RegisterCheck(chainAlias, checkFn); err != nil {
+			return nil, fmt.Errorf("couldn't add health check for chain %s: %w", chainAlias, err)
+		}
 	}
 
 	return &chain{
