@@ -308,15 +308,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		}
 	} else {
-		// Check clauses 4-5, subtract intrinsic gas if everything is correct
-		gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
-		if err != nil {
-			return nil, err
-		}
-		if st.gas < gas {
-			return nil, ErrIntrinsicGas
-		}
-		st.gas -= gas
 		if contractCreation {
 			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 		} else {

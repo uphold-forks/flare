@@ -21,7 +21,7 @@ import (
 func GetDataFee(blockNumber *big.Int) uint64 {
 	switch {
 	default:
-		return 10000000
+		return 1000
 	}
 }
 
