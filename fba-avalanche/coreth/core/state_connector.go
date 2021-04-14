@@ -28,7 +28,7 @@ func GetDataFee(blockNumber *big.Int) uint64 {
 func GetGovernanceContractAddr(blockNumber *big.Int) string {
 	switch {
 	default:
-		return "0x1000000000000000000000000000000000000000"
+		return "0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7"
 	}
 }
 
