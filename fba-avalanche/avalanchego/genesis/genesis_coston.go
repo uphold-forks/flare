@@ -48,7 +48,10 @@ const (
 	      "eip158Block": 0,
 	      "byzantiumBlock": 0,
 	      "constantinopleBlock": 0,
-	      "petersburgBlock": 0
+	      "petersburgBlock": 0,
+		  "istanbulBlock":0,
+		  "muirGlacierBlock":0,
+		  "apricotPhase1BlockTimestamp":0
 	    },
 	    "nonce": "0x0",
 	    "timestamp": "0x0",
