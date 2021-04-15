@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/bits"
 	"net"
 	"os"
 	"path"
@@ -272,6 +273,10 @@ func getViper() (*viper.Viper, error) {
 // setNodeConfig sets attributes on [Config] based on the values
 // defined in the [viper] environment
 func setNodeConfig(v *viper.Viper) error {
+	if bits.UintSize != 64 {
+		return fmt.Errorf("system architecture is not 64-bit")
+	}
+
 	// Consensus Parameters
 	Config.ConsensusParams.K = v.GetInt(snowSampleSizeKey)
 	Config.ConsensusParams.Alpha = v.GetInt(snowQuorumSizeKey)

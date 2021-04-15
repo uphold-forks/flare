@@ -15,9 +15,9 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
 
 ## Dependencies
 
-- Hardware per Flare node: 64-bit architecture, 2 GHz or faster CPU, 4 GB RAM, 2 GB hard disk.
+- Hardware per Flare node: 64-bit architecture, 2 GHz or faster CPU, 4 GB RAM, 20 GB hard disk.
 - OS: Ubuntu >= 18.04.
-- Flare validator software: [Go](https://golang.org/doc/install) version 1.14.13
+- Flare validator software: [Go](https://golang.org/doc/install) version 1.15.5
     - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
