@@ -46,7 +46,6 @@ import (
 	"github.com/ava-labs/avalanchego/utils/wrappers"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms"
-	"github.com/ava-labs/avalanchego/vms/avm"
 	"github.com/ava-labs/avalanchego/vms/evm"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm"
@@ -507,12 +506,6 @@ func (n *Node) initAPIServer() error {
 func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 	n.vmManager = vms.NewManager(&n.APIServer, n.HTTPLog)
 
-	createAVMTx, err := genesis.VMGenesis(n.Config.GenesisBytes, avm.ID)
-	if err != nil {
-		return err
-	}
-	xChainID := createAVMTx.ID()
-
 	createEVMTx, err := genesis.VMGenesis(n.Config.GenesisBytes, evm.ID)
 	if err != nil {
 		return err
@@ -572,8 +565,8 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 		Server:                    &n.APIServer,
 		Keystore:                  &n.keystoreServer,
 		AtomicMemory:              &n.sharedMemory,
-		AVAXAssetID:               avaxAssetID,
-		XChainID:                  xChainID,
+		AVAXAssetID:               ids.ID{1},
+		XChainID:                  ids.ID{1},
 		CriticalChains:            criticalChains,
 		TimeoutManager:            timeoutManager,
 		HealthService:             n.healthService,
@@ -741,17 +734,15 @@ func (n *Node) initHealthAPI() error {
 	n.healthService = healthService
 
 	isBootstrappedFunc := func() (interface{}, error) {
-		if pChainID, err := n.chainManager.Lookup("P"); err != nil {
-			return nil, errors.New("P-Chain not created")
-		} else if cChainID, err := n.chainManager.Lookup("C"); err != nil {
+		if cChainID, err := n.chainManager.Lookup("C"); err != nil {
 			return nil, errors.New("C-Chain not created")
-		} else if !n.chainManager.IsBootstrapped(pChainID) || !n.chainManager.IsBootstrapped(cChainID) {
+		} else if !n.chainManager.IsBootstrapped(cChainID) {
 			return nil, errPrimarySubnetNotBootstrapped
 		}
 
 		return nil, nil
 	}
-	// Passes if the P, X and C chains are finished bootstrapping
+	// Passes if the C chain is finished bootstrapping
 	err = n.healthService.RegisterMonotonicCheck("isBootstrapped", isBootstrappedFunc)
 	if err != nil {
 		return fmt.Errorf("couldn't register isBootstrapped health check: %w", err)

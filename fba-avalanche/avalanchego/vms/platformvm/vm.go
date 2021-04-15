@@ -759,7 +759,7 @@ func (vm *VM) updateVdrMgr(force bool) error {
 	if err := vm.updateVdrSet(constants.PrimaryNetworkID); err != nil {
 		return err
 	}
-	return vm.initBlockchains()
+	return nil
 }
 
 func (vm *VM) updateVdrSet(subnetID ids.ID) error {
