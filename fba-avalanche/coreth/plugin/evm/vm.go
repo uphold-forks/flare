@@ -307,12 +307,12 @@ func (vm *VM) Initialize(
 		g.Config.ApricotPhase1BlockTimestamp = params.AvalancheApricotFujiChainConfig.ApricotPhase1BlockTimestamp
 	}
 
-	if g.Config.ChainID.Uint64() < uint64(20210000) {
-		minBlockTime = 2 * time.Second
-		maxBlockTime = 3 * time.Second
-	} else {
+	if g.Config.ChainID.Uint64() == uint64(20210406) {
 		minBlockTime = 0 * time.Millisecond
 		maxBlockTime = 100 * time.Millisecond
+	} else {
+		minBlockTime = 2 * time.Second
+		maxBlockTime = 3 * time.Second
 	}
 
 	vm.chainID = g.Config.ChainID

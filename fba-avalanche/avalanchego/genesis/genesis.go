@@ -188,6 +188,16 @@ func FromConfig(config *Config) ([]byte, ids.ID, error) {
 		if err != nil {
 			return nil, ids.Empty, fmt.Errorf("couldn't encode message: %w", err)
 		}
+	} else if config.NetworkID == 20210413 {
+		genesisStr, err = formatting.Encode(defaultEncoding, []byte(FtsoMvpGenesis))
+		if err != nil {
+			return nil, ids.Empty, fmt.Errorf("couldn't encode message: %w", err)
+		}
+	} else if config.NetworkID == 20210406 {
+		genesisStr, err = formatting.Encode(defaultEncoding, []byte(SCDevGenesis))
+		if err != nil {
+			return nil, ids.Empty, fmt.Errorf("couldn't encode message: %w", err)
+		}
 	} else {
 		return nil, ids.Empty, fmt.Errorf("invalid network ID")
 	}

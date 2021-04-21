@@ -19,6 +19,8 @@ const (
 	EverestID uint32 = 4
 	FujiID    uint32 = 5
 	CostonID  uint32 = 16
+	FtsoMvpID uint32 = 20210413
+	SCDevID   uint32 = 20210406
 
 	TestnetID  uint32 = FujiID
 	UnitTestID uint32 = 10
@@ -33,6 +35,8 @@ const (
 	UnitTestName = "testing"
 	LocalName    = "local"
 	CostonName   = "coston"
+	FtsoMvpName  = "ftsomvp"
+	SCDevName    = "scdev"
 
 	MainnetHRP  = "avax"
 	CascadeHRP  = "cascade"
@@ -43,6 +47,8 @@ const (
 	LocalHRP    = "local"
 	FallbackHRP = "custom"
 	CostonHRP   = "coston"
+	FtsoMvpHRP  = "ftsomvp"
+	SCDevHRP    = "scdev"
 )
 
 // Variables to be exported
@@ -59,6 +65,8 @@ var (
 		UnitTestID: UnitTestName,
 		LocalID:    LocalName,
 		CostonID:   CostonName,
+		FtsoMvpID:  FtsoMvpName,
+		SCDevID:    SCDevName,
 	}
 	NetworkNameToNetworkID = map[string]uint32{
 		MainnetName:  MainnetID,
@@ -70,6 +78,8 @@ var (
 		UnitTestName: UnitTestID,
 		LocalName:    LocalID,
 		CostonName:   CostonID,
+		FtsoMvpName:  FtsoMvpID,
+		SCDevName:    SCDevID,
 	}
 
 	NetworkIDToHRP = map[uint32]string{
@@ -81,6 +91,8 @@ var (
 		UnitTestID: UnitTestHRP,
 		LocalID:    LocalHRP,
 		CostonID:   CostonHRP,
+		FtsoMvpID:  FtsoMvpHRP,
+		SCDevID:    SCDevHRP,
 	}
 	NetworkHRPToNetworkID = map[string]uint32{
 		MainnetHRP:  MainnetID,
@@ -91,6 +103,8 @@ var (
 		UnitTestHRP: UnitTestID,
 		LocalHRP:    LocalID,
 		CostonHRP:   CostonID,
+		FtsoMvpHRP:  FtsoMvpID,
+		SCDevHRP:    SCDevID,
 	}
 
 	ValidNetworkPrefix = "network-"
