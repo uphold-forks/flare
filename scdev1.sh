@@ -51,13 +51,13 @@ printf "Launching Node 1 at 127.0.0.1:9660\n"
     --http-port=9660 \
     --staking-port=9661 \
     --db-dir=db/node00/ \
-    --staking-enabled=false \
+    --staking-enabled=true \
     --network-id=scdev \
     --bootstrap-ips= \
     --bootstrap-ids= \
     --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt \
     --staking-tls-key-file=$(pwd)/config/keys/node00/node.key \
-    --log-level=info \
-    --validators-file=$(pwd)/config/validators/validators_0000.json \
+    --log-level=debug \
+    --validators-file=$(pwd)/config/validators/validator_local.json \
     --alert-apis="https://flare.network" \
     --xrp-apis=$XRP_APIs_JOINED
