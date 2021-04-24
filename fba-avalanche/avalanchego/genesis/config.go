@@ -163,6 +163,14 @@ var (
 	// CostonConfig is the config that should be used to generate the coston
 	// genesis.
 	CostonConfig Config
+
+	// FtsomvpConfig is the config that should be used to generate the ftsomvp
+	// genesis.
+	FtsoMvpConfig Config
+
+	// SCDevConfig is the config that should be used to generate the scdev
+	// genesis.
+	SCDevConfig Config
 )
 
 func init() {
@@ -170,6 +178,8 @@ func init() {
 	unparsedFujiConfig := UnparsedConfig{}
 	unparsedLocalConfig := UnparsedConfig{}
 	unparsedCostonConfig := UnparsedConfig{}
+	unparsedFtsoMvpConfig := UnparsedConfig{}
+	unparsedSCDevConfig := UnparsedConfig{}
 
 	errs := wrappers.Errs{}
 	errs.Add(
@@ -177,6 +187,8 @@ func init() {
 		json.Unmarshal([]byte(fujiGenesisConfigJSON), &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
 		json.Unmarshal([]byte(costonGenesisConfigJSON), &unparsedCostonConfig),
+		json.Unmarshal([]byte(ftsomvpGenesisConfigJSON), &unparsedFtsoMvpConfig),
+		json.Unmarshal([]byte(scdevGenesisConfigJSON), &unparsedSCDevConfig),
 	)
 	if errs.Errored() {
 		panic(errs.Err)
@@ -198,6 +210,14 @@ func init() {
 	errs.Add(err)
 	CostonConfig = costonConfig
 
+	ftsomvpConfig, err := unparsedFtsoMvpConfig.Parse()
+	errs.Add(err)
+	FtsoMvpConfig = ftsomvpConfig
+
+	scdevConfig, err := unparsedSCDevConfig.Parse()
+	errs.Add(err)
+	SCDevConfig = scdevConfig
+
 	if errs.Errored() {
 		panic(errs.Err)
 	}
@@ -214,6 +234,10 @@ func GetConfig(networkID uint32) *Config {
 		return &LocalConfig
 	case constants.CostonID:
 		return &CostonConfig
+	case constants.FtsoMvpID:
+		return &FtsoMvpConfig
+	case constants.SCDevID:
+		return &SCDevConfig
 	default:
 		tempConfig := LocalConfig
 		tempConfig.NetworkID = networkID
