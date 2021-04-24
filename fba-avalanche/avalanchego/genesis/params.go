@@ -57,6 +57,8 @@ func GetParams(networkID uint32) *Params {
 		return &CostonParams
 	case constants.FtsoMvpID:
 		return &FtsoMvpParams
+	case constants.SCDevID:
+		return &SCDevParams
 	default:
 		return &LocalParams
 	}

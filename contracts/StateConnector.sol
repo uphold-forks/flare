@@ -15,7 +15,7 @@ contract StateConnector {
         bool        exists;
         uint64      genesisLedger;
         uint16      claimPeriodLength; // Number of ledgers in a claim period
-        uint16		numConfirmations; // Number of confirmations required to consider this claim period finalised
+        uint16      numConfirmations; // Number of confirmations required to consider this claim period finalised
         uint64      finalisedClaimPeriodIndex;
         uint64      finalisedLedgerIndex;
         uint256     finalisedTimestamp;
@@ -26,7 +26,7 @@ contract StateConnector {
     struct HashExists {
         bool        exists;
         bytes32     hashBytes;
-        uint256		timestamp;
+        uint256     timestamp;
     }
 
     // Chain ID mapping to Chain struct

@@ -65,6 +65,8 @@ var (
 )
 
 var (
+	minBlockTime                 time.Duration
+	maxBlockTime                 time.Duration
 	lastAcceptedKey              = []byte("snowman_lastAccepted")
 	acceptedPrefix               = []byte("snowman_accepted")
 	historicalCanonicalRepairKey = []byte("chain_repaired_20210212")
@@ -74,8 +76,6 @@ var (
 const (
 	// maxFutureBlockTime should be smaller than the max allowed future time (15s) used
 	// in dummy consensus engine's verifyHeader
-	minBlockTime       = 2 * time.Second
-	maxBlockTime       = 3 * time.Second
 	maxFutureBlockTime = 10 * time.Second
 	batchSize          = 250
 	maxUTXOsToFetch    = 1024
@@ -305,6 +305,14 @@ func (vm *VM) Initialize(
 		g.Config.ApricotPhase1BlockTimestamp = params.AvalancheApricotMainnetChainConfig.ApricotPhase1BlockTimestamp
 	case g.Config.ChainID.Cmp(params.AvalancheFujiChainID) == 0:
 		g.Config.ApricotPhase1BlockTimestamp = params.AvalancheApricotFujiChainConfig.ApricotPhase1BlockTimestamp
+	}
+
+	if g.Config.ChainID.Uint64() == uint64(20210406) {
+		minBlockTime = 0 * time.Millisecond
+		maxBlockTime = 100 * time.Millisecond
+	} else {
+		minBlockTime = 2 * time.Second
+		maxBlockTime = 3 * time.Second
 	}
 
 	vm.chainID = g.Config.ChainID

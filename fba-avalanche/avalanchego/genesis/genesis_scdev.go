@@ -29,9 +29,9 @@ var (
 		MinStakeDuration:     24 * time.Hour,
 		MaxStakeDuration:     365 * 24 * time.Hour,
 		StakeMintingPeriod:   365 * 24 * time.Hour,
-		EpochFirstTransition: time.Unix(1607626800, 0),
+		EpochFirstTransition: time.Unix(10000000000, 0),
 		EpochDuration:        5 * time.Minute,
-		ApricotPhase0Time:    time.Date(2020, 12, 5, 5, 00, 0, 0, time.UTC),
+		ApricotPhase0Time:    time.Unix(10000000000, 0),
 	}
 )
 
@@ -51,7 +51,7 @@ const (
 	      "petersburgBlock": 0,
 		  "istanbulBlock":0,
 		  "muirGlacierBlock":0,
-		  "apricotPhase1BlockTimestamp":0
+		  "apricotPhase1BlockTimestamp":10000000000
 	    },
 	    "nonce": "0x0",
 	    "timestamp": "0x0",
