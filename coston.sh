@@ -44,7 +44,7 @@ cd - &> /dev/null
     --snow-quorum-size=2 \
     --http-port=9650 \
     --staking-port=9651 \
-    --db-dir=db/node04/ \
+    --db-dir=$(pwd)/db/node04/ \
     --staking-enabled=true \
     --p2p-tls-enabled=true \
     --network-id=coston \
@@ -53,6 +53,6 @@ cd - &> /dev/null
     --staking-tls-cert-file=$(pwd)/config/keys/node04/node.crt  \
     --staking-tls-key-file=$(pwd)/config/keys/node04/node.key \
     --log-level=debug \
-    --validators-file=$(pwd)/config/validators/validators_0001.json \
+    --validators-file=$(pwd)/config/validators/coston/1619180000.json \
     --alert-apis=https://flare.network \
     --xrp-apis=$XRP_APIs_JOINED

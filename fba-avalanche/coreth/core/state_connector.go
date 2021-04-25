@@ -17,11 +17,18 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Fixed gas used for custom block.coinbase operations
-func GetDataFee(blockNumber *big.Int) uint64 {
+func GetMinReserve(blockNumber *big.Int) *big.Int {
 	switch {
 	default:
-		return 1000
+		minReserve, _ := new(big.Int).SetString("1000000000000000000000000", 10)
+		return minReserve
+	}
+}
+
+func GetInflationSchedule(blockTime uint64) *big.Int {
+	switch {
+	default:
+		return new(big.Int).SetUint64(1)
 	}
 }
 
@@ -339,5 +346,5 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, a
 
 // Verify proof against underlying chain
 func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) bool {
-	return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[0], stateConnectorConfig[1:])
+	return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[2], stateConnectorConfig[3:])
 }

@@ -50,7 +50,7 @@ printf "Launching Node 1 at 127.0.0.1:9660\n"
     --snow-quorum-size=1 \
     --http-port=9660 \
     --staking-port=9661 \
-    --db-dir=db/node00/ \
+    --db-dir=$(pwd)/db/node00/ \
     --staking-enabled=true \
     --network-id=scdev \
     --bootstrap-ips= \
@@ -58,6 +58,6 @@ printf "Launching Node 1 at 127.0.0.1:9660\n"
     --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt \
     --staking-tls-key-file=$(pwd)/config/keys/node00/node.key \
     --log-level=debug \
-    --validators-file=$(pwd)/config/validators/validator_local.json \
+    --validators-file=$(pwd)/config/validators/scdev/1619370000.json \
     --alert-apis="https://flare.network" \
     --xrp-apis=$XRP_APIs_JOINED
