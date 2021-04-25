@@ -27,6 +27,8 @@
 package core
 
 import (
+	"strconv"
+
 	"github.com/ava-labs/coreth/consensus"
 	"github.com/ava-labs/coreth/consensus/misc"
 	"github.com/ava-labs/coreth/core/state"
@@ -74,6 +76,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+	}
+	stateConnectorConfig := *p.config.StateConnectorConfig
+	validatorChangeTime, err := strconv.ParseUint(stateConnectorConfig[0], 10, 64)
+	if err == nil {
+		if block.Time() >= validatorChangeTime {
+			// Inflation
+			statedb.AddBalance(common.HexToAddress(GetGovernanceContractAddr(block.Number())), GetInflationSchedule(validatorChangeTime))
+		}
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {

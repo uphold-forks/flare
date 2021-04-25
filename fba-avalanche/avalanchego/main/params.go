@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -735,7 +736,22 @@ func setNodeConfig(v *viper.Viper) error {
 	}
 	xrpAPIsString = strings.ReplaceAll(xrpAPIsString, " ", "")
 
-	Config.CorethConfig = corethAPIstate + " " + alertAPIsString + " " + xrpAPIsString
+	if string(Config.DBPath[0]) != "/" {
+		return fmt.Errorf("incomplete db path, append $(pwd)/ as prefix to --db-dir flag input")
+	}
+	if string(Config.DBPath[len(Config.DBPath)-1]) != "/" {
+		Config.DBPath = Config.DBPath + "/"
+	}
+	// Search for ValidatorTimeBound
+	validatorTimeBoundPath := Config.DBPath + "ValidatorTimeBound"
+	_, err = os.Stat(validatorTimeBoundPath)
+	validatorTimeBound := []byte("0")
+	if err == nil {
+		validatorTimeBound, err = ioutil.ReadFile(validatorTimeBoundPath)
+		if err != nil {
+			return fmt.Errorf("error reading ValidatorTimeBound")
+		}
+	}
 
 	validatorsFilePath := v.GetString(validatorsFileKey)
 	if validatorsFilePath == defaultString {
@@ -751,6 +767,9 @@ func setNodeConfig(v *viper.Viper) error {
 	}
 	var validators ids.ValidatorConfig
 	json.Unmarshal(validatorsFile, &validators)
+	if string(validatorTimeBound) != "0" && string(validatorTimeBound) != strconv.FormatUint(validators.StartTime, 10) {
+		return fmt.Errorf("validators.StartTime != validatorTimeBound, check validator config")
+	}
 	for i, validator := range validators.Validators {
 		validators.Validators[i].ShortNodeID, err = ids.ShortFromPrefixedString(validator.NodeID, constants.NodeIDPrefix)
 		if err != nil {
@@ -758,7 +777,7 @@ func setNodeConfig(v *viper.Viper) error {
 		}
 	}
 	Config.ValidatorConfig = validators
-
+	Config.CorethConfig = corethAPIstate + " " + strconv.FormatUint(validators.StartTime+validators.IntervalTime, 10) + " " + validatorTimeBoundPath + " " + alertAPIsString + " " + xrpAPIsString
 	return nil
 }
 

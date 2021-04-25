@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -118,6 +120,7 @@ var (
 	errInvalidMixDigest           = errors.New("invalid mix digest")
 	errInvalidExtDataHash         = errors.New("invalid extra data hash")
 	errHeaderExtraDataTooBig      = errors.New("header extra data too big")
+	errValidatorChangeTime        = errors.New("invalid validator change time")
 )
 
 // mayBuildBlockStatus denotes whether the engine should be notified
@@ -235,6 +238,9 @@ type VM struct {
 	shutdownWg   sync.WaitGroup
 
 	fx secp256k1fx.Fx
+
+	validatorChangeTime    uint64
+	validatorTimeBoundPath string
 }
 
 func (vm *VM) getAtomicTx(block *types.Block) (*Tx, error) {
@@ -283,6 +289,13 @@ func (vm *VM) Initialize(
 	if vm.CLIConfig.ParsingError != nil {
 		return vm.CLIConfig.ParsingError
 	}
+
+	validatorChangeTime, err := strconv.ParseUint(vm.CLIConfig.StateConnectorConfig[0], 10, 64)
+	if err != nil {
+		return errValidatorChangeTime
+	}
+	vm.validatorChangeTime = validatorChangeTime
+	vm.validatorTimeBoundPath = vm.CLIConfig.StateConnectorConfig[1]
 
 	if len(fxs) > 0 {
 		return errUnsupportedFXs
@@ -946,7 +959,19 @@ func (vm *VM) setLastAccepted(blk *Block) error {
 	if err != nil {
 		return err
 	}
-	return vm.chaindb.Put(lastAcceptedKey, b)
+	err = vm.chaindb.Put(lastAcceptedKey, b)
+	if err != nil {
+		return err
+	}
+	if blk.ethBlock.Time() >= vm.validatorChangeTime {
+		defer vm.Shutdown()
+		// Write vm.validatorChangeTime to ValidatorTimeBound
+		err := ioutil.WriteFile(vm.validatorTimeBoundPath, []byte(strconv.FormatUint(vm.validatorChangeTime, 10)), 0644)
+		if err != nil {
+			return nil
+		}
+	}
+	return nil
 }
 
 // awaitTxPoolStabilized waits for a txPoolHead channel event
