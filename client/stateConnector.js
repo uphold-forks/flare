@@ -257,15 +257,25 @@ async function web3Config() {
 			chainId: config.flare.chainId,
 		},
 		'petersburg',);
-	// Read the compiled contract code
-	let source = fs.readFileSync("../bin/contracts/StateConnector.json");
-	let contract = JSON.parse(source);
-	// Create Contract proxy class
-	stateConnector = new web3.eth.Contract(contract.abi);
-	// Smart contract EVM bytecode as hex
-	stateConnector.options.data = '0x' + contract.deployedBytecode;
-	stateConnector.options.from = config.accounts[0].address;
-	stateConnector.options.address = stateConnectorContract;
+
+	web3.eth.getBalance(config.accounts[0].address)
+	.then(balance => {
+		if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000000) {
+			console.log("Not enough FLR reserved in your account, need 1M FLR.");
+			sleep(5000);
+			process.exit();
+		} else {
+			// Read the compiled contract code
+			let source = fs.readFileSync("../bin/contracts/StateConnector.json");
+			let contract = JSON.parse(source);
+			// Create Contract proxy class
+			stateConnector = new web3.eth.Contract(contract.abi);
+			// Smart contract EVM bytecode as hex
+			stateConnector.options.data = '0x' + contract.deployedBytecode;
+			stateConnector.options.from = config.accounts[0].address;
+			stateConnector.options.address = stateConnectorContract;
+		}
+	})
 }
 
 async function processFailure(error) {
