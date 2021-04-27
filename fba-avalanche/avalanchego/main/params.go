@@ -9,12 +9,10 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"math/bits"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -239,12 +237,10 @@ func avalancheFlagSet() *flag.FlagSet {
 	fs.String(ipcsChainIDsKey, "", "Comma separated list of chain ids to add to the IPC engine. Example: 11111111111111111111111111111111LpoYY,4R5p2RXDGLqaifZE4hHWH9owe34pfoBULn1DrQTWivjg8o4aH")
 	fs.String(ipcsPathKey, defaultString, "The directory (Unix) or named pipe name prefix (Windows) for IPC sockets")
 
-	// Alert APIs
-	fs.String(alertAPIsKey, defaultString, "Comma-delimited list of API(s) to use for alerting this validator's administrator in the event of a problem with the state connector system.")
-	// XRP APIs
-	fs.String(xrpAPIsKey, defaultString, "Comma-delimited list of API(s) to use for attaching the state connector system to the XRP Ledger.")
-	// Unique Node List:
-	fs.String(validatorsFileKey, defaultString, "JSON file containing Node-IDs and their probability weighting of being sampled during consensus.")
+	// Indexer
+	// TODO handle the below line better
+	fs.Bool(indexEnabledKey, false, "If true, index all accepted containers and transactions and expose them via an API")
+	fs.Bool(indexAllowIncompleteKey, false, "If true, allow running the node in such a way that could cause an index to miss transactions. Ignored if index is disabled.")
 
 	return fs
 }
@@ -274,10 +270,6 @@ func getViper() (*viper.Viper, error) {
 // setNodeConfig sets attributes on [Config] based on the values
 // defined in the [viper] environment
 func setNodeConfig(v *viper.Viper) error {
-	if bits.UintSize != 64 {
-		return fmt.Errorf("system architecture is not 64-bit")
-	}
-
 	// Consensus Parameters
 	Config.ConsensusParams.K = v.GetInt(snowSampleSizeKey)
 	Config.ConsensusParams.Alpha = v.GetInt(snowQuorumSizeKey)
@@ -539,6 +531,7 @@ func setNodeConfig(v *viper.Viper) error {
 	Config.MetricsAPIEnabled = v.GetBool(metricsAPIEnabledKey)
 	Config.HealthAPIEnabled = v.GetBool(healthAPIEnabledKey)
 	Config.IPCAPIEnabled = v.GetBool(ipcAPIEnabledKey)
+	Config.IndexAPIEnabled = v.GetBool(indexEnabledKey)
 
 	// Throughput:
 	Config.ThroughputServerEnabled = v.GetBool(xputServerEnabledKey)
@@ -711,11 +704,24 @@ func setNodeConfig(v *viper.Viper) error {
 	Config.EnableCrypto = v.GetBool(signatureVerificationEnabledKey)
 
 	// Coreth Plugin
-	corethAPIstate := "api-enabled"
 	corethConfigString := v.GetString(corethConfigKey)
-	if corethConfigString != defaultString && corethConfigString != corethAPIstate {
-		corethAPIstate = "api-disabled"
+	if corethConfigString != defaultString {
+		corethConfigValue := v.Get(corethConfigKey)
+		switch value := corethConfigValue.(type) {
+		case string:
+			corethConfigString = value
+		default:
+			corethConfigBytes, err := json.Marshal(value)
+			if err != nil {
+				return fmt.Errorf("couldn't parse coreth config: %w", err)
+			}
+			corethConfigString = string(corethConfigBytes)
+		}
 	}
+	Config.CorethConfig = corethConfigString
+
+	// Indexer
+	Config.IndexAllowIncomplete = v.GetBool(indexAllowIncompleteKey)
 
 	// Bootstrap Configs
 	Config.RetryBootstrap = v.GetBool(retryBootstrap)
@@ -724,60 +730,6 @@ func setNodeConfig(v *viper.Viper) error {
 	// Peer alias
 	Config.PeerAliasTimeout = v.GetDuration(peerAliasTimeoutKey)
 
-	// State Connector APIs
-	alertAPIsString := v.GetString(alertAPIsKey)
-	if alertAPIsString == defaultString {
-		return fmt.Errorf("alert-apis not specified")
-	}
-	alertAPIsString = strings.ReplaceAll(alertAPIsString, " ", "")
-	xrpAPIsString := v.GetString(xrpAPIsKey)
-	if xrpAPIsString == defaultString {
-		return fmt.Errorf("xrp-apis not specified")
-	}
-	xrpAPIsString = strings.ReplaceAll(xrpAPIsString, " ", "")
-
-	if string(Config.DBPath[0]) != "/" {
-		return fmt.Errorf("incomplete db path, append $(pwd)/ as prefix to --db-dir flag input")
-	}
-	if string(Config.DBPath[len(Config.DBPath)-1]) != "/" {
-		Config.DBPath = Config.DBPath + "/"
-	}
-	// Search for ValidatorTimeBound
-	validatorTimeBoundPath := Config.DBPath + "ValidatorTimeBound"
-	_, err = os.Stat(validatorTimeBoundPath)
-	validatorTimeBound := []byte("0")
-	if err == nil {
-		validatorTimeBound, err = ioutil.ReadFile(validatorTimeBoundPath)
-		if err != nil {
-			return fmt.Errorf("error reading ValidatorTimeBound")
-		}
-	}
-
-	validatorsFilePath := v.GetString(validatorsFileKey)
-	if validatorsFilePath == defaultString {
-		return fmt.Errorf("validators-file not specified")
-	}
-	_, err = os.Stat(validatorsFilePath)
-	if errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("validators-file does not exist")
-	}
-	validatorsFile, err := ioutil.ReadFile(validatorsFilePath)
-	if err != nil {
-		return fmt.Errorf("cannot read from validatorsFilePath")
-	}
-	var validators ids.ValidatorConfig
-	json.Unmarshal(validatorsFile, &validators)
-	if string(validatorTimeBound) != "0" && string(validatorTimeBound) != strconv.FormatUint(validators.StartTime, 10) {
-		return fmt.Errorf("validators.StartTime != validatorTimeBound, check validator config")
-	}
-	for i, validator := range validators.Validators {
-		validators.Validators[i].ShortNodeID, err = ids.ShortFromPrefixedString(validator.NodeID, constants.NodeIDPrefix)
-		if err != nil {
-			return fmt.Errorf("couldn't parse validator NodeID: %w", err)
-		}
-	}
-	Config.ValidatorConfig = validators
-	Config.CorethConfig = corethAPIstate + " " + strconv.FormatUint(validators.StartTime+validators.IntervalTime, 10) + " " + validatorTimeBoundPath + " " + alertAPIsString + " " + xrpAPIsString
 	return nil
 }
 

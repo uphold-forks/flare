@@ -159,36 +159,18 @@ var (
 	// LocalConfig is the config that should be used to generate a local
 	// genesis.
 	LocalConfig Config
-
-	// CostonConfig is the config that should be used to generate the coston
-	// genesis.
-	CostonConfig Config
-
-	// FtsomvpConfig is the config that should be used to generate the ftsomvp
-	// genesis.
-	FtsoMvpConfig Config
-
-	// SCDevConfig is the config that should be used to generate the scdev
-	// genesis.
-	SCDevConfig Config
 )
 
 func init() {
 	unparsedMainnetConfig := UnparsedConfig{}
 	unparsedFujiConfig := UnparsedConfig{}
 	unparsedLocalConfig := UnparsedConfig{}
-	unparsedCostonConfig := UnparsedConfig{}
-	unparsedFtsoMvpConfig := UnparsedConfig{}
-	unparsedSCDevConfig := UnparsedConfig{}
 
 	errs := wrappers.Errs{}
 	errs.Add(
 		json.Unmarshal([]byte(mainnetGenesisConfigJSON), &unparsedMainnetConfig),
 		json.Unmarshal([]byte(fujiGenesisConfigJSON), &unparsedFujiConfig),
 		json.Unmarshal([]byte(localGenesisConfigJSON), &unparsedLocalConfig),
-		json.Unmarshal([]byte(costonGenesisConfigJSON), &unparsedCostonConfig),
-		json.Unmarshal([]byte(ftsomvpGenesisConfigJSON), &unparsedFtsoMvpConfig),
-		json.Unmarshal([]byte(scdevGenesisConfigJSON), &unparsedSCDevConfig),
 	)
 	if errs.Errored() {
 		panic(errs.Err)
@@ -206,18 +188,6 @@ func init() {
 	errs.Add(err)
 	LocalConfig = localConfig
 
-	costonConfig, err := unparsedCostonConfig.Parse()
-	errs.Add(err)
-	CostonConfig = costonConfig
-
-	ftsomvpConfig, err := unparsedFtsoMvpConfig.Parse()
-	errs.Add(err)
-	FtsoMvpConfig = ftsomvpConfig
-
-	scdevConfig, err := unparsedSCDevConfig.Parse()
-	errs.Add(err)
-	SCDevConfig = scdevConfig
-
 	if errs.Errored() {
 		panic(errs.Err)
 	}
@@ -232,12 +202,6 @@ func GetConfig(networkID uint32) *Config {
 		return &FujiConfig
 	case constants.LocalID:
 		return &LocalConfig
-	case constants.CostonID:
-		return &CostonConfig
-	case constants.FtsoMvpID:
-		return &FtsoMvpConfig
-	case constants.SCDevID:
-		return &SCDevConfig
 	default:
 		tempConfig := LocalConfig
 		tempConfig.NetworkID = networkID

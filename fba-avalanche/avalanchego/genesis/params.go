@@ -40,8 +40,6 @@ type Params struct {
 	EpochFirstTransition time.Time
 	// EpochDuration is the amount of time that an epoch runs for.
 	EpochDuration time.Duration
-	// Time that Apricot phase 0 rules go into effect
-	ApricotPhase0Time time.Time
 }
 
 // GetParams ...
@@ -53,12 +51,6 @@ func GetParams(networkID uint32) *Params {
 		return &FujiParams
 	case constants.LocalID:
 		return &LocalParams
-	case constants.CostonID:
-		return &CostonParams
-	case constants.FtsoMvpID:
-		return &FtsoMvpParams
-	case constants.SCDevID:
-		return &SCDevParams
 	default:
 		return &LocalParams
 	}

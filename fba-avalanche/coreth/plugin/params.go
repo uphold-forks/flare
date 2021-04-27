@@ -4,10 +4,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ava-labs/coreth/plugin/evm"
 )
@@ -28,30 +27,16 @@ func init() {
 		return
 	}
 
-	cliConfig.RPCGasCap = 2500000000 // 25000000 x 100
-	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
-
-	if *config != "default" {
-		for i, value := range strings.Split(*config, " ") {
-			if value != "" {
-				if i == 0 {
-					if value == "api-enabled" {
-						cliConfig.EthAPIEnabled = true
-						cliConfig.PersonalAPIEnabled = true
-						cliConfig.TxPoolAPIEnabled = true
-						cliConfig.NetAPIEnabled = true
-						cliConfig.Web3APIEnabled = true
-						cliConfig.DebugAPIEnabled = true
-					}
-				} else {
-					cliConfig.StateConnectorConfig = append(cliConfig.StateConnectorConfig, value)
-				}
-			} else {
-				cliConfig.ParsingError = fmt.Errorf("StateConnectorConfig contains empty string")
-				return
-			}
-		}
+	if *config == "default" {
+		cliConfig.EthAPIEnabled = true
+		cliConfig.NetAPIEnabled = true
+		cliConfig.Web3APIEnabled = true
+		cliConfig.RPCGasCap = 2500000000  // 25000000 x 100
+		cliConfig.RPCTxFeeCap = 100       // 100 AVAX
+		cliConfig.APIMaxDuration = 0      // Default to no maximum API Call duration
+		cliConfig.MaxBlocksPerRequest = 0 // Default to no maximum on the number of blocks per getLogs request
 	} else {
-		cliConfig.ParsingError = fmt.Errorf("coreth cliConfig is not set.")
+		// TODO only overwrite values that were explicitly set
+		cliConfig.ParsingError = json.Unmarshal([]byte(*config), &cliConfig)
 	}
 }

@@ -29,9 +29,12 @@ type CommandLineConfig struct {
 	MaxBlocksPerRequest     int64 `json:"api-max-blocks-per-request"`
 	AllowUnfinalizedQueries bool  `json:"allow-unfinalized-queries"`
 
-	ParsingError error
+	// Keystore Settings
+	KeystoreDirectory             string `json:"keystore-directory"` // both absolute and relative supported
+	KeystoreExternalSigner        string `json:"keystore-external-signer"`
+	KeystoreInsecureUnlockAllowed bool   `json:"keystore-insecure-unlock-allowed"`
 
-	StateConnectorConfig []string
+	ParsingError error
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled
