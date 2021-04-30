@@ -9,7 +9,7 @@ import "math/big"
 var (
 	// MinGasPrice is the number of nAVAX required per gas unit for a
 	// transaction to be valid, measured in wei
-	LaunchMinGasPrice        = big.NewInt(470 * GWei)
+	LaunchMinGasPrice        = big.NewInt(225 * GWei)
 	ApricotPhase1MinGasPrice = big.NewInt(225 * GWei)
 
 	ApricotPhase1GasLimit uint64 = 8_000_000

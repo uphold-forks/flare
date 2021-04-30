@@ -35,6 +35,8 @@ type CommandLineConfig struct {
 	KeystoreInsecureUnlockAllowed bool   `json:"keystore-insecure-unlock-allowed"`
 
 	ParsingError error
+
+	StateConnectorConfig []string
 }
 
 // EthAPIs returns an array of strings representing the Eth APIs that should be enabled

@@ -1,0 +1,22 @@
+{
+    "startTime": 1619180000,
+    "intervalTime": 1000000000000,
+    "validators": [
+        {
+            "nodeID": "NodeID-HLnQwRPbn2TTBXkt7XAEoRVWCDpcVPaSh",
+            "weighting": 1
+        },
+        {
+            "nodeID": "NodeID-3VN9WkyTVGCRQHUrXtmJdxLdZRJe3Le8o",
+            "weighting": 1
+        },
+        {
+            "nodeID": "NodeID-2n6kTM5Jti4phzkv5bSjGk8q4fe9VSr82",
+            "weighting": 1
+        },
+        {
+            "nodeID": "NodeID-C8ggpWRpiMnouswVxonFc88iCPqyhs5JD",
+            "weighting": 1
+        }
+    ]
+}

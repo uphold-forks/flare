@@ -20,8 +20,6 @@ import (
 	"github.com/ava-labs/avalanchego/network"
 	"github.com/ava-labs/avalanchego/snow"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowball"
-	"github.com/ava-labs/avalanchego/snow/engine/avalanche/state"
-	"github.com/ava-labs/avalanchego/snow/engine/avalanche/vertex"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/common/queue"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
@@ -35,8 +33,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms"
 
 	avcon "github.com/ava-labs/avalanchego/snow/consensus/avalanche"
-	aveng "github.com/ava-labs/avalanchego/snow/engine/avalanche"
-	avbootstrap "github.com/ava-labs/avalanchego/snow/engine/avalanche/bootstrap"
 
 	smcon "github.com/ava-labs/avalanchego/snow/consensus/snowman"
 	smeng "github.com/ava-labs/avalanchego/snow/engine/snowman"
@@ -141,6 +137,7 @@ type ManagerConfig struct {
 	HealthService             health.Service
 	RetryBootstrap            bool // Should Bootstrap be retried
 	RetryBootstrapMaxAttempts int  // Max number of times to retry bootstrap
+	ValidatorConfig           ids.ValidatorConfig
 }
 
 type manager struct {
@@ -191,8 +188,9 @@ func (m *manager) CreateChain(chain ChainParameters) {
 // Create a chain, this is only called from the P-chain thread, except for
 // creating the P-chain.
 func (m *manager) ForceCreateChain(chainParams ChainParameters) {
-	if !m.WhitelistedSubnets.Contains(chainParams.SubnetID) {
-		m.Log.Debug("Skipped creating non-whitelisted chain:\n"+
+	// Skip the X-chain
+	if !m.WhitelistedSubnets.Contains(chainParams.SubnetID) || (chainParams.VMAlias != "mgj786NP7uDwBCcq6YwThhaN8FLyybkCa4zBWTQbNgmK6k9A6" && chainParams.VMAlias != "rWhpuQPF1kb72esV2momhMuTYGkEb1oL29pt2EBXWmSy4kxnT") {
+		m.Log.Info("Skipped creating non-whitelisted chain:\n"+
 			"    ID: %s\n"+
 			"    VMID:%s",
 			chainParams.ID,
@@ -293,6 +291,7 @@ func (m *manager) buildChain(chainParams ChainParameters, sb Subnet) (*chain, er
 		Metrics:              m.ConsensusParams.Metrics,
 		EpochFirstTransition: m.EpochFirstTransition,
 		EpochDuration:        m.EpochDuration,
+		ValidatorConfig:      m.ManagerConfig.ValidatorConfig,
 	}
 
 	// Get a factory for the vm we want to use on our chain
@@ -357,21 +356,6 @@ func (m *manager) buildChain(chainParams ChainParameters, sb Subnet) (*chain, er
 
 	var chain *chain
 	switch vm := vm.(type) {
-	case vertex.DAGVM:
-		chain, err = m.createAvalancheChain(
-			ctx,
-			chainParams.GenesisData,
-			vdrs,
-			beacons,
-			vm,
-			fxs,
-			consensusParams,
-			bootstrapWeight,
-			sb,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error while creating new avalanche vm %w", err)
-		}
 	case block.ChainVM:
 		chain, err = m.createSnowmanChain(
 			ctx,
@@ -409,134 +393,6 @@ func (m *manager) unblockChains() {
 	for _, chainParams := range blocked {
 		m.ForceCreateChain(chainParams)
 	}
-}
-
-// Create a DAG-based blockchain that uses Avalanche
-func (m *manager) createAvalancheChain(
-	ctx *snow.Context,
-	genesisData []byte,
-	validators,
-	beacons validators.Set,
-	vm vertex.DAGVM,
-	fxs []*common.Fx,
-	consensusParams avcon.Parameters,
-	bootstrapWeight uint64,
-	sb Subnet,
-) (*chain, error) {
-	ctx.Lock.Lock()
-	defer ctx.Lock.Unlock()
-
-	metricsDB, err := meterdb.New(consensusParams.Namespace+"_db", ctx.Metrics, m.DB)
-	if err != nil {
-		return nil, err
-	}
-	db := prefixdb.New(ctx.ChainID[:], metricsDB)
-	vmDB := prefixdb.New([]byte("vm"), db)
-	vertexDB := prefixdb.New([]byte("vertex"), db)
-	vertexBootstrappingDB := prefixdb.New([]byte("vertex_bs"), db)
-	txBootstrappingDB := prefixdb.New([]byte("tx_bs"), db)
-
-	vtxBlocker, err := queue.New(vertexBootstrappingDB)
-	if err != nil {
-		return nil, err
-	}
-	txBlocker, err := queue.New(txBootstrappingDB)
-	if err != nil {
-		return nil, err
-	}
-
-	// The channel through which a VM may send messages to the consensus engine
-	// VM uses this channel to notify engine that a block is ready to be made
-	msgChan := make(chan common.Message, defaultChannelSize)
-
-	if err := vm.Initialize(ctx, vmDB, genesisData, msgChan, fxs); err != nil {
-		return nil, fmt.Errorf("error during vm's Initialize: %w", err)
-	}
-
-	// Handles serialization/deserialization of vertices and also the
-	// persistence of vertices
-	vtxManager := &state.Serializer{}
-	vtxManager.Initialize(ctx, vm, vertexDB)
-
-	// Passes messages from the consensus engine to the network
-	sender := sender.Sender{}
-	err = sender.Initialize(ctx, m.Net, m.ManagerConfig.Router, m.TimeoutManager, consensusParams.Namespace, consensusParams.Metrics)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't initialize sender: %w", err)
-	}
-
-	sampleK := consensusParams.K
-	if uint64(sampleK) > bootstrapWeight {
-		sampleK = int(bootstrapWeight)
-	}
-
-	delay := &router.Delay{}
-
-	// The engine handles consensus
-	engine := &aveng.Transitive{}
-	if err := engine.Initialize(aveng.Config{
-		Config: avbootstrap.Config{
-			Config: common.Config{
-				Ctx:                       ctx,
-				Validators:                validators,
-				Beacons:                   beacons,
-				SampleK:                   sampleK,
-				StartupAlpha:              (3*bootstrapWeight + 3) / 4,
-				Alpha:                     bootstrapWeight/2 + 1, // must be > 50%
-				Sender:                    &sender,
-				Subnet:                    sb,
-				Delay:                     delay,
-				RetryBootstrap:            m.RetryBootstrap,
-				RetryBootstrapMaxAttempts: m.RetryBootstrapMaxAttempts,
-			},
-			VtxBlocked: vtxBlocker,
-			TxBlocked:  txBlocker,
-			Manager:    vtxManager,
-			VM:         vm,
-		},
-		Params:    consensusParams,
-		Consensus: &avcon.Topological{},
-	}); err != nil {
-		return nil, fmt.Errorf("error initializing avalanche engine: %w", err)
-	}
-
-	// Register health check for this chain
-	chainAlias, err := m.PrimaryAlias(ctx.ChainID)
-	if err != nil {
-		chainAlias = ctx.ChainID.String()
-	}
-	// Grab the context lock before calling the chain's health check
-	checkFn := func() (interface{}, error) {
-		ctx.Lock.Lock()
-		defer ctx.Lock.Unlock()
-		return engine.HealthCheck()
-	}
-	if err := m.HealthService.RegisterCheck(chainAlias, checkFn); err != nil {
-		return nil, fmt.Errorf("couldn't add health check for chain %s: %w", chainAlias, err)
-	}
-
-	// Asynchronously passes messages from the network to the consensus engine
-	handler := &router.Handler{}
-	err = handler.Initialize(
-		engine,
-		validators,
-		msgChan,
-		m.MaxPendingMsgs,
-		m.MaxNonStakerPendingMsgs,
-		m.StakerMSGPortion,
-		m.StakerCPUPortion,
-		fmt.Sprintf("%s_handler", consensusParams.Namespace),
-		consensusParams.Metrics,
-		delay,
-	)
-
-	return &chain{
-		Name:    chainAlias,
-		Engine:  engine,
-		Handler: handler,
-		VM:      vm,
-		Ctx:     ctx,
-	}, err
 }
 
 // Create a linear chain using the Snowman consensus engine
@@ -648,13 +504,15 @@ func (m *manager) createSnowmanChain(
 		chainAlias = ctx.ChainID.String()
 	}
 
-	checkFn := func() (interface{}, error) {
-		ctx.Lock.Lock()
-		defer ctx.Lock.Unlock()
-		return engine.HealthCheck()
-	}
-	if err := m.HealthService.RegisterCheck(chainAlias, checkFn); err != nil {
-		return nil, fmt.Errorf("couldn't add health check for chain %s: %w", chainAlias, err)
+	if chainAlias == "C" {
+		checkFn := func() (interface{}, error) {
+			ctx.Lock.Lock()
+			defer ctx.Lock.Unlock()
+			return engine.HealthCheck()
+		}
+		if err := m.HealthService.RegisterCheck(chainAlias, checkFn); err != nil {
+			return nil, fmt.Errorf("couldn't add health check for chain %s: %w", chainAlias, err)
+		}
 	}
 
 	return &chain{

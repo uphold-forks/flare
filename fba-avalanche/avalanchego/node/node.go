@@ -49,14 +49,9 @@ import (
 	"github.com/ava-labs/avalanchego/utils/wrappers"
 	"github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms"
-	"github.com/ava-labs/avalanchego/vms/avm"
 	"github.com/ava-labs/avalanchego/vms/evm"
-	"github.com/ava-labs/avalanchego/vms/nftfx"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
-	"github.com/ava-labs/avalanchego/vms/propertyfx"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm"
-	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-	"github.com/ava-labs/avalanchego/vms/timestampvm"
 
 	ipcsapi "github.com/ava-labs/avalanchego/api/ipcs"
 )
@@ -574,12 +569,6 @@ func (n *Node) initAPIServer() error {
 func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 	n.vmManager = vms.NewManager(&n.APIServer, n.HTTPLog)
 
-	createAVMTx, err := genesis.VMGenesis(n.Config.GenesisBytes, avm.ID)
-	if err != nil {
-		return err
-	}
-	xChainID := createAVMTx.ID()
-
 	createEVMTx, err := genesis.VMGenesis(n.Config.GenesisBytes, evm.ID)
 	if err != nil {
 		return err
@@ -589,8 +578,6 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 	// If any of these chains die, the node shuts down
 	criticalChains := ids.Set{}
 	criticalChains.Add(
-		constants.PlatformChainID,
-		xChainID,
 		cChainID,
 	)
 
@@ -641,14 +628,15 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 		Server:                    &n.APIServer,
 		Keystore:                  n.keystore,
 		AtomicMemory:              &n.sharedMemory,
-		AVAXAssetID:               avaxAssetID,
-		XChainID:                  xChainID,
+		AVAXAssetID:               ids.ID{1},
+		XChainID:                  ids.ID{1},
 		CriticalChains:            criticalChains,
 		TimeoutManager:            timeoutManager,
 		HealthService:             n.healthService,
 		WhitelistedSubnets:        n.Config.WhitelistedSubnets,
 		RetryBootstrap:            n.Config.RetryBootstrap,
 		RetryBootstrapMaxAttempts: n.Config.RetryBootstrapMaxAttempts,
+		ValidatorConfig:           n.Config.ValidatorConfig,
 	})
 
 	vdrs := n.vdrs
@@ -679,18 +667,10 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 			StakeMintingPeriod: n.Config.StakeMintingPeriod,
 			ApricotPhase0Time:  GetApricotPhase0Time(n.Config.NetworkID),
 		}),
-		n.vmManager.RegisterVMFactory(avm.ID, &avm.Factory{
-			CreationFee: n.Config.CreationTxFee,
-			Fee:         n.Config.TxFee,
-		}),
 		n.vmManager.RegisterVMFactory(evm.ID, &rpcchainvm.Factory{
 			Path:   filepath.Join(n.Config.PluginDir, "evm"),
 			Config: n.Config.CorethConfig,
 		}),
-		n.vmManager.RegisterVMFactory(timestampvm.ID, &timestampvm.Factory{}),
-		n.vmManager.RegisterVMFactory(secp256k1fx.ID, &secp256k1fx.Factory{}),
-		n.vmManager.RegisterVMFactory(nftfx.ID, &nftfx.Factory{}),
-		n.vmManager.RegisterVMFactory(propertyfx.ID, &propertyfx.Factory{}),
 	)
 	if errs.Errored() {
 		return errs.Err
@@ -811,13 +791,9 @@ func (n *Node) initHealthAPI() error {
 	n.healthService = healthService
 
 	isBootstrappedFunc := func() (interface{}, error) {
-		if pChainID, err := n.chainManager.Lookup("P"); err != nil {
-			return nil, errors.New("P-Chain not created")
-		} else if xChainID, err := n.chainManager.Lookup("X"); err != nil {
-			return nil, errors.New("X-Chain not created")
-		} else if cChainID, err := n.chainManager.Lookup("C"); err != nil {
+		if cChainID, err := n.chainManager.Lookup("C"); err != nil {
 			return nil, errors.New("C-Chain not created")
-		} else if !n.chainManager.IsBootstrapped(pChainID) || !n.chainManager.IsBootstrapped(xChainID) || !n.chainManager.IsBootstrapped(cChainID) {
+		} else if !n.chainManager.IsBootstrapped(cChainID) {
 			return nil, errPrimarySubnetNotBootstrapped
 		}
 

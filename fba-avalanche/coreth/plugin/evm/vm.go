@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +71,8 @@ var (
 )
 
 var (
+	minBlockTime                 time.Duration
+	maxBlockTime                 time.Duration
 	lastAcceptedKey              = []byte("snowman_lastAccepted")
 	acceptedPrefix               = []byte("snowman_accepted")
 	historicalCanonicalRepairKey = []byte("chain_repaired_20210212")
@@ -76,8 +80,6 @@ var (
 )
 
 const (
-	minBlockTime = 2 * time.Second
-	maxBlockTime = 3 * time.Second
 	// maxFutureBlockTime should be smaller than the max allowed future time (15s) used
 	// in dummy consensus engine's verifyHeader
 	maxFutureBlockTime   = 10 * time.Second
@@ -123,6 +125,7 @@ var (
 	errInvalidMixDigest           = errors.New("invalid mix digest")
 	errInvalidExtDataHash         = errors.New("invalid extra data hash")
 	errHeaderExtraDataTooBig      = errors.New("header extra data too big")
+	errValidatorChangeTime        = errors.New("invalid validator change time")
 )
 
 // mayBuildBlockStatus denotes whether the engine should be notified
@@ -240,6 +243,9 @@ type VM struct {
 
 	fx          secp256k1fx.Fx
 	secpFactory crypto.FactorySECP256K1R
+
+	validatorChangeTime    uint64
+	validatorTimeBoundPath string
 }
 
 func (vm *VM) getAtomicTx(block *types.Block) (*Tx, error) {
@@ -293,6 +299,13 @@ func (vm *VM) Initialize(
 		return errUnsupportedFXs
 	}
 
+	validatorChangeTime, err := strconv.ParseUint(vm.CLIConfig.StateConnectorConfig[0], 10, 64)
+	if err != nil {
+		return errValidatorChangeTime
+	}
+	vm.validatorChangeTime = validatorChangeTime
+	vm.validatorTimeBoundPath = vm.CLIConfig.StateConnectorConfig[1]
+
 	vm.shutdownChan = make(chan struct{}, 1)
 	vm.ctx = ctx
 	vm.db = db
@@ -314,6 +327,14 @@ func (vm *VM) Initialize(
 		phase0BlockValidator.extDataHashes = fujiExtDataHashes
 	}
 
+	if g.Config.ChainID.Uint64() == uint64(20210406) {
+		minBlockTime = 0 * time.Millisecond
+		maxBlockTime = 100 * time.Millisecond
+	} else {
+		minBlockTime = 2 * time.Second
+		maxBlockTime = 3 * time.Second
+	}
+
 	// Allow ExtDataHashes to be garbage collected as soon as freed from block
 	// validator
 	fujiExtDataHashes = nil
@@ -324,6 +345,7 @@ func (vm *VM) Initialize(
 
 	config := eth.NewDefaultConfig()
 	config.Genesis = g
+	config.Genesis.Config.StateConnectorConfig = &vm.CLIConfig.StateConnectorConfig
 
 	// Set minimum gas price and launch goroutine to sleep until
 	// network upgrade when the gas price must be changed
@@ -377,7 +399,7 @@ func (vm *VM) Initialize(
 	initGenesis := lastAcceptedErr == database.ErrNotFound
 	chain := coreth.NewETHChain(&config, &nodecfg, vm.chaindb, vm.CLIConfig.EthBackendSettings(), initGenesis)
 	vm.chain = chain
-	vm.networkID = config.NetworkId
+	vm.networkID = g.Config.ChainID.Uint64()
 
 	// Kickoff gasPriceUpdate goroutine once the backend is initialized, if it
 	// exists
@@ -967,7 +989,19 @@ func (vm *VM) setLastAccepted(blk *Block) error {
 	if err != nil {
 		return err
 	}
-	return vm.chaindb.Put(lastAcceptedKey, b)
+	err = vm.chaindb.Put(lastAcceptedKey, b)
+	if err != nil {
+		return err
+	}
+	if blk.ethBlock.Time() >= vm.validatorChangeTime {
+		defer vm.Shutdown()
+		// Write vm.validatorChangeTime to ValidatorTimeBound
+		err := ioutil.WriteFile(vm.validatorTimeBoundPath, []byte(strconv.FormatUint(vm.validatorChangeTime, 10)), 0644)
+		if err != nil {
+			return nil
+		}
+	}
+	return nil
 }
 
 // awaitTxPoolStabilized waits for a txPoolHead channel event
