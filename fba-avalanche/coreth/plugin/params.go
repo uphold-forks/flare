@@ -28,10 +28,10 @@ func init() {
 		return
 	}
 
-	cliConfig.RPCGasCap = 2500000000  // 25000000 x 100
-	cliConfig.RPCTxFeeCap = 100       // 100 AVAX
-	cliConfig.APIMaxDuration = 0      // Default to no maximum API Call duration
-	cliConfig.MaxBlocksPerRequest = 0 // Default to no maximum on the number of blocks per getLogs request
+	cliConfig.RPCGasCap = 0
+	cliConfig.RPCTxFeeCap = 0
+	cliConfig.APIMaxDuration = 15000000000 // 15 seconds
+	cliConfig.MaxBlocksPerRequest = 100
 
 	if *config != "default" {
 		for i, value := range strings.Split(*config, " ") {
