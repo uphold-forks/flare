@@ -9,8 +9,8 @@ if [ -z ${XRP_APIs+x} ] || [ "$XRP_APIs" == "url1, url2, ..., urlN" ]; then echo
 if [[ $(go version) != *"go1.15.5"* ]]; then echo "Go version is not go1.15.5" && exit; fi
 XRP_APIs_JOINED="$(echo -e "${XRP_APIs}" | tr -d '[:space:]')"
 printf "\x1b[34mFlare Network 1-Node Smart Contract Dev Team Local Deployment\x1b[0m\n\n"
-AVALANCHEGO_VERSION=@v1.3.1
-CORETH_VERSION=@v0.4.1-rc.1
+AVALANCHEGO_VERSION=@v1.3.2
+CORETH_VERSION=@v0.4.2-rc.4
 
 EXEC_DIR=$(pwd)
 LOG_DIR=$(pwd)/logs

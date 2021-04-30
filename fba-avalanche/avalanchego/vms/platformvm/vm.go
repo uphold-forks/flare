@@ -90,6 +90,7 @@ var (
 
 	_ block.ChainVM        = &VM{}
 	_ validators.Connector = &VM{}
+	_ common.StaticVM      = &VM{}
 )
 
 // VM implements the snowman.ChainVM interface
@@ -386,10 +387,15 @@ func (vm *VM) createChain(tx *Tx) {
 		return
 	}
 	// The validators that compose the Subnet that validates this chain
-	_, subnetExists := vm.vdrMgr.GetValidators(unsignedTx.SubnetID)
+	validators, subnetExists := vm.vdrMgr.GetValidators(unsignedTx.SubnetID)
 	if !subnetExists {
 		vm.Ctx.Log.Error("blockchain %s validated by Subnet %s but couldn't get that Subnet. Blockchain not created",
 			tx.ID(), unsignedTx.SubnetID)
+		return
+	}
+	if vm.stakingEnabled && // Staking is enabled, so nodes might not validate all chains
+		constants.PrimaryNetworkID != unsignedTx.SubnetID && // All nodes must validate the primary network
+		!validators.Contains(vm.Ctx.NodeID) { // This node doesn't validate this blockchain
 		return
 	}
 
@@ -1098,6 +1104,10 @@ func (vm *VM) maxStakeAmount(db database.Database, subnetID ids.ID, nodeID ids.S
 		for len(toRemoveHeap) > 0 && !toRemoveHeap[0].EndTime().After(validator.StartTime()) {
 			toRemove := toRemoveHeap[0]
 			toRemoveHeap = toRemoveHeap[1:]
+
+			if currentWeight > maxWeight && !startTime.After(toRemove.EndTime()) {
+				maxWeight = currentWeight
+			}
 
 			newWeight, err := safemath.Sub64(currentWeight, toRemove.Wght)
 			if err != nil {

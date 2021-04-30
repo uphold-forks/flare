@@ -31,7 +31,6 @@ var (
 		StakeMintingPeriod:   365 * 24 * time.Hour,
 		EpochFirstTransition: time.Unix(10000000000, 0),
 		EpochDuration:        5 * time.Minute,
-		ApricotPhase0Time:    time.Unix(10000000000, 0),
 	}
 )
 
@@ -56,7 +55,7 @@ const (
 	    "nonce": "0x0",
 	    "timestamp": "0x0",
 	    "extraData": "0x00",
-	    "gasLimit": "0x5f5e100",
+	    "gasLimit": "0x68e7780",
 	    "difficulty": "0x0",
 	    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
 	    "coinbase": "0x0100000000000000000000000000000000000000",

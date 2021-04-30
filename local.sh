@@ -4,8 +4,8 @@ if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/go
 if [ -z ${XRP_APIs+x} ] || [ "$XRP_APIs" == "url1, url2, ..., urlN" ]; then echo "XRP_APIs is not set, please set it using the form: $ export XRP_APIs=\"url1, url2, ..., urlN\"" && exit; fi
 XRP_APIs_JOINED="$(echo -e "${XRP_APIs}" | tr -d '[:space:]')"
 printf "\x1b[34mFlare Network 4-Node Local Deployment\x1b[0m\n\n"
-AVALANCHEGO_VERSION=@v1.3.1
-CORETH_VERSION=@v0.4.1-rc.1
+AVALANCHEGO_VERSION=@v1.3.2
+CORETH_VERSION=@v0.4.2-rc.4
 
 EXEC_DIR=$(pwd)
 LOG_DIR=$(pwd)/logs
@@ -37,7 +37,7 @@ fi
 
 # NODE 1
 printf "Launching Node 1 at 127.0.0.1:9650\n"
-nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9650 --staking-port=9651 --db-dir=$(pwd)/db/node00/ --staking-enabled=true --network-id=coston --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt --staking-tls-key-file=$(pwd)/config/keys/node00/node.key --log-level=info --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9650 --staking-port=9651 --db-dir=$(pwd)/db/node00/ --staking-enabled=true --network-id=coston --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt --staking-tls-key-file=$(pwd)/config/keys/node00/node.key --log-level=debug --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
 NODE_00_PID=`cat $LOG_DIR/node00/launch.pid`
 sleep 5
 

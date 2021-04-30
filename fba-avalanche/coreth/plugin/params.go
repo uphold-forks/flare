@@ -28,8 +28,10 @@ func init() {
 		return
 	}
 
-	cliConfig.RPCGasCap = 2500000000 // 25000000 x 100
-	cliConfig.RPCTxFeeCap = 100      // 100 AVAX
+	cliConfig.RPCGasCap = 0
+	cliConfig.RPCTxFeeCap = 0
+	cliConfig.APIMaxDuration = 15000000000 // 15 seconds
+	cliConfig.MaxBlocksPerRequest = 100
 
 	if *config != "default" {
 		for i, value := range strings.Split(*config, " ") {
@@ -54,4 +56,5 @@ func init() {
 	} else {
 		cliConfig.ParsingError = fmt.Errorf("coreth cliConfig is not set.")
 	}
+
 }
