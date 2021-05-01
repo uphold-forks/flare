@@ -53,6 +53,7 @@ cd - &> /dev/null
     --staking-tls-cert-file=$(pwd)/config/keys/node04/node.crt  \
     --staking-tls-key-file=$(pwd)/config/keys/node04/node.key \
     --log-level=debug \
+    --log-dir=$LOG_DIR \
     --validators-file=$(pwd)/config/validators/coston/1619180000.json \
     --alert-apis=https://flare.network \
     --xrp-apis=$XRP_APIs_JOINED

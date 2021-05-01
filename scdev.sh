@@ -37,25 +37,25 @@ fi
 
 # NODE 1
 printf "Launching Node 1 at 127.0.0.1:9650\n"
-nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9660 --staking-port=9661 --db-dir=$(pwd)/db/node00/ --staking-enabled=true --network-id=scdev --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt --staking-tls-key-file=$(pwd)/config/keys/node00/node.key --log-level=debug --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED &> $LOG_DIR/node00/launch.out & echo $! > $LOG_DIR/node00/launch.pid
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9660 --staking-port=9661 --db-dir=$(pwd)/db/node00/ --staking-enabled=true --network-id=scdev --bootstrap-ips= --bootstrap-ids= --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt --staking-tls-key-file=$(pwd)/config/keys/node00/node.key --log-level=debug --log-dir=$LOG_DIR/node00 --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED &>> /dev/null & echo $! > $LOG_DIR/node00/launch.pid
 NODE_00_PID=`cat $LOG_DIR/node00/launch.pid`
 sleep 5
 
 # NODE 2
 printf "Launching Node 2 at 127.0.0.1:9652\n"
-nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9662 --staking-port=9663 --db-dir=$(pwd)/db/node01/ --staking-enabled=true --network-id=scdev --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/config/keys/node00/node.txt) --staking-tls-cert-file=$(pwd)/config/keys/node01/node.crt --staking-tls-key-file=$(pwd)/config/keys/node01/node.key --log-level=debug --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED --coreth-config="api-disabled" &> $LOG_DIR/node01/launch.out & echo $! > $LOG_DIR/node01/launch.pid
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9662 --staking-port=9663 --db-dir=$(pwd)/db/node01/ --staking-enabled=true --network-id=scdev --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/config/keys/node00/node.txt) --staking-tls-cert-file=$(pwd)/config/keys/node01/node.crt --staking-tls-key-file=$(pwd)/config/keys/node01/node.key --log-level=debug --log-dir=$LOG_DIR/node01 --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED --coreth-config="api-disabled" &>> /dev/null & echo $! > $LOG_DIR/node01/launch.pid
 NODE_01_PID=`cat $LOG_DIR/node01/launch.pid`
 sleep 5
 
 # NODE 3
 printf "Launching Node 3 at 127.0.0.1:9654\n"
-nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9664 --staking-port=9665 --db-dir=$(pwd)/db/node02/ --staking-enabled=true --network-id=scdev --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/config/keys/node00/node.txt) --staking-tls-cert-file=$(pwd)/config/keys/node02/node.crt --staking-tls-key-file=$(pwd)/config/keys/node02/node.key --log-level=debug --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED --coreth-config="api-disabled" &> $LOG_DIR/node02/launch.out & echo $! > $LOG_DIR/node02/launch.pid
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9664 --staking-port=9665 --db-dir=$(pwd)/db/node02/ --staking-enabled=true --network-id=scdev --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/config/keys/node00/node.txt) --staking-tls-cert-file=$(pwd)/config/keys/node02/node.crt --staking-tls-key-file=$(pwd)/config/keys/node02/node.key --log-level=debug --log-dir=$LOG_DIR/node02 --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED --coreth-config="api-disabled" &>> /dev/null & echo $! > $LOG_DIR/node02/launch.pid
 NODE_02_PID=`cat $LOG_DIR/node02/launch.pid`
 sleep 5
 
 # NODE 4
 printf "Launching Node 4 at 127.0.0.1:9656\n"
-nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9666 --staking-port=9667 --db-dir=$(pwd)/db/node03/ --staking-enabled=true --network-id=scdev --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/config/keys/node00/node.txt) --staking-tls-cert-file=$(pwd)/config/keys/node03/node.crt --staking-tls-key-file=$(pwd)/config/keys/node03/node.key --log-level=debug --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED --coreth-config="api-disabled" &> $LOG_DIR/node03/launch.out & echo $! > $LOG_DIR/node03/launch.pid
+nohup ./build/avalanchego --public-ip=127.0.0.1 --snow-sample-size=2 --snow-quorum-size=2 --http-port=9666 --staking-port=9667 --db-dir=$(pwd)/db/node03/ --staking-enabled=true --network-id=scdev --bootstrap-ips=127.0.0.1:9651 --bootstrap-ids=$(cat $(pwd)/config/keys/node00/node.txt) --staking-tls-cert-file=$(pwd)/config/keys/node03/node.crt --staking-tls-key-file=$(pwd)/config/keys/node03/node.key --log-level=debug --log-dir=$LOG_DIR/node03 --validators-file=$(pwd)/config/validators/local/1619186000.json --alert-apis="https://flare.network" --xrp-apis=$XRP_APIs_JOINED --coreth-config="api-disabled" &>> /dev/null & echo $! > $LOG_DIR/node03/launch.pid
 NODE_03_PID=`cat $LOG_DIR/node03/launch.pid`
 sleep 5
 

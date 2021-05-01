@@ -58,6 +58,7 @@ printf "Launching Node 1 at 127.0.0.1:9670\n"
     --staking-tls-cert-file=$(pwd)/config/keys/node00/node.crt \
     --staking-tls-key-file=$(pwd)/config/keys/node00/node.key \
     --log-level=debug \
+    --log-dir=$LOG_DIR/node00 \
     --validators-file=$(pwd)/config/validators/ftsomvp/1619370000.json \
     --alert-apis="https://flare.network" \
-    --xrp-apis=$XRP_APIs_JOINED > $LOG_DIR/node00/launch.out
+    --xrp-apis=$XRP_APIs_JOINED &>> /dev/null
