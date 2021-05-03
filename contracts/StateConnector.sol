@@ -122,6 +122,7 @@ contract StateConnector {
         require(block.timestamp - rewardScheduleLastUpdated > 604800, 'block.timestamp - rewardScheduleLastUpdated <= 604800, i.e. 1 week');
         require(currentRewardSchedule < 2**256-1, 'currentRewardSchedule >= 2**256-1');
         currentRewardSchedule = currentRewardSchedule + 1;
+        rewardScheduleLastUpdated = block.timestamp;
     }
 
     function getLatestIndex(uint32 chainId) external view chainExists(chainId) returns (uint64 genesisLedger, uint64 finalisedClaimPeriodIndex, uint16 claimPeriodLength, uint64 finalisedLedgerIndex, uint256 finalisedTimestamp, uint256 timeDiffAvg) {
