@@ -154,10 +154,6 @@ func init() {
 	c := linearcodec.NewDefault()
 
 	errs := wrappers.Errs{}
-	errs.Add(
-		c.RegisterType(&UnsignedImportTx{}),
-		c.RegisterType(&UnsignedExportTx{}),
-	)
 	c.SkipRegistrations(3)
 	errs.Add(
 		c.RegisterType(&secp256k1fx.TransferInput{}),

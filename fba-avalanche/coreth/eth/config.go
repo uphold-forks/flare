@@ -84,8 +84,8 @@ func NewDefaultConfig() Config {
 		TrieTimeout:             60 * time.Minute,
 		// SnapshotCache:           102,
 		Miner: miner.Config{
-			GasFloor:              8000000,
-			GasCeil:               8000000,
+			GasFloor:              110000000,
+			GasCeil:               110000000,
 			ApricotPhase1GasLimit: params.ApricotPhase1GasLimit,
 			GasPrice:              big.NewInt(params.GWei),
 			Recommit:              3 * time.Second,
