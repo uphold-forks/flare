@@ -775,18 +775,24 @@ func setNodeConfig(v *viper.Viper) error {
 		return fmt.Errorf("cannot read from validatorsFilePath")
 	}
 	var validators ids.ValidatorConfig
+	var evmAddresses string
 	json.Unmarshal(validatorsFile, &validators)
 	if string(validatorTimeBound) != "0" && string(validatorTimeBound) != strconv.FormatUint(validators.StartTime, 10) {
 		return fmt.Errorf("validators.StartTime != validatorTimeBound, check validator config")
 	}
 	for i, validator := range validators.Validators {
+		evmAddresses = evmAddresses + validator.Origin + validator.EvmAddress
+		if i != len(validators.Validators)-1 {
+			evmAddresses = evmAddresses + ","
+		}
 		validators.Validators[i].ShortNodeID, err = ids.ShortFromPrefixedString(validator.NodeID, constants.NodeIDPrefix)
 		if err != nil {
 			return fmt.Errorf("couldn't parse validator NodeID: %w", err)
 		}
 	}
+
 	Config.ValidatorConfig = validators
-	Config.CorethConfig = corethAPIstate + " " + strconv.FormatUint(validators.StartTime+validators.IntervalTime, 10) + " " + validatorTimeBoundPath + " " + alertAPIsString + " " + xrpAPIsString
+	Config.CorethConfig = corethAPIstate + " " + strconv.FormatUint(validators.StartTime+validators.IntervalTime, 10) + " " + validatorTimeBoundPath + " " + alertAPIsString + " " + evmAddresses + " " + xrpAPIsString
 	return nil
 }
 
