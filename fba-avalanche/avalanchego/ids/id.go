@@ -35,6 +35,8 @@ type ValidatorConfig struct {
 
 type Validator struct {
 	NodeID      string `json:"nodeID"`
+	EvmAddress  string `json:"evmAddress"`
+	Origin      string `json:"origin"`
 	Weighting   int    `json:"weighting"`
 	ShortNodeID ShortID
 }

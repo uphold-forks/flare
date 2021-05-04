@@ -6,10 +6,12 @@ contract StateConnector {
 //====================================================================
 // Data Structures
 //====================================================================
-    
+
     address private governanceContract;
     bool private initialised;
     uint32 private numChains;
+    uint256 private currentRewardSchedule;
+    uint256 private rewardScheduleLastUpdated;
 
     struct Chain {
         bool        exists;
@@ -36,8 +38,10 @@ contract StateConnector {
     // Finalised payment hashes
     mapping(uint32 => mapping(bytes32 => HashExists)) private finalisedPayments;
     // Mapping of how many claim periods an address has successfully mined
-    mapping(address => uint64) private claimPeriodsMined;
-    
+    mapping(address => mapping(uint256 => uint64)) private claimPeriodsMined;
+    // Accounts that the governance contract voted to block from submitting proofs
+    mapping(address => bool) private governanceBlockedAccounts;
+
 //====================================================================
 // Constructor for pre-compiled code
 //====================================================================
@@ -55,11 +59,18 @@ contract StateConnector {
         _;
     }
 
+    modifier senderNotGovernanceBlocked() {
+        require(!governanceBlockedAccounts[msg.sender], 'this account is governance blocked');
+        _;
+    }
+
     function initialiseChains() public returns (bool success) {
         require(!initialised, 'initialised != false');
         governanceContract = 0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7;
         chains[0] = Chain(true, 62880000, 30, 0, 0, 62880000, block.timestamp, 120, 0); //XRP
         numChains = 1;
+        currentRewardSchedule = 0;
+        rewardScheduleLastUpdated = block.timestamp;
         initialised = true;
         return true;
     }
@@ -104,8 +115,31 @@ contract StateConnector {
         chains[chainId].timeDiffExpected = timeDiffExpected;
     }
 
-    function getClaimPeriodsMined(address miner) external view returns (uint64 numMined) {
-        return claimPeriodsMined[miner];
+    function getClaimPeriodsMined(address miner, uint256 rewardSchedule) external view returns (uint64 numMined) {
+        require(rewardSchedule <= currentRewardSchedule, 'rewardSchedule > currentRewardSchedule');
+        return claimPeriodsMined[miner][rewardSchedule];
+    }
+
+    function getRewardSchedule() external view returns (uint256 rewardSchedule) {
+        return currentRewardSchedule;
+    }
+
+    function bumpRewardSchedule() external onlyGovernance {
+        require(block.timestamp > rewardScheduleLastUpdated, 'block.timestamp <= rewardScheduleLastUpdated');
+        require(block.timestamp - rewardScheduleLastUpdated > 604800, 'block.timestamp - rewardScheduleLastUpdated <= 604800, i.e. 1 week');
+        require(currentRewardSchedule < 2**256-1, 'currentRewardSchedule >= 2**256-1');
+        currentRewardSchedule = currentRewardSchedule + 1;
+        rewardScheduleLastUpdated = block.timestamp;
+    }
+
+    function blockAddress(address blockedAddress) external onlyGovernance {
+        require(blockedAddress != governanceContract, 'blockedAddress == governanceContract');
+        governanceBlockedAccounts[blockedAddress] = true;
+    }
+
+    function unblockAddress(address blockedAddress) external onlyGovernance {
+        require(governanceBlockedAccounts[blockedAddress], '!governanceBlockedAccounts[blockedAddress]');
+        governanceBlockedAccounts[blockedAddress] = false;
     }
 
     function getLatestIndex(uint32 chainId) external view chainExists(chainId) returns (uint64 genesisLedger, uint64 finalisedClaimPeriodIndex, uint16 claimPeriodLength, uint64 finalisedLedgerIndex, uint256 finalisedTimestamp, uint256 timeDiffAvg) {
@@ -117,7 +151,7 @@ contract StateConnector {
         return (finalisedClaimPeriods[locationHash].exists);
     }
 
-    function proveClaimPeriodFinality(uint32 chainId, uint64 ledger, uint64 claimPeriodIndex, bytes32 claimPeriodHash) external chainExists(chainId) returns (uint32 _chainId, uint64 _ledger, uint16 _numConfirmations, bytes32 _claimPeriodHash) {
+    function proveClaimPeriodFinality(uint32 chainId, uint64 ledger, uint64 claimPeriodIndex, bytes32 claimPeriodHash) external chainExists(chainId) senderNotGovernanceBlocked returns (uint32 _chainId, uint64 _ledger, uint16 _numConfirmations, bytes32 _claimPeriodHash) {
         require(ledger == chains[chainId].finalisedLedgerIndex + chains[chainId].claimPeriodLength, 'invalid ledger');
         require(claimPeriodIndex == chains[chainId].finalisedClaimPeriodIndex, 'invalid claimPeriodIndex');
         require(block.timestamp > chains[chainId].finalisedTimestamp, 'block.timestamp <= chains[chainId].finalisedTimestamp');
@@ -135,7 +169,7 @@ contract StateConnector {
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
-            claimPeriodsMined[msg.sender] = claimPeriodsMined[msg.sender] + 1;
+            claimPeriodsMined[msg.sender][currentRewardSchedule] = claimPeriodsMined[msg.sender][currentRewardSchedule] + 1;
             finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash, block.timestamp);
             chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             chains[chainId].finalisedLedgerIndex = ledger;

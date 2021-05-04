@@ -266,7 +266,7 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		}
 		if jsonResp["result"].TransactionType == "Payment" {
 			amountType := reflect.TypeOf(jsonResp["result"].Amount)
-			if amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && uint64(jsonResp["result"].InLedger) < latestAvailableLedger && jsonResp["result"].Validated == true {
+			if amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && uint64(jsonResp["result"].InLedger) < latestAvailableLedger && jsonResp["result"].Validated {
 				txIdHash := crypto.Keccak256([]byte(jsonResp["result"].Hash))
 				ledgerHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].InLedger))), 32))
 				sourceHash := crypto.Keccak256([]byte(jsonResp["result"].Account))
@@ -299,29 +299,36 @@ func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 	return false, true
 }
 
-func ProveXRP(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
+func ProveXRP(sender common.Address, blockNumber *big.Int, functionSelector []byte, checkRet []byte, evmAddresses string, chainURL string) (bool, bool) {
 	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
-		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
+		for _, evmAddress := range strings.Split(evmAddresses, ",") {
+			if len(evmAddress) == 45 {
+				if evmAddress[:3] == "xrp" && common.HexToAddress(evmAddress[3:]) == sender {
+					return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
+				}
+			}
+		}
+		return false, false
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
 		return ProvePaymentFinalityXRP(checkRet, chainURL)
 	}
-	return false, true
+	return false, false
 }
 
 // =======================================================
 // Common
 // =======================================================
 
-func ProveChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainId uint32, chainURL string) (bool, bool) {
+func ProveChain(sender common.Address, blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainId uint32, evmAddresses string, chainURL string) (bool, bool) {
 	switch chainId {
 	case 0:
-		return ProveXRP(blockNumber, functionSelector, checkRet, chainURL)
+		return ProveXRP(sender, blockNumber, functionSelector, checkRet, evmAddresses, chainURL)
 	default:
 		return false, true
 	}
 }
 
-func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, alertURLs string, chainURLs []string) bool {
+func ReadChain(sender common.Address, blockNumber *big.Int, functionSelector []byte, checkRet []byte, alertURLs string, evmAddresses string, chainURLs []string) bool {
 	chainId := binary.BigEndian.Uint32(checkRet[28:32])
 	if uint32(len(chainURLs)) <= chainId {
 		// This is already checked at avalanchego/main/params.go on launch, but a fail-safe
@@ -331,7 +338,7 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, a
 	for {
 		for _, chainURL := range strings.Split(chainURLs[chainId], ",") {
 			if chainURL != "" {
-				verified, err := ProveChain(blockNumber, functionSelector, checkRet, chainId, chainURL)
+				verified, err := ProveChain(sender, blockNumber, functionSelector, checkRet, chainId, evmAddresses, chainURL)
 				if !verified && err {
 					continue
 				} else {
@@ -345,6 +352,6 @@ func ReadChain(blockNumber *big.Int, functionSelector []byte, checkRet []byte, a
 }
 
 // Verify proof against underlying chain
-func StateConnectorCall(blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) bool {
-	return ReadChain(blockNumber, functionSelector, checkRet, stateConnectorConfig[2], stateConnectorConfig[3:])
+func StateConnectorCall(sender common.Address, blockNumber *big.Int, functionSelector []byte, checkRet []byte, stateConnectorConfig []string) bool {
+	return ReadChain(sender, blockNumber, functionSelector, checkRet, stateConnectorConfig[2], stateConnectorConfig[3], stateConnectorConfig[4:])
 }
