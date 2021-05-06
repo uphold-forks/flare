@@ -123,16 +123,16 @@ async function run(chainId) {
 								'destinationTag: \t', destinationTag, '\n',
 								'amount: \t\t', amount, '\n');
 							const txIdHash = web3.utils.soliditySha3(tx.id);
-							const ledgerHash = web3.utils.soliditySha3(tx.outcome.ledgerVersion);
+							// const ledgerHash = web3.utils.soliditySha3(tx.outcome.ledgerVersion);
 							const sourceHash = web3.utils.soliditySha3(tx.specification.source.address);
 							const destinationHash = web3.utils.soliditySha3(tx.specification.destination.address);
 							const destinationTagHash = web3.utils.soliditySha3(destinationTag);
 							const amountHash = web3.utils.soliditySha3(amount);
-							const paymentHash = web3.utils.soliditySha3(txIdHash, ledgerHash, sourceHash, destinationHash, destinationTagHash, amountHash);
+							const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash);
 							const leaf = {
 								"chainId": 				'0',
 								"txId": 				tx.id,
-								"ledger": 				parseInt(tx.outcome.ledgerVersion),
+								"ledger":				parseInt(tx.outcome.ledgerVersion),
 								"source": 				sourceHash,
 								"destination": 			destinationHash,
 								"destinationTag": 		destinationTag,
@@ -146,7 +146,7 @@ async function run(chainId) {
 								stateConnector.methods.getPaymentFinality(
 												leaf.chainId,
 												web3.utils.soliditySha3(leaf.txId),
-												leaf.ledger,
+												// leaf.ledger,
 												leaf.source,
 												leaf.destination,
 												leaf.destinationTag,
@@ -189,9 +189,8 @@ async function provePaymentFinality(claimPeriodIndex, claimPeriodHash, leaf) {
 	.then(nonce => {
 		return [stateConnector.methods.provePaymentFinality(
 					leaf.chainId,
-					claimPeriodIndex,
-					claimPeriodHash,
 					leaf.paymentHash,
+					leaf.ledger,
 					leaf.txId).encodeABI(), nonce];
 	})
 	.then(txData => {
