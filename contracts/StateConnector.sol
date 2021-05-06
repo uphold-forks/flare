@@ -89,16 +89,11 @@ contract StateConnector {
         governanceContract = _governanceContract;
     }
 
-    function addChain(uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance returns (uint32 currNumChains) {
+    function addChain(uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance {
         require(!chains[numChains].exists, 'chainId already exists'); // Can happen if numChains is overflowed
         require(claimPeriodLength > 0, 'claimPeriodLength == 0');
-        require(block.coinbase == governanceContract || block.coinbase == address(0x0100000000000000000000000000000000000000), 'Invalid block.coinbase value');
-        uint32 _currNumChains = numChains;
-        if (block.coinbase == governanceContract && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
-            chains[numChains] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
-            numChains = numChains+1;
-        }
-        return _currNumChains;
+        chains[numChains] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
+        numChains = numChains+1;
     }
 
     // Solution if an underlying chain loses liveness is to disable that chain temporarily
@@ -217,9 +212,8 @@ contract StateConnector {
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
 
-    function getPaymentFinality(uint32 chainId, bytes32 txId, uint64 ledger, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) external view chainExists(chainId) returns (bool finality) {
+    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) external view chainExists(chainId) returns (uint64 ledger, bool finality) {
         require(finalisedPayments[chainId][txId].exists, 'txId does not exist');
-        require(ledger < chains[chainId].finalisedLedgerIndex, 'ledger >= chains[chainId].finalisedLedgerIndex');
         bytes32 paymentHash = keccak256(abi.encodePacked(
         							txId,
         							sourceHash,
@@ -227,6 +221,6 @@ contract StateConnector {
         							keccak256(abi.encode(destinationTag)),
         							keccak256(abi.encode(amount))));
     	require(finalisedPayments[chainId][txId].hashBytes == paymentHash, 'invalid paymentHash');
-    	return true;
+    	return (finalisedPayments[chainId][txId].index, finalisedPayments[chainId][txId].proven);
     }
 }
