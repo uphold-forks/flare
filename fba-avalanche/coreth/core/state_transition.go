@@ -275,7 +275,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		selectDisprovePaymentFinality = bytes.Equal(st.data[0:4], GetDisprovePaymentFinalitySelector(st.evm.Context.BlockNumber))
 	}
 
-	if selectClaimPeriodFinality || selectProvePaymentFinality {
+	if selectClaimPeriodFinality || selectProvePaymentFinality || selectDisprovePaymentFinality {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
