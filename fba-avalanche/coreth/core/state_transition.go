@@ -262,48 +262,34 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		return nil, ErrInsufficientFundsForTransfer
 	}
 	var (
-		ret                       []byte
-		vmerr                     error // vm errors do not effect consensus and are therefore not assigned to err
-		selectClaimPeriodFinality bool
-		selectPaymentFinality     bool
-		selectAddChain            bool
+		ret                           []byte
+		vmerr                         error // vm errors do not effect consensus and are therefore not assigned to err
+		selectClaimPeriodFinality     bool
+		selectProvePaymentFinality    bool
+		selectDisprovePaymentFinality bool
 	)
 
 	if !contractCreation && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) {
 		selectClaimPeriodFinality = bytes.Equal(st.data[0:4], GetProveClaimPeriodFinalitySelector(st.evm.Context.BlockNumber))
-		selectPaymentFinality = bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber))
-		selectAddChain = bytes.Equal(st.data[0:4], GetAddChainSelector(st.evm.Context.BlockNumber))
+		selectProvePaymentFinality = bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber))
+		selectDisprovePaymentFinality = bytes.Equal(st.data[0:4], GetDisprovePaymentFinalitySelector(st.evm.Context.BlockNumber))
 	}
 
-	if selectClaimPeriodFinality || selectPaymentFinality || selectAddChain {
-		if selectClaimPeriodFinality || selectPaymentFinality {
-			// Increment the nonce for the next transaction
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-			checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-			if checkVmerr == nil && (selectPaymentFinality || st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.BlockNumber)) >= 0) {
-				chainConfig := st.evm.ChainConfig()
-				if StateConnectorCall(msg.From(), st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) {
-					originalCoinbase := st.evm.Context.Coinbase
-					defer func() {
-						st.evm.Context.Coinbase = originalCoinbase
-					}()
-					st.evm.Context.Coinbase = st.msg.From()
-				}
+	if selectClaimPeriodFinality || selectProvePaymentFinality || selectDisprovePaymentFinality {
+		// Increment the nonce for the next transaction
+		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		if checkVmerr == nil && (selectProvePaymentFinality || selectDisprovePaymentFinality || st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.BlockNumber)) >= 0) && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
+			chainConfig := st.evm.ChainConfig()
+			if StateConnectorCall(msg.From(), st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) {
+				originalCoinbase := st.evm.Context.Coinbase
+				defer func() {
+					st.evm.Context.Coinbase = originalCoinbase
+				}()
+				st.evm.Context.Coinbase = st.msg.From()
 			}
-			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-		} else if selectAddChain {
-			checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-			if checkVmerr == nil {
-				if binary.BigEndian.Uint32(checkRet[28:32])+1 <= GetMaxAllowedChains(st.evm.Context.BlockNumber) {
-					originalCoinbase := st.evm.Context.Coinbase
-					defer func() {
-						st.evm.Context.Coinbase = originalCoinbase
-					}()
-					st.evm.Context.Coinbase = common.HexToAddress(GetGovernanceContractAddr(st.evm.Context.BlockNumber))
-				}
-			}
-			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		}
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	} else {
 		if contractCreation {
 			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)

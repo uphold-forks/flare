@@ -81,6 +81,12 @@ Once the first data availability proof has been finalised, you can then submit a
 node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
+One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example:
+
+```
+node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 62880001
+```
+
 ## Connect a Node to the Coston Testnet
 
 To run your own Flare node and peer it with the Coston testnet launch the following command after stopping all other instances of the Flare node on your machine:
