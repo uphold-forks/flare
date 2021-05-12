@@ -28,9 +28,9 @@ func init() {
 		return
 	}
 
-	cliConfig.RPCGasCap = 0
-	cliConfig.RPCTxFeeCap = 0
-	cliConfig.APIMaxDuration = 15000000000 // 15 seconds
+	cliConfig.RPCGasCap = 2500000000
+	cliConfig.RPCTxFeeCap = 100
+	cliConfig.APIMaxDuration = 7000000000 // 7 seconds
 	cliConfig.MaxBlocksPerRequest = 100
 
 	if *config != "default" {

@@ -154,10 +154,10 @@ async function run(chainId) {
 												gasPrice: config.flare.gasPrice
 											}).catch(() => {
 											})
-											.then(result => {
-												if (typeof result != "undefined") {
-													if ("finality" in result) {
-														if (result.finality == true) {
+											.then(paymentResult => {
+												if (typeof paymentResult != "undefined") {
+													if ("finality" in paymentResult) {
+														if (paymentResult.finality == true) {
 															return xrplProofProcessingCompleted('Payment already proven.');
 														} else {
 															return xrplProcessLedger(parseInt(result.genesisLedger) + parseInt((parseInt(tx.outcome.ledgerVersion) - parseInt(result.genesisLedger)) / parseInt(result.claimPeriodLength)) * parseInt(result.claimPeriodLength) + parseInt(result.claimPeriodLength) - 1, leaf);
