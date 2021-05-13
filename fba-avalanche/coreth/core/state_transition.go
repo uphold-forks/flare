@@ -304,9 +304,11 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	if vmerr == nil {
 		systemTriggerContract := common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))
-		_, _, triggerErr := st.evm.Call(vm.AccountRef(systemTriggerContract), systemTriggerContract, GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
-		if triggerErr != nil {
-			// Errors were not properly handled in try/catch statements in the trigger contracts
+		triggerRet, _, triggerErr := st.evm.Call(vm.AccountRef(systemTriggerContract), systemTriggerContract, GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
+		if triggerErr == nil && triggerRet != nil {
+			if binary.BigEndian.Uint64(triggerRet[24:32]) > 0 {
+				st.state.AddBalance(common.HexToAddress(GetInflationContractAddr(st.evm.Context.BlockNumber)), new(big.Int).SetUint64(binary.BigEndian.Uint64(triggerRet[24:32])))
+			}
 		}
 	}
 	return &ExecutionResult{

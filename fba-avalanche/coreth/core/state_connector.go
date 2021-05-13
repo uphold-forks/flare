@@ -53,6 +53,13 @@ func GetSystemTriggerContractAddr(blockNumber *big.Int) string {
 	}
 }
 
+func GetInflationContractAddr(blockNumber *big.Int) string {
+	switch {
+	default:
+		return GetSystemTriggerContractAddr(blockNumber)
+	}
+}
+
 func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) []byte {
 	switch {
 	default:
