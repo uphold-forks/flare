@@ -246,10 +246,16 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 		}
 		respErrString := checkErrorResp["result"].Error
 		if respErrString != "" {
-			if respErrString == "txnNotFound" {
-				return []byte{}, 0, false
-			} else {
+			if respErrString == "amendmentBlocked" ||
+				respErrString == "failedToForward" ||
+				respErrString == "invalid_API_version" ||
+				respErrString == "noClosed" ||
+				respErrString == "noCurrent" ||
+				respErrString == "noNetwork" ||
+				respErrString == "tooBusy" {
 				return []byte{}, 0, true
+			} else {
+				return []byte{}, 0, false
 			}
 		}
 		var jsonResp map[string]GetXRPTxResponse
