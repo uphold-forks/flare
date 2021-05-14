@@ -278,7 +278,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if selectClaimPeriodFinality || selectProvePaymentFinality || selectDisprovePaymentFinality {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.BlockNumber), st.value)
 		if checkVmerr == nil && (selectProvePaymentFinality || selectDisprovePaymentFinality || st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.BlockNumber)) >= 0) && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
 			chainConfig := st.evm.ChainConfig()
 			if StateConnectorCall(msg.From(), st.evm.Context.BlockNumber, st.data[0:4], checkRet, *chainConfig.StateConnectorConfig) {
@@ -289,7 +289,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				st.evm.Context.Coinbase = st.msg.From()
 			}
 		}
-		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.BlockNumber), st.value)
 	} else {
 		if contractCreation {
 			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
@@ -304,7 +304,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	if vmerr == nil {
 		systemTriggerContract := common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))
-		triggerRet, _, triggerErr := st.evm.Call(vm.AccountRef(systemTriggerContract), systemTriggerContract, GetSystemTriggerSelector(st.evm.Context.BlockNumber), ^uint64(0), big.NewInt(0))
+		triggerRet, _, triggerErr := st.evm.Call(vm.AccountRef(systemTriggerContract), systemTriggerContract, GetSystemTriggerSelector(st.evm.Context.BlockNumber), GetKeeperGasMultiplier(st.evm.Context.BlockNumber)*st.evm.Context.GasLimit, big.NewInt(0))
 		if triggerErr == nil && triggerRet != nil {
 			if binary.BigEndian.Uint64(triggerRet[24:32]) > 0 {
 				st.state.AddBalance(common.HexToAddress(GetInflationContractAddr(st.evm.Context.BlockNumber)), new(big.Int).SetUint64(binary.BigEndian.Uint64(triggerRet[24:32])))

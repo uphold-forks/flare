@@ -25,6 +25,20 @@ func GetMinReserve(blockNumber *big.Int) *big.Int {
 	}
 }
 
+func GetStateConnectorGasDivisor(blockNumber *big.Int) uint64 {
+	switch {
+	default:
+		return 100
+	}
+}
+
+func GetKeeperGasMultiplier(blockNumber *big.Int) uint64 {
+	switch {
+	default:
+		return 100
+	}
+}
+
 func GetMaxAllowedChains(blockNumber *big.Int) uint32 {
 	switch {
 	default:
