@@ -16,6 +16,7 @@ contract StateConnector {
     struct Chain {
         bool        exists;
         uint64      genesisLedger;
+        uint64      ledgerHistorySize; // Range of ledgers below finalisedLedgerIndex that can searched when proving a payment
         uint16      claimPeriodLength; // Number of ledgers in a claim period
         uint16      numConfirmations; // Number of confirmations required to consider this claim period finalised
         uint64      finalisedClaimPeriodIndex;
@@ -29,6 +30,7 @@ contract StateConnector {
         bool        exists;
         bytes32     hashBytes;
         uint64      index;
+        uint64      indexSearchRegion;
         bool        proven;
     }
 
@@ -68,7 +70,7 @@ contract StateConnector {
     function initialiseChains() public returns (bool success) {
         require(!initialised, 'initialised != false');
         governanceContract = 0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7;
-        chains[0] = Chain(true, 62880000, 30, 0, 0, 62880000, block.timestamp, 120, 0); //XRP
+        chains[0] = Chain(true, 62880000, 0, 30, 0, 0, 62880000, block.timestamp, 120, 0); //XRP
         numChains = 1;
         currentRewardSchedule = 0;
         rewardScheduleLastUpdated = block.timestamp;
@@ -89,10 +91,10 @@ contract StateConnector {
         governanceContract = _governanceContract;
     }
 
-    function addChain(uint64 genesisLedger, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance {
+    function addChain(uint64 genesisLedger, uint64 ledgerHistorySize, uint16 claimPeriodLength, uint16 numConfirmations, uint256 timeDiffExpected) external onlyGovernance {
         require(!chains[numChains].exists, 'chainId already exists'); // Can happen if numChains is overflowed
         require(claimPeriodLength > 0, 'claimPeriodLength == 0');
-        chains[numChains] = Chain(true, genesisLedger, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
+        chains[numChains] = Chain(true, genesisLedger, ledgerHistorySize, claimPeriodLength, numConfirmations, 0, genesisLedger, block.timestamp, timeDiffExpected, 0);
         numChains = numChains+1;
     }
 
@@ -107,7 +109,8 @@ contract StateConnector {
         chains[chainId].exists = true;
     }
 
-    function updateChainTiming(uint32 chainId, uint256 timeDiffExpected) external onlyGovernance chainExists(chainId) {
+    function updateChainTiming(uint32 chainId, uint64 ledgerHistorySize, uint256 timeDiffExpected) external onlyGovernance chainExists(chainId) {
+        chains[chainId].ledgerHistorySize = ledgerHistorySize;
         chains[chainId].timeDiffExpected = timeDiffExpected;
     }
 
@@ -166,7 +169,7 @@ contract StateConnector {
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
             claimPeriodsMined[msg.sender][currentRewardSchedule] = claimPeriodsMined[msg.sender][currentRewardSchedule]+1;
-            finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash, ledger, true);
+            finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash, ledger, 0, true);
             chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             chains[chainId].finalisedLedgerIndex = ledger;
             uint256 timeDiffAvgUpdate = (chains[chainId].timeDiffAvg + (block.timestamp-chains[chainId].finalisedTimestamp))/2;
@@ -192,9 +195,15 @@ contract StateConnector {
         bytes32 txIdHash = keccak256(abi.encodePacked(txId));
         require(!finalisedPayments[chainId][txIdHash].proven, 'txId already proven');
         require(ledger < chains[chainId].finalisedLedgerIndex, 'ledger >= chains[chainId].finalisedLedgerIndex');
+        uint64 indexSearchRegion = chains[chainId].genesisLedger;
+        if (chains[chainId].ledgerHistorySize > 0) {
+            require(chains[chainId].finalisedLedgerIndex - chains[chainId].genesisLedger > chains[chainId].ledgerHistorySize, 'chains[chainId].finalisedLedgerIndex - chains[chainId].genesisLedger <= chains[chainId].ledgerHistorySize');
+            require(chains[chainId].finalisedLedgerIndex - ledger < chains[chainId].ledgerHistorySize, 'chains[chainId].finalisedLedgerIndex - ledger >= chains[chainId].ledgerHistorySize');
+            indexSearchRegion = chains[chainId].finalisedLedgerIndex - chains[chainId].ledgerHistorySize;
+        }
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
-        	finalisedPayments[chainId][txIdHash] = HashExists(true, paymentHash, ledger, true);
+        	finalisedPayments[chainId][txIdHash] = HashExists(true, paymentHash, ledger, indexSearchRegion, true);
         }
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
@@ -205,14 +214,20 @@ contract StateConnector {
         require(!finalisedPayments[chainId][txIdHash].proven, 'txId already proven');
         require(finalisedPayments[chainId][txIdHash].index < ledger, 'finalisedPayments[chainId][txIdHash].index >= ledger');
         require(ledger < chains[chainId].finalisedLedgerIndex, 'ledger >= chains[chainId].finalisedLedgerIndex');
+        uint64 indexSearchRegion = chains[chainId].genesisLedger;
+        if (chains[chainId].ledgerHistorySize > 0) {
+            require(chains[chainId].finalisedLedgerIndex - chains[chainId].genesisLedger > chains[chainId].ledgerHistorySize, 'chains[chainId].finalisedLedgerIndex - chains[chainId].genesisLedger <= chains[chainId].ledgerHistorySize');
+            require(chains[chainId].finalisedLedgerIndex - ledger < chains[chainId].ledgerHistorySize, 'chains[chainId].finalisedLedgerIndex - ledger >= chains[chainId].ledgerHistorySize');
+            indexSearchRegion = chains[chainId].finalisedLedgerIndex - chains[chainId].ledgerHistorySize;
+        }
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
-        	finalisedPayments[chainId][txIdHash] = HashExists(true, paymentHash, ledger, false);
+        	finalisedPayments[chainId][txIdHash] = HashExists(true, paymentHash, ledger, indexSearchRegion, false);
         }
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
 
-    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) external view chainExists(chainId) returns (uint64 ledger, bool finality) {
+    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) external view chainExists(chainId) returns (uint64 ledger, uint64 indexSearchRegion, bool finality) {
         require(finalisedPayments[chainId][txId].exists, 'txId does not exist');
         bytes32 paymentHash = keccak256(abi.encodePacked(
         							txId,
@@ -221,6 +236,6 @@ contract StateConnector {
         							keccak256(abi.encode(destinationTag)),
         							keccak256(abi.encode(amount))));
     	require(finalisedPayments[chainId][txId].hashBytes == paymentHash, 'invalid paymentHash');
-    	return (finalisedPayments[chainId][txId].index, finalisedPayments[chainId][txId].proven);
+    	return (finalisedPayments[chainId][txId].index, finalisedPayments[chainId][txId].indexSearchRegion, finalisedPayments[chainId][txId].proven);
     }
 }
