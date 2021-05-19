@@ -302,12 +302,23 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	st.refundGas(apricotPhase1)
 	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
+	// Trigger the keeper contract trigger method
 	if vmerr == nil {
+		// Get the contract to call
 		systemTriggerContract := common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.BlockNumber))
+		// Call the method
 		triggerRet, _, triggerErr := st.evm.Call(vm.AccountRef(systemTriggerContract), systemTriggerContract, GetSystemTriggerSelector(st.evm.Context.BlockNumber), GetKeeperGasMultiplier(st.evm.Context.BlockNumber)*st.evm.Context.GasLimit, big.NewInt(0))
+		// If no error and a value came back...
 		if triggerErr == nil && triggerRet != nil {
-			if binary.BigEndian.Uint64(triggerRet[24:32]) > 0 {
-				st.state.AddBalance(common.HexToAddress(GetInflationContractAddr(st.evm.Context.BlockNumber)), new(big.Int).SetUint64(binary.BigEndian.Uint64(triggerRet[24:32])))
+			// Did we get one big int?
+			if len(triggerRet) == 32 {
+				// Convert to big int
+				mintRequest := new(big.Int).SetBytes(triggerRet)
+				// If the value is not zero
+				if mintRequest.Cmp(big.NewInt(0)) != 0 {
+					// Mint the amount asked for on to the keeper contract
+					st.state.AddBalance(common.HexToAddress(GetInflationContractAddr(st.evm.Context.BlockNumber)), mintRequest)
+				}
 			}
 		}
 	}
