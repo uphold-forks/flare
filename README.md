@@ -97,7 +97,7 @@ To run your own Flare node and peer it with the Coston testnet launch the follow
 
 Once launched, your Flare node may take several minutes to bootstrap to the Coston testnet history. Once bootstrapped, you can send Web3 RPC requests to the Coston testnet through your node's RPC endpoint at: `http://127.0.0.1:9650/ext/bc/C/rpc`.
 
-The Coston testnet also has a block scanner at https://flarescan.org and a CFLR faucet at https://faucet.towolabs.com/.
+The Coston testnet also has a block scanner at https://explorer.flare.network and a CFLR faucet at https://faucet.towolabs.com/.
 
 
 ## License: MIT
