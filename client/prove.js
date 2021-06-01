@@ -105,6 +105,7 @@ async function run(chainId) {
 			if (chainId == 0) {
 				chains.xrp.api.getTransaction(txId).catch(processFailure)
 					.then(tx => {
+						console.log(tx);
 						if (tx.type == 'payment') {
 							if (tx.outcome.deliveredAmount.currency == 'XRP') {
 								const leafPromise = new Promise((resolve, reject) => {
