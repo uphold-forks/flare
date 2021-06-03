@@ -230,6 +230,12 @@ type GetXRPTxResponse struct {
 	Validated       bool        `json:"validated"`
 }
 
+type GetXRPTxIssuedCurrency struct {
+	Currency string `json:"currency"`
+	Issuer   string `json:"issuer"`
+	Value    string `json:"value"`
+}
+
 func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]byte, uint64, bool) {
 	data := GetXRPTxRequestPayload{
 		Method: "tx",
@@ -285,19 +291,43 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 			return []byte{}, 0, false
 		}
 		if jsonResp["result"].TransactionType == "Payment" {
-			amountType := reflect.TypeOf(jsonResp["result"].Amount)
 			inLedger := uint64(jsonResp["result"].InLedger)
-			if amountType.Name() == "string" && jsonResp["result"].Flags != 131072 && inLedger > 0 && inLedger < latestAvailableLedger && jsonResp["result"].Validated {
+			if jsonResp["result"].Flags != 131072 && inLedger > 0 && inLedger < latestAvailableLedger && jsonResp["result"].Validated {
+				var amount uint64
+				amountInterface := jsonResp["result"].Amount
+				amountType := reflect.TypeOf(amountInterface)
+				var currency string
+				if amountType.Name() == "string" {
+					amount, err = strconv.ParseUint(jsonResp["result"].Amount.(string), 10, 64)
+					if err != nil {
+						return []byte{}, 0, false
+					}
+					currency = "XRP"
+				} else {
+					amountStruct, err := json.Marshal(amountInterface)
+					if err != nil {
+						return []byte{}, 0, false
+					}
+					var issuedCurrencyResp GetXRPTxIssuedCurrency
+					err = json.Unmarshal(amountStruct, &issuedCurrencyResp)
+					if err != nil {
+						return []byte{}, 0, false
+					}
+					amountBigFloat, _, err := big.ParseFloat(issuedCurrencyResp.Value, 10, 256, big.ToZero)
+					if err != nil {
+						return []byte{}, 0, false
+					}
+					amountBigFloat.Mul(amountBigFloat, big.NewFloat(float64(1000000)))
+					amount, _ = amountBigFloat.Uint64()
+					currency = issuedCurrencyResp.Currency + issuedCurrencyResp.Issuer
+				}
 				txIdHash := crypto.Keccak256([]byte(jsonResp["result"].Hash))
 				sourceHash := crypto.Keccak256([]byte(jsonResp["result"].Account))
 				destinationHash := crypto.Keccak256([]byte(jsonResp["result"].Destination))
 				destinationTagHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].DestinationTag))), 32))
-				amount, err := strconv.ParseUint(jsonResp["result"].Amount.(string), 10, 64)
-				if err != nil {
-					return []byte{}, 0, false
-				}
 				amountHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(amount))), 32))
-				return crypto.Keccak256(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash), inLedger, false
+				currencyHash := crypto.Keccak256([]byte(currency))
+				return crypto.Keccak256(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash), inLedger, false
 			} else {
 				return []byte{}, 0, false
 			}
