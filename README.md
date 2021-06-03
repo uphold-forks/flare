@@ -83,16 +83,7 @@ Once the first data availability proof has been finalised, you can then submit a
 node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
-**Payment Info**
-chainId:            0 
-ledger:             62880001 
-txId:               FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272 
-source:             rhn6BacbhRp7Q8McU7bbxTvLN4SHU5WGwn 
-destination:        rs6Xcgz36TJK69foe43BQGYcmtsEVtzebN 
-destinationTag:     0 
-amount:             19749990 
-currency:           XRP
-url:                https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
+Payment info: https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 
 ### Disproving a Payment
 
@@ -103,16 +94,7 @@ node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E43302041
 rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 XRP 62880001
 ```
 
-**Payment Info**
-chainId:            0 
-ledger:             62880029 
-txId:               F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A 
-source:             rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ 
-destination:        rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 
-destinationTag:     129053196 
-amount:             20000000000 
-currency:           XRP
-url:                https://livenet.xrpl.org/transactions/F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A
+Payment info: https://livenet.xrpl.org/transactions/F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A
 
 ### Custom-currency Proofs (e.g. Issued Currencies, ERC20s, etc.)
 
@@ -122,16 +104,7 @@ The proving/disproving of a custom-currency payment is also supported. The state
 node prove xrp 8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
 ```
 
-**Payment Info**
-chainId:            0 
-ledger:             62880005 
-txId:               8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59 
-source:             rGFuMiw48HdbnrUbkRYuitXTmfrDBNTCnX 
-destination:        rL7jDKUNmxBG24QsqA6fDUwFwjndgMojje 
-destinationTag:     0 
-amount:             484000000 
-currency:           USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje
-url:                https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
+Payment info: https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
 
 ## Connect a Node to the Coston Testnet
 
