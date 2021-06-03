@@ -75,25 +75,63 @@ yarn
 
 ## Verify an Underlying Chain Payment on Flare
 
-Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272. Run the following command in a separate terminal window:
+### Proving a Payment
+
+Once the first data availability proof has been finalised, you can then submit a payment proof regarding the XRP transaction below. Run the following command in a separate terminal window:
 
 ```
 node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
-One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example:
+**Payment Info**
+chainId:            0 
+ledger:             62880001 
+txId:               FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272 
+source:             rhn6BacbhRp7Q8McU7bbxTvLN4SHU5WGwn 
+destination:        rs6Xcgz36TJK69foe43BQGYcmtsEVtzebN 
+destinationTag:     0 
+amount:             19749990 
+currency:           XRP
+url:                https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
+
+### Disproving a Payment
+
+One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example, the following command proves to the state connector contract that payment F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A has not occurred by ledger 62880001 on the XRPL:
 
 ```
-node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 62880001
+node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A \
+rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 XRP 62880001
 ```
 
-Issued currency proofs are also supported. For example this command proves that a payment of USD issued on the XRPL occurred:
+**Payment Info**
+chainId:            0 
+ledger:             62880029 
+txId:               F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A 
+source:             rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ 
+destination:        rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 
+destinationTag:     129053196 
+amount:             20000000000 
+currency:           XRP
+url:                https://livenet.xrpl.org/transactions/F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A
+
+### Custom-currency Proofs (e.g. Issued Currencies, ERC20s, etc.)
+
+The proving/disproving of a custom-currency payment is also supported. The state connector supports any issued currency and differentiates them by appending their currency code to its issuer's address, e.g. USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje. For example, this command proves that a payment of USD issued on the XRPL occurred:
 
 ```
 node prove xrp 8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
 ```
 
-The state connector supports any issued currency and differentiates them by appending their currency code to their issuer's address, e.g. USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje.
+**Payment Info**
+chainId:            0 
+ledger:             62880005 
+txId:               8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59 
+source:             rGFuMiw48HdbnrUbkRYuitXTmfrDBNTCnX 
+destination:        rL7jDKUNmxBG24QsqA6fDUwFwjndgMojje 
+destinationTag:     0 
+amount:             484000000 
+currency:           USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje
+url:                https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
 
 ## Connect a Node to the Coston Testnet
 
