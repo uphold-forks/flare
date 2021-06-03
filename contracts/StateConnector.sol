@@ -227,7 +227,7 @@ contract StateConnector {
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
 
-    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount, bytes32 currency) external view chainExists(chainId) returns (uint64 ledger, uint64 indexSearchRegion, bool finality) {
+    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount, bytes32 currencyHash) external view chainExists(chainId) returns (uint64 ledger, uint64 indexSearchRegion, bool finality) {
         require(finalisedPayments[chainId][txId].exists, 'txId does not exist');
         bytes32 paymentHash = keccak256(abi.encodePacked(
         							txId,
@@ -235,7 +235,7 @@ contract StateConnector {
         							destinationHash,
         							keccak256(abi.encode(destinationTag)),
         							keccak256(abi.encode(amount)),
-                                    currency));
+                                    currencyHash));
     	require(finalisedPayments[chainId][txId].hashBytes == paymentHash, 'invalid paymentHash');
     	return (finalisedPayments[chainId][txId].index, finalisedPayments[chainId][txId].indexSearchRegion, finalisedPayments[chainId][txId].proven);
     }
