@@ -21,8 +21,7 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
     - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
-- Commandline JSON parser: [jq](https://stedolan.github.io/jq/download/)
-- cURL and gcc: `sudo apt update && sudo apt -y install curl && sudo apt -y install gcc`
+- cURL, gcc and jq: `sudo apt update && sudo apt -y install curl && sudo apt -y install gcc && sudo apt -y install jq`
 
 Clone Flare:
 ```
@@ -108,9 +107,10 @@ Payment info: https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20
 
 ## Connect a Node to the Coston Testnet
 
-To run your own Flare node and peer it with the Coston testnet launch the following command after stopping all other instances of the Flare node on your machine:
+To run your own Flare node and peer it with the Coston testnet launch the following commands after stopping all other instances of the Flare node on your machine:
 
 ```
+git checkout d00ed147e4bca7b2e3054d98c534f0a47bcd606f
 ./coston.sh
 ```
 
