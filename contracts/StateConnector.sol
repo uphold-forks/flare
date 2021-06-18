@@ -10,8 +10,8 @@ contract StateConnector {
     address private governanceContract;
     bool private initialised;
     uint32 private numChains;
-    uint256 private currentRewardSchedule;
-    uint256 private rewardScheduleLastUpdated;
+    uint256 private initialiseTime;
+    uint64 private rewardPeriodTimespan;
 
     struct Chain {
         bool        exists;
@@ -72,8 +72,8 @@ contract StateConnector {
         governanceContract = 0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7;
         chains[0] = Chain(true, 62880000, 0, 30, 0, 0, 62880000, block.timestamp, 120, 0); //XRP
         numChains = 1;
-        currentRewardSchedule = 0;
-        rewardScheduleLastUpdated = block.timestamp;
+        rewardPeriodTimespan = 604800;
+        initialiseTime = block.timestamp;
         initialised = true;
         return true;
     }
@@ -115,20 +115,12 @@ contract StateConnector {
     }
 
     function getClaimPeriodsMined(address miner, uint256 rewardSchedule) external view returns (uint64 numMined) {
-        require(rewardSchedule <= currentRewardSchedule, 'rewardSchedule > currentRewardSchedule');
         return claimPeriodsMined[miner][rewardSchedule];
     }
 
-    function getRewardSchedule() external view returns (uint256 rewardSchedule) {
-        return currentRewardSchedule;
-    }
-
-    function bumpRewardSchedule() external onlyGovernance {
-        require(block.timestamp > rewardScheduleLastUpdated, 'block.timestamp <= rewardScheduleLastUpdated');
-        require(block.timestamp - rewardScheduleLastUpdated > 604800, 'block.timestamp - rewardScheduleLastUpdated <= 604800, i.e. 1 week');
-        require(currentRewardSchedule < 2**256-1, 'currentRewardSchedule >= 2**256-1');
-        currentRewardSchedule = currentRewardSchedule + 1;
-        rewardScheduleLastUpdated = block.timestamp;
+    function getRewardPeriod() private view returns (uint256 rewardSchedule) {
+        require(block.timestamp > initialiseTime, "block.timestamp <= initialiseTime");
+        return (block.timestamp - initialiseTime)/rewardPeriodTimespan;
     }
 
     function blockAddress(address blockedAddress) external onlyGovernance {
@@ -168,7 +160,8 @@ contract StateConnector {
         require(block.coinbase == msg.sender || block.coinbase == address(0x0100000000000000000000000000000000000000), 'invalid block.coinbase value');
         if (block.coinbase == msg.sender && block.coinbase != address(0x0100000000000000000000000000000000000000)) {
             // Node checked claimPeriodHash, and it was valid
-            claimPeriodsMined[msg.sender][currentRewardSchedule] = claimPeriodsMined[msg.sender][currentRewardSchedule]+1;
+            uint256 currentRewardPeriod = getRewardPeriod();
+            claimPeriodsMined[msg.sender][currentRewardPeriod] = claimPeriodsMined[msg.sender][currentRewardPeriod]+1;
             finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash, ledger, 0, true);
             chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             chains[chainId].finalisedLedgerIndex = ledger;
@@ -227,14 +220,15 @@ contract StateConnector {
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
 
-    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount) external view chainExists(chainId) returns (uint64 ledger, uint64 indexSearchRegion, bool finality) {
+    function getPaymentFinality(uint32 chainId, bytes32 txId, bytes32 sourceHash, bytes32 destinationHash, uint64 destinationTag, uint64 amount, bytes32 currencyHash) external view chainExists(chainId) returns (uint64 ledger, uint64 indexSearchRegion, bool finality) {
         require(finalisedPayments[chainId][txId].exists, 'txId does not exist');
         bytes32 paymentHash = keccak256(abi.encodePacked(
         							txId,
         							sourceHash,
         							destinationHash,
         							keccak256(abi.encode(destinationTag)),
-        							keccak256(abi.encode(amount))));
+        							keccak256(abi.encode(amount)),
+                                    currencyHash));
     	require(finalisedPayments[chainId][txId].hashBytes == paymentHash, 'invalid paymentHash');
     	return (finalisedPayments[chainId][txId].index, finalisedPayments[chainId][txId].indexSearchRegion, finalisedPayments[chainId][txId].proven);
     }

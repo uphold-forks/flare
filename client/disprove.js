@@ -48,13 +48,15 @@ async function run(chainId) {
 						'source: \t\t', sourceAddress, '\n',
 						'destination: \t\t', destinationAddress, '\n',
 						'destinationTag: \t', destinationTag, '\n',
-						'amount: \t\t', parseInt(amount), '\n');
+						'amount: \t\t', parseInt(amount), '\n',
+						'currency: \t\t', currency, '\n');
 					const txIdHash = web3.utils.soliditySha3(txId);
 					const sourceHash = web3.utils.soliditySha3(sourceAddress);
 					const destinationHash = web3.utils.soliditySha3(destinationAddress);
 					const destinationTagHash = web3.utils.soliditySha3(destinationTag);
 					const amountHash = web3.utils.soliditySha3(parseInt(amount));
-					const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash);
+					const currencyHash = web3.utils.soliditySha3(currency);
+					const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
 					const leaf = {
 						"chainId": '0',
 						"txId": txId,
@@ -63,6 +65,7 @@ async function run(chainId) {
 						"destination": destinationHash,
 						"destinationTag": destinationTag,
 						"amount": parseInt(amount),
+						"currency": currencyHash,
 						"paymentHash": paymentHash,
 					}
 					resolve(leaf);
@@ -75,7 +78,8 @@ async function run(chainId) {
 							leaf.source,
 							leaf.destination,
 							leaf.destinationTag,
-							leaf.amount).call({
+							leaf.amount,
+							leaf.currency).call({
 								from: config.accounts[1].address,
 								gas: config.flare.gas,
 								gasPrice: config.flare.gasPrice
@@ -89,7 +93,7 @@ async function run(chainId) {
 								return disprovePaymentFinality(leaf);
 							})
 					} else {
-						return processFailure('Transaction not yet finalised on Flare.')
+						return processFailure('Ledger data not yet available on Flare.')
 					}
 				})
 			} else {
@@ -182,7 +186,6 @@ async function sleep(ms) {
 		setTimeout(resolve, ms);
 	});
 }
-// const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash);
 
 const chainName = process.argv[2];
 const txId = process.argv[3];
@@ -190,7 +193,8 @@ const sourceAddress = process.argv[4];
 const destinationAddress = process.argv[5];
 const destinationTag = process.argv[6];
 const amount = process.argv[7];
-const ledgerBoundary = process.argv[8];
+const currency = process.argv[8];
+const ledgerBoundary = process.argv[9];
 if (chainName in chains) {
 	return configure(chains[chainName].chainId);
 } else {

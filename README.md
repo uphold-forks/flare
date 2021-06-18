@@ -21,8 +21,7 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
     - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
-- Commandline JSON parser: [jq](https://stedolan.github.io/jq/download/)
-- cURL and gcc: `sudo apt update && sudo apt -y install curl && sudo apt -y install gcc`
+- cURL, gcc and jq: `sudo apt update && sudo apt -y install curl && sudo apt -y install gcc && sudo apt -y install jq`
 
 Clone Flare:
 ```
@@ -75,23 +74,43 @@ yarn
 
 ## Verify an Underlying Chain Payment on Flare
 
-Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/C242BEA7C3BF291AEE0F56A4915421A1916DEADE6208E6696A4BDE3F7238953F. Run the following command in a separate terminal window:
+### Proving a Payment
+
+Once the first data availability proof has been finalised, you can then submit a payment proof regarding the XRP transaction below. Run the following command in a separate terminal window:
 
 ```
 node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
-One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example:
+Payment info: https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
+
+### Disproving a Payment
+
+One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example, the following command proves to the state connector contract that payment F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A has not occurred by ledger 62880001 on the XRPL:
 
 ```
-node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 62880001
+node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A \
+rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 XRP 62880001
 ```
+
+Payment info: https://livenet.xrpl.org/transactions/F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A
+
+### Custom-currency Proofs (e.g. Issued Currencies, ERC20s, etc.)
+
+The proving/disproving of a custom-currency payment is also supported. The state connector supports any issued currency and differentiates them by appending their currency code to its issuer's address, e.g. USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje. For example, this command proves that a payment of USD issued on the XRPL occurred:
+
+```
+node prove xrp 8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
+```
+
+Payment info: https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
 
 ## Connect a Node to the Coston Testnet
 
-To run your own Flare node and peer it with the Coston testnet launch the following command after stopping all other instances of the Flare node on your machine:
+To run your own Flare node and peer it with the Coston testnet launch the following commands after stopping all other instances of the Flare node on your machine:
 
 ```
+git checkout d00ed147e4bca7b2e3054d98c534f0a47bcd606f
 ./coston.sh
 ```
 
