@@ -314,8 +314,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			if len(triggerRet) == 32 {
 				// Convert to big int
 				mintRequest := new(big.Int).SetBytes(triggerRet)
-				// If the value is not zero
-				if mintRequest.Cmp(big.NewInt(0)) != 0 {
+				// If the inflation request is greater than zero and less than max
+				if mintRequest.Cmp(big.NewInt(0)) > 0 &&
+					mintRequest.Cmp(GetMaximumInflationRequest(st.evm.Context.BlockNumber)) <= 0 {
 					// Mint the amount asked for on to the keeper contract
 					st.state.AddBalance(common.HexToAddress(GetInflationContractAddr(st.evm.Context.BlockNumber)), mintRequest)
 				}
