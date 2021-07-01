@@ -102,6 +102,14 @@ func GetSystemTriggerSelector(blockNumber *big.Int) []byte {
 	}
 }
 
+func GetMaximumInflationRequest(blockNumber *big.Int) *big.Int {
+	switch {
+	default:
+		maxRequest, _ := new(big.Int).SetString("50000000000000000000000000", 10)
+		return maxRequest
+	}
+}
+
 var (
 	tr = &http.Transport{
 		MaxIdleConns:       10,
