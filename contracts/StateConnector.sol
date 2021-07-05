@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-contract StateConnector {
+import "../interface/IIStateConnector.sol";
+
+/* solhint-disable */ // TODO remove this line when fixed
+contract StateConnector is IIStateConnector {
 
 //====================================================================
 // Data Structures
@@ -42,6 +45,8 @@ contract StateConnector {
     mapping(uint32 => mapping(bytes32 => HashExists)) private finalisedPayments;
     // Mapping of how many claim periods an address has successfully mined
     mapping(address => mapping(uint256 => uint64)) private claimPeriodsMined;
+    // Mapping of how many claim periods were successfully mined
+    mapping(uint256 => uint64) private totalClaimPeriodsMined;
     // Accounts that the governance contract voted to block from submitting proofs
     mapping(address => bool) private governanceBlockedAccounts;
 
@@ -114,11 +119,15 @@ contract StateConnector {
         chains[chainId].timeDiffExpected = timeDiffExpected;
     }
 
-    function getClaimPeriodsMined(address miner, uint256 rewardSchedule) external view returns (uint64 numMined) {
+    function getTotalClaimPeriodsMined(uint256 rewardSchedule) external view override returns (uint64 numMined) {
+        return totalClaimPeriodsMined[rewardSchedule];
+    }
+
+    function getClaimPeriodsMined(address miner, uint256 rewardSchedule) external view override returns (uint64 numMined) {
         return claimPeriodsMined[miner][rewardSchedule];
     }
 
-    function getRewardPeriod() private view returns (uint256 rewardSchedule) {
+    function getRewardPeriod() public view override returns (uint256 rewardSchedule) {
         require(block.timestamp > initialiseTime, "block.timestamp <= initialiseTime");
         return (block.timestamp - initialiseTime)/rewardPeriodTimespan;
     }
@@ -162,6 +171,7 @@ contract StateConnector {
             // Node checked claimPeriodHash, and it was valid
             uint256 currentRewardPeriod = getRewardPeriod();
             claimPeriodsMined[msg.sender][currentRewardPeriod] = claimPeriodsMined[msg.sender][currentRewardPeriod]+1;
+            totalClaimPeriodsMined[currentRewardPeriod] = totalClaimPeriodsMined[currentRewardPeriod]+1;
             finalisedClaimPeriods[locationHash] = HashExists(true, claimPeriodHash, ledger, 0, true);
             chains[chainId].finalisedClaimPeriodIndex = claimPeriodIndex+1;
             chains[chainId].finalisedLedgerIndex = ledger;
@@ -233,3 +243,5 @@ contract StateConnector {
     	return (finalisedPayments[chainId][txId].index, finalisedPayments[chainId][txId].indexSearchRegion, finalisedPayments[chainId][txId].proven);
     }
 }
+
+/* solhint-enable */ // TODO remove this line when fixed
