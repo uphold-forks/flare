@@ -7,30 +7,30 @@ const Common = require('ethereumjs-common').default;
 const fs = require('fs');
 
 const stateConnectorContract = "0x1000000000000000000000000000000000000001";
+const chains = {
+	'btc': {
+		chainId: 0
+	},
+	'ltc': {
+		chainId: 1
+	},
+	'doge': {
+		chainId: 2
+	},
+	'xrp': {
+		chainId: 3
+	},
+	'xlm': {
+		chainId: 4
+	}
+};
 var config,
 	customCommon,
-	stateConnector,
-	chains = {
-		'xrp': {
-			api: null,
-			chainId: 0,
-			claimsInProgress: false
-		},
-		'ltc': {
-			api: null,
-			chainId: 1,
-			claimsInProgress: false
-		},
-		'xlm': {
-			api: null,
-			chainId: 2,
-			claimsInProgress: false
-		}
-	};
+	stateConnector;
 
 
 // ===============================================================
-// Chain Invariant Functions
+// Chain Common Functions
 // ===============================================================
 
 async function run(chainId) {
@@ -40,65 +40,61 @@ async function run(chainId) {
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
 		.then(result => {
-			if (chainId == 0) {
-				const leafPromise = new Promise((resolve, reject) => {
-					console.log('\nchainId: \t\t', '0', '\n',
-						'ledger: \t\t', ledgerBoundary, '\n',
-						'txId: \t\t\t', txId, '\n',
-						'source: \t\t', sourceAddress, '\n',
-						'destination: \t\t', destinationAddress, '\n',
-						'destinationTag: \t', destinationTag, '\n',
-						'amount: \t\t', parseInt(amount), '\n',
-						'currency: \t\t', currency, '\n');
-					const txIdHash = web3.utils.soliditySha3(txId);
-					const sourceHash = web3.utils.soliditySha3(sourceAddress);
-					const destinationHash = web3.utils.soliditySha3(destinationAddress);
-					const destinationTagHash = web3.utils.soliditySha3(destinationTag);
-					const amountHash = web3.utils.soliditySha3(parseInt(amount));
-					const currencyHash = web3.utils.soliditySha3(currency);
-					const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
-					const leaf = {
-						"chainId": '0',
-						"txId": txId,
-						"ledger": ledgerBoundary,
-						"source": sourceHash,
-						"destination": destinationHash,
-						"destinationTag": destinationTag,
-						"amount": parseInt(amount),
-						"currency": currencyHash,
-						"paymentHash": paymentHash,
-					}
-					resolve(leaf);
-				})
-				leafPromise.then(leaf => {
-					if (parseInt(leaf.ledger) >= result[0] || parseInt(leaf.ledger) < result[3]) {
-						stateConnector.methods.getPaymentFinality(
-							leaf.chainId,
-							web3.utils.soliditySha3(leaf.txId),
-							leaf.source,
-							leaf.destination,
-							leaf.destinationTag,
-							leaf.amount,
-							leaf.currency).call({
-								from: config.accounts[1].address,
-								gas: config.flare.gas,
-								gasPrice: config.flare.gasPrice
-							})
-							.catch(err => {
-							})
-							.then(result => {
-								if (typeof result != "undefined") {
-									console.log(result);
-								}
-								return disprovePaymentFinality(leaf);
-							})
-					} else {
-						return processFailure('Ledger data not yet available on Flare.')
-					}
-				})
-			} else {
-				return processFailure('Invalid chainId.');
-			}
+			const leafPromise = new Promise((resolve, reject) => {
+				console.log('\nchainId: \t\t', chainId, '\n',
+					'ledger: \t\t', ledgerBoundary, '\n',
+					'txId: \t\t\t', txId, '\n',
+					'source: \t\t', sourceAddress, '\n',
+					'destination: \t\t', destinationAddress, '\n',
+					'destinationTag: \t', destinationTag, '\n',
+					'amount: \t\t', parseInt(amount), '\n',
+					'currency: \t\t', currency, '\n');
+				const txIdHash = web3.utils.soliditySha3(txId);
+				const sourceHash = web3.utils.soliditySha3(sourceAddress);
+				const destinationHash = web3.utils.soliditySha3(destinationAddress);
+				const destinationTagHash = web3.utils.soliditySha3(destinationTag);
+				const amountHash = web3.utils.soliditySha3(parseInt(amount));
+				const currencyHash = web3.utils.soliditySha3(currency);
+				const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+				const leaf = {
+					"chainId": chainId,
+					"txId": txId,
+					"ledger": ledgerBoundary,
+					"source": sourceHash,
+					"destination": destinationHash,
+					"destinationTag": destinationTag,
+					"amount": parseInt(amount),
+					"currency": currencyHash,
+					"paymentHash": paymentHash,
+				}
+				resolve(leaf);
+			})
+			leafPromise.then(leaf => {
+				if (parseInt(leaf.ledger) >= result[0] || parseInt(leaf.ledger) < result[3]) {
+					stateConnector.methods.getPaymentFinality(
+						leaf.chainId,
+						web3.utils.soliditySha3(leaf.txId),
+						leaf.source,
+						leaf.destination,
+						leaf.destinationTag,
+						leaf.amount,
+						leaf.currency).call({
+							from: config.accounts[1].address,
+							gas: config.flare.gas,
+							gasPrice: config.flare.gasPrice
+						})
+						.catch(err => {
+						})
+						.then(result => {
+							if (typeof result != "undefined") {
+								console.log(result);
+							}
+							return disprovePaymentFinality(leaf);
+						})
+				} else {
+					return processFailure('Ledger data not yet available on Flare.')
+				}
+			})
 		})
 }
 

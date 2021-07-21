@@ -5,3 +5,5 @@ package-lock.json
 artifacts/
 cache/
 typechain/
+logs/
+db/

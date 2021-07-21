@@ -5,94 +5,44 @@ const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;
 const Common = require('ethereumjs-common').default;
 const fs = require('fs');
+const fetch = require('node-fetch');
 
 const stateConnectorContract = "0x1000000000000000000000000000000000000001";
+const chains = {
+	'btc': {
+		chainId: 0
+	},
+	'ltc': {
+		chainId: 1
+	},
+	'doge': {
+		chainId: 2
+	},
+	'xrp': {
+		chainId: 3
+	},
+	'xlm': {
+		chainId: 4
+	}
+};
+
 var config,
 	customCommon,
-	stateConnector,
-	chains = {
-		'xrp': {
-			api: null,
-			chainId: 0,
-			claimsInProgress: false
+	stateConnector;
+
+async function postData(url = '', data = {}) {
+	const response = await fetch(url, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
 		},
-		'ltc': {
-			api: null,
-			chainId: 1,
-			claimsInProgress: false
-		},
-		'xlm': {
-			api: null,
-			chainId: 2,
-			claimsInProgress: false
-		}
-	};
-
-// ===============================================================
-// XRPL Specific Functions
-// ===============================================================
-
-const RippleAPI = require('ripple-lib').RippleAPI;
-const RippleKeys = require('ripple-keypairs');
-
-async function xrplProcessLedger(currLedger, leaf) {
-	console.log('Retrieving XRPL state hash from ledger:', currLedger);
-	const command = 'ledger';
-	const params = {
-		'ledger_index': currLedger,
-		'binary': false,
-		'full': false,
-		'accounts': false,
-		'transactions': false,
-		'expand': false,
-		'owner_funds': false
-	};
-	return chains.xrp.api.request(command, params)
-		.then(response => {
-			return provePaymentFinality(leaf);
-		})
-		.catch(error => {
-			processFailure(error);
-		})
-}
-
-async function xrplConfig() {
-	let rawConfig = fs.readFileSync('config/config.json');
-	config = JSON.parse(rawConfig);
-	chains.xrp.api = new RippleAPI({
-		server: config.chains[0].url,
-		timeout: 60000
+		body: JSON.stringify(data)
 	});
-	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
-	web3.eth.handleRevert = true;
-	customCommon = Common.forCustomChain('ropsten',
-		{
-			name: 'coston',
-			networkId: config.flare.chainId,
-			chainId: config.flare.chainId,
-		},
-		'petersburg');
-	chains.xrp.api.on('connected', () => {
-		return run(0);
-	})
-}
-
-function xrplProofProcessingCompleted() {
-	chains.xrp.api.disconnect().catch(processFailure)
-		.then(() => {
-			return process.exit();
-		})
-}
-
-async function xrplConnectRetry(error) {
-	console.log('XRPL connecting...')
-	sleep(1000).then(() => {
-		chains.xrp.api.connect().catch(xrplConnectRetry);
-	})
+	return response.json();
 }
 
 // ===============================================================
-// Chain Invariant Functions
+// Chain Common Functions
 // ===============================================================
 
 async function run(chainId) {
@@ -102,61 +52,68 @@ async function run(chainId) {
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
 		.then(result => {
-			if (chainId == 0) {
-				chains.xrp.api.getTransaction(txId).catch(processFailure)
+			if (chainId == 3) {
+				const method = 'tx';
+				const params = [{
+					'transaction': txId,
+					'binary': false
+				}];
+				postData(config.chains.xrp.api, { method: method, params: params })
 					.then(tx => {
-						if (tx.type == 'payment') {
+						if (tx.result.TransactionType == 'Payment') {
 							const leafPromise = new Promise((resolve, reject) => {
 								var destinationTag;
-								if (!("tag" in tx.specification.destination)) {
+								if (!("DestinationTag" in tx.result)) {
 									destinationTag = 0;
 								} else {
-									destinationTag = tx.specification.destination.tag;
+									destinationTag = parseInt(tx.result.DestinationTag);
 								}
-								const amount = parseInt(parseFloat(tx.outcome.deliveredAmount.value) / Math.pow(10, -6));
 								var currency;
-								if (tx.outcome.deliveredAmount.currency == 'XRP') {
+								var amount
+								if (typeof tx.result.meta.delivered_amount == "string") {
 									currency = 'XRP';
+									amount = parseInt(tx.result.meta.delivered_amount);
 								} else {
-									currency = tx.outcome.deliveredAmount.currency + tx.outcome.deliveredAmount.counterparty;
+									currency = tx.result.meta.delivered_amount.currency + tx.result.meta.delivered_amount.issuer;
+									amount = parseFloat(tx.result.meta.delivered_amount.value).toFixed(15)*Math.pow(10,15);
 								}
 								console.log('\nchainId: \t\t', '0', '\n',
-									'ledger: \t\t', tx.outcome.ledgerVersion, '\n',
-									'txId: \t\t\t', tx.id, '\n',
-									'source: \t\t', tx.specification.source.address, '\n',
-									'destination: \t\t', tx.specification.destination.address, '\n',
+									'ledger: \t\t', tx.result.inLedger, '\n',
+									'txId: \t\t\t', tx.result.hash, '\n',
+									'source: \t\t', tx.result.Account, '\n',
+									'destination: \t\t', tx.result.Destination, '\n',
 									'destinationTag: \t', destinationTag, '\n',
 									'amount: \t\t', amount, '\n',
 									'currency: \t\t', currency, '\n');
-								const txIdHash = web3.utils.soliditySha3(tx.id);
-								const sourceHash = web3.utils.soliditySha3(tx.specification.source.address);
-								const destinationHash = web3.utils.soliditySha3(tx.specification.destination.address);
+								const txIdHash = web3.utils.soliditySha3(tx.result.hash);
+								const sourceHash = web3.utils.soliditySha3(tx.result.Account);
+								const destinationHash = web3.utils.soliditySha3(tx.result.Destination);
 								const destinationTagHash = web3.utils.soliditySha3(destinationTag);
 								const amountHash = web3.utils.soliditySha3(amount);
 								const currencyHash = web3.utils.soliditySha3(currency);
 								const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
 								const leaf = {
-									"chainId": '0',
-									"txId": tx.id,
-									"ledger": parseInt(tx.outcome.ledgerVersion),
+									"chainId": '3',
+									"txId": tx.result.hash,
+									"ledger": parseInt(tx.result.inLedger),
 									"source": sourceHash,
 									"destination": destinationHash,
 									"destinationTag": destinationTag,
-									"amount": parseInt(amount),
+									"amount": amount,
 									"currency": currencyHash,
 									"paymentHash": paymentHash,
 								}
 								resolve(leaf);
 							})
 							leafPromise.then(leaf => {
-								if (parseInt(tx.outcome.ledgerVersion) >= result[0] || parseInt(tx.outcome.ledgerVersion) < result[3]) {
+								if (leaf.ledger >= result[0] && leaf.ledger < result[3]) {
 									stateConnector.methods.getPaymentFinality(
 										leaf.chainId,
 										web3.utils.soliditySha3(leaf.txId),
 										leaf.source,
 										leaf.destination,
 										leaf.destinationTag,
-										leaf.amount,
+										leaf.amount.toString(),
 										leaf.currency).call({
 											from: config.accounts[1].address,
 											gas: config.flare.gas,
@@ -167,13 +124,16 @@ async function run(chainId) {
 											if (typeof paymentResult != "undefined") {
 												if ("finality" in paymentResult) {
 													if (paymentResult.finality == true) {
-														return xrplProofProcessingCompleted('Payment already proven.');
+														console.log('Payment already proven.');
+														setTimeout(() => { return process.exit() }, 2500);
 													} else {
-														return xrplProcessLedger(parseInt(result.genesisLedger) + parseInt((parseInt(tx.outcome.ledgerVersion) - parseInt(result.genesisLedger)) / parseInt(result.claimPeriodLength)) * parseInt(result.claimPeriodLength) + parseInt(result.claimPeriodLength) - 1, leaf);
+														return provePaymentFinality(leaf);
 													}
+												} else {
+													return processFailure('Bad response from XRPL.')
 												}
 											} else {
-												return xrplProcessLedger(parseInt(result.genesisLedger) + parseInt((parseInt(tx.outcome.ledgerVersion) - parseInt(result.genesisLedger)) / parseInt(result.claimPeriodLength)) * parseInt(result.claimPeriodLength) + parseInt(result.claimPeriodLength) - 1, leaf);
+												return provePaymentFinality(leaf);
 											}
 										})
 								} else {
@@ -181,7 +141,8 @@ async function run(chainId) {
 								}
 							})
 						} else {
-							return xrplProofProcessingCompleted('Transaction type not yet supported.');
+							console.log('Transaction type not yet supported.');
+							setTimeout(() => { return process.exit() }, 2500);
 						}
 					})
 			} else {
@@ -223,7 +184,7 @@ async function provePaymentFinality(leaf) {
 									return processFailure('receipt.status == false');
 								} else {
 									console.log('Proof delivered:\t \x1b[33m' + receipt.transactionHash + '\x1b[0m');
-									return xrplProofProcessingCompleted();
+									setTimeout(() => { return process.exit() }, 2500);
 								}
 							})
 							.on('error', error => {
@@ -236,27 +197,8 @@ async function provePaymentFinality(leaf) {
 		})
 }
 
+
 async function configure(chainId) {
-	web3Config().catch(processFailure)
-		.then(chainConfig(chainId).catch(processFailure));
-}
-
-async function chainConfig(chainId) {
-	if (chainId == chains.xrp.chainId) {
-		chains.xrp.api = new RippleAPI({
-			server: config.chains[chainId].url,
-			timeout: 60000
-		});
-		chains.xrp.api.on('connected', () => {
-			return run(chainId);
-		})
-		return chains.xrp.api.connect().catch(xrplConnectRetry);
-	} else {
-		processFailure('Invalid chainId.');
-	}
-}
-
-async function web3Config() {
 	let rawConfig = fs.readFileSync('config.json');
 	config = JSON.parse(rawConfig);
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
@@ -277,18 +219,12 @@ async function web3Config() {
 	stateConnector.options.data = '0x' + contract.deployedBytecode;
 	stateConnector.options.from = config.accounts[1].address;
 	stateConnector.options.address = stateConnectorContract;
+	return run(chainId);
 }
-
 
 async function processFailure(error) {
 	console.error('error:', error);
 	setTimeout(() => { return process.exit() }, 2500);
-}
-
-async function sleep(ms) {
-	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
 }
 
 const chainName = process.argv[2];

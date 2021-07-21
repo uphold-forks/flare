@@ -1,0 +1,65 @@
+{
+    "replaceAllExisting": false,
+    "validators": [
+        {
+            "nodeID": "NodeID-9LyMRJX3cX8hfr3GJ2MNEdZkX9oi7zAqu",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-9LnFMaC3cQNUBZTNfWMh3qnmQDGGSHx8W",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-5HTpLj5jTuCVZmEZduKv3pZJtEog4kLzU",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-Giko2tjmG6tKfZohSkYe8CeyDFG6TqBuG",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-CcFdhWGU1DgZs6ZYEDXYs1s3sniEsqJjp",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-2sJccyKdDfWrSstmYheH4AhaVte6gjzJM",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-BHXiArzzknWBpMoXNBDjJKJFtLT1XHh1A",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-HmgCXE2wohedvKFcs3grAXBF2X7iWCxHB",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-7MJVmbWR6BQyhKwu237BUzondoxpTtBYx",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-PCTxycR7M7ddGVgrxQPuRni1x929rjRoV",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-5p9SqCE8E4YiAKcAwwbDLChKYeJ22rWZQ",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-CDQEvf23WDSsVDSPsADXxHeocRKAGhCBV",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-EWCrwqy6yyefmSZZ8zQWpq4FdwbiJ8voA",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-FoGB1CgNnDLUeRTuDXU3JTGuGwVML2h7H",
+            "weight": 0
+        },
+        {
+            "nodeID": "NodeID-HoyjJ2epFh9jduDZ3vXQPcjfNaHVio7T6",
+            "weight": 0
+        }
+    ]
+}
