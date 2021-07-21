@@ -47,7 +47,7 @@ export XRP_APIs="https://xrpl.flare.network:443,https://xrpl-1.flare.network:443
 export LTC_APIs="https://litecoin.flare.network:443/"
 ```
 
-Some APIs may require authentication. A username and password can be set for an API, for example a Litecoin node, as LTC_USERNAME_$URL_HASH and LTC_PASSWORD_$URL_HASH, where URL_HASH is the first 8 characters of the SHA256 hash of the API URL, for example SHA256("https://litecoin.flare.network:443/")[0:8] == 1b6d8101. Run the following two commands to set the username and password for the Litecoin API at "https://litecoin.flare.network:443/":
+Some APIs may require authentication. A username and password can be set for an API, for example a Litecoin node, as LTC_USERNAME_$URL_HASH and LTC_PASSWORD_$URL_HASH, where URL_HASH is the first 8 characters of the SHA256 hash of the API URL, for example SHA256( "https://litecoin.flare.network:443/" )[0:8] == 1b6d8101. Run the following two commands to set the username and password for the Litecoin API at "https://litecoin.flare.network:443/":
 
 ```
 export LTC_USERNAME_1b6d8101="jaUsKfktbKSwCKyFJjkuXFevdyq9ZLWnQYdCzMpSwGvVZpJPfuXZ4kFjNGwxMv74KDSG2Vc8E9emcGDPbhtXcT5eApvQBwUc4gXSEAmVRpGjFs5Qvnm8n3JWRUAeYwLSYpm2pRJFDFQPBFXbPEZFjUJEEPuy4Vue7RP4UPNWgpq5dvygmZZSd6Yv2m3eWxNDjnvUPCVxLECgma8htD3eCfZDWFMuS7jdB9u9MLq5atGpc7LGZv5VJpgSLCUGXSqBnD4aGShSjypjEaYGRPENLCfXEWJnJqbZaxrDnJ3aqVxKLA8kWBmg8gbNW9bZUNZ2xtnt7QzxGLhQeEHZZD8jq73rscvvtWLuEPUAsJLtYDbBQ5t546c5VbFgYpptvwDd4zMDSdAGpP3YGZ4aK42t2A3xaknQpMGvsbcraypKSTcMWySEUM3J5JbGSDmRAnX83wP4sNpL73QW7FwFS67sbdUA4ZeZQwXjDYjq96XVegFgtJswYJYTBZjDNNbTtfR9"
