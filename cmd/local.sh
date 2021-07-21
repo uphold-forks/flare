@@ -4,7 +4,7 @@ if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/go
 printf "\x1b[34mFlare Network 4-Node Local Deployment\x1b[0m\n\n"
 
 LAUNCH_DIR=$(pwd)
-FBA_VALs=$LAUNCH_DIR/conf/local/fba_validators.json
+export FBA_VALs=$LAUNCH_DIR/conf/local/fba_validators.json
 AVALANCHE_DIR=$GOPATH/src/github.com/ava-labs/avalanchego
 cd $AVALANCHE_DIR
 if ! echo $1 | grep -e "--existing" -q
