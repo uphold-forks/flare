@@ -21,7 +21,7 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
     - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
-- cURL, gcc and jq: `sudo apt update && sudo apt -y install curl && sudo apt -y install gcc && sudo apt -y install jq`
+- gcc, g++, cURL and jq: `sudo apt update && sudo apt -y install gcc && sudo apt -y install g++ && sudo apt -y install curl && sudo apt -y install jq`
 
 Clone Flare:
 ```
