@@ -29,5 +29,6 @@ mkdir ./scripts/coreth_changes
 cp $WORKING_DIR/src/coreth/state_transition.go ./scripts/coreth_changes/state_transition.go
 cp $WORKING_DIR/src/stateco/state_connector.go ./scripts/coreth_changes/state_connector.go
 
+export ROCKSDBALLOWED=true
 ./scripts/build.sh
 rm -rf ./scripts/coreth_changes
