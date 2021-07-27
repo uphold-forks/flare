@@ -49,6 +49,8 @@ contract StateConnector {
     mapping(uint32 => mapping(bytes32 => HashExists)) public finalisedPayments;
     // Mapping of how many claim periods an address has successfully mined
     mapping(address => mapping(uint256 => uint64)) public claimPeriodsMined;
+    // Mapping of how many claim periods were successfully mined
+    mapping(uint256 => uint64) public totalClaimPeriodsMined;
     // Data availability provers are banned temporarily for submitting chainTipHash values that do not ultimately become accepted
     // If their submitted chainTipHash value is accepted then they will earn a reward
     mapping(address => uint256) public senderBannedUntil;
@@ -135,7 +137,11 @@ contract StateConnector {
         return claimPeriodsMined[miner][rewardSchedule];
     }
 
-    function getRewardPeriod() private view returns (uint256 rewardSchedule) {
+    function getTotalClaimPeriodsMined(uint256 rewardSchedule) external view returns (uint64 numMined) {
+        return totalClaimPeriodsMined[rewardSchedule];
+    }
+
+    function getRewardPeriod() public view returns (uint256 rewardSchedule) {
         require(block.timestamp > initialiseTime, "block.timestamp <= initialiseTime");
         return (block.timestamp - initialiseTime)/rewardPeriodTimespan;
     }
@@ -201,6 +207,7 @@ contract StateConnector {
                         // Reward
                         uint256 currentRewardPeriod = getRewardPeriod();
                         claimPeriodsMined[finalisedClaimPeriods[prevLocationHash].provenBy][currentRewardPeriod] = claimPeriodsMined[finalisedClaimPeriods[prevLocationHash].provenBy][currentRewardPeriod]+1;
+                        totalClaimPeriodsMined[currentRewardPeriod] = totalClaimPeriodsMined[currentRewardPeriod]+1;
                     } else {
                         // Temporarily ban
                         senderBannedUntil[finalisedClaimPeriods[prevLocationHash].provenBy] = block.timestamp + chains[chainId].numConfirmations*chains[chainId].timeDiffExpected;
