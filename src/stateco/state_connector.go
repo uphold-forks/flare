@@ -530,14 +530,14 @@ func ProvePoW(sender common.Address, blockNumber *big.Int, functionSelector []by
 	chainURLchecksum := hex.EncodeToString(chainURLhash[0:4])
 	switch currencyCode {
 	case "btc":
-		username = os.Getenv("BTC_USERNAME_" + chainURLchecksum)
-		password = os.Getenv("BTC_PASSWORD_" + chainURLchecksum)
+		username = os.Getenv("BTC_U_" + chainURLchecksum)
+		password = os.Getenv("BTC_P_" + chainURLchecksum)
 	case "ltc":
-		username = os.Getenv("LTC_USERNAME_" + chainURLchecksum)
-		password = os.Getenv("LTC_PASSWORD_" + chainURLchecksum)
+		username = os.Getenv("LTC_U_" + chainURLchecksum)
+		password = os.Getenv("LTC_P_" + chainURLchecksum)
 	case "dog":
-		username = os.Getenv("DOGE_USERNAME_" + chainURLchecksum)
-		password = os.Getenv("DOGE_PASSWORD_" + chainURLchecksum)
+		username = os.Getenv("DOGE_U_" + chainURLchecksum)
+		password = os.Getenv("DOGE_P_" + chainURLchecksum)
 	}
 	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
 		return ProveClaimPeriodFinalityPoW(checkRet, chainURL, username, password)

@@ -21,7 +21,7 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
     - Ensure that you set up [`$GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 - State-connector software: [NodeJS](https://nodejs.org/en/download/package-manager/) version 10.24.0.
 - NodeJS dependency management: [Yarn](https://classic.yarnpkg.com/en/docs/install) version 1.22.10.
-- gcc, g++, cURL and jq: `sudo apt update && sudo apt -y install gcc && sudo apt -y install g++ && sudo apt -y install curl && sudo apt -y install jq`
+- gcc, g++, cURL and jq: `sudo apt update && sudo apt -y install gcc g++ curl jq`
 
 Clone Flare:
 ```
@@ -38,29 +38,15 @@ Run the following command:
 
 ## Deploy a Local Network
 
-Configure and launch a 5-node network
-
-First, set an environment variable listing your preferred underlying-chain APIs for use with the state connector system. Each successive URL included for a chain works as a backup to its preceeding URL in case the preceeding URL fails.
-
-```
-export XRP_APIs="https://xrpl.flare.network:443,https://xrpl-1.flare.network:443,https://xrplcluster.com"
-export LTC_APIs="https://litecoin.flare.network:443/"
-```
-
-Some APIs may require authentication. A username and password can be set for an API, for example a Litecoin node, as LTC_USERNAME_$URL_HASH and LTC_PASSWORD_$URL_HASH, where URL_HASH is the first 8 characters of the SHA256 hash of the API URL, for example SHA256( "https://litecoin.flare.network:443/" )[0:8] == 1b6d8101. Run the following two commands to set the username and password for the Litecoin API at "https://litecoin.flare.network:443/":
-
-```
-export LTC_USERNAME_1b6d8101="jaUsKfktbKSwCKyFJjkuXFevdyq9ZLWnQYdCzMpSwGvVZpJPfuXZ4kFjNGwxMv74KDSG2Vc8E9emcGDPbhtXcT5eApvQBwUc4gXSEAmVRpGjFs5Qvnm8n3JWRUAeYwLSYpm2pRJFDFQPBFXbPEZFjUJEEPuy4Vue7RP4UPNWgpq5dvygmZZSd6Yv2m3eWxNDjnvUPCVxLECgma8htD3eCfZDWFMuS7jdB9u9MLq5atGpc7LGZv5VJpgSLCUGXSqBnD4aGShSjypjEaYGRPENLCfXEWJnJqbZaxrDnJ3aqVxKLA8kWBmg8gbNW9bZUNZ2xtnt7QzxGLhQeEHZZD8jq73rscvvtWLuEPUAsJLtYDbBQ5t546c5VbFgYpptvwDd4zMDSdAGpP3YGZ4aK42t2A3xaknQpMGvsbcraypKSTcMWySEUM3J5JbGSDmRAnX83wP4sNpL73QW7FwFS67sbdUA4ZeZQwXjDYjq96XVegFgtJswYJYTBZjDNNbTtfR9"
-export LTC_PASSWORD_1b6d8101="DR6sMdbN2WJvjsQXGVrFAqQ7yPMsm3VzSF5Bf6V6xKZr5r3BUGpRV2wGYT9eNydMLZDP596efn8StTkzBz6zp2s5VbE9CAQsLcvMefRZj24kMEvbTsQQZh7quFJYFYDT5Pg6h8Q4p3p8j7ay47rJNpJjy23C3Kw4V36W4FAmtnw5XkRaURx2b8KdaRfLGWktUqrweJ6DryjrnZFEP8BvPG5bGtxLy2MLSrtxR7mL5bWLxHKFnJVtgNLUpaHFvNfD9efQqDMcpCnQp24GASNbJDWRfEDx4VuMQYXVtxbstyX2zmgNNXDtFLfqhW9W3KwvYnwM7Wzm4NagcQ9XEuM5zfVUwn7fHVkGPSQMugxTLVaCK5nc6ZDrqxV5YZL5ChFK3M63Ad9CqyMGj6ccSGn9zKcNzXBQpTeRNWqQ7wQy2mS9MKWKRMHt4sXeHZ5KZKUS92jrpLKRzakXuy7eRv7n2bM2S4ZTF5YjBMVkvYBEhKbQjr4Anw4XRn7S9YvCyGTU"
-```
-
-Then, launch the network:
+Configure and launch a 5-node network:
 
 ```
 ./cmd/local.sh
 ```
 
 To restart a previously stopped network without resetting it, use the launch command above with the `--existing` flag.
+
+One can change the underlying-chain API endpoints they use for the state-connector system by editing the contents of the file at: `conf/local/chain_apis.json`. This file can differ across all validators on a Flare Network, because these values represent the private choices that a validator has made concerning which API endpoints they wish to rely on for safety in verifying proofs of the state of an underlying-chain.
 
 ## State-Connector System: Proving the state of any underlying chain for all smart contracts on Flare
 
