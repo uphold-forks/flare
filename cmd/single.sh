@@ -6,9 +6,7 @@ printf "\x1b[34mFlare Network 4-Node Local Deployment\x1b[0m\n\n"
 LAUNCH_DIR=$(pwd)
 
 # Test and export underlying chain APIs you chose to use for the state connector
-echo "Testing state-connector API choices..."
 source ./cmd/export_chain_apis.sh $LAUNCH_DIR/conf/local/chain_apis.json
-printf "100%% Passed.\n\n"
 
 export FBA_VALs=$LAUNCH_DIR/conf/local/fba_validators.json
 AVALANCHE_DIR=$GOPATH/src/github.com/ava-labs/avalanchego

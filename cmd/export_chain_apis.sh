@@ -20,11 +20,17 @@ remove_quotes () {
     echo "${result#\"}"
 }
 
+echo "Testing state-connector API choices..."
 for CURR_CHAIN in "${SUPPORTED_CHAINS[@]}"
 do
     CURR_API_EXPORT=${CURR_CHAIN}_APIs
     CHAIN_APIs=$(cat $1 | jq .$CURR_CHAIN)
-    for ((i=0;i<$(echo $CHAIN_APIs | jq '. | length');i++)); 
+    NUM_APIs=$(echo $CHAIN_APIs | jq '. | length')
+    if [[ $NUM_APIs -eq 0 ]]; then
+        echo "No APIs found for ${CURR_CHAIN}"
+        exit;
+    fi
+    for ((i=0;i<$NUM_APIs;i++)); 
     do
         CURR_API=$(remove_quotes $(echo $CHAIN_APIs | jq .[$i].api))
         CURR_U=$(remove_quotes $(echo $CHAIN_APIs | jq .[$i].u))
@@ -47,3 +53,4 @@ do
     done
     export ${CURR_API_EXPORT}=${!CURR_API_EXPORT}
 done
+printf "100%% Passed.\n\n"

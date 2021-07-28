@@ -26,6 +26,7 @@ Join the Flare community on [Discord](https://discord.gg/XqNa7Rq) for FAQ's and 
 Clone Flare:
 ```
 git clone https://gitlab.com/flarenetwork/flare
+cd flare
 ```
 
 ## Compile Flare
