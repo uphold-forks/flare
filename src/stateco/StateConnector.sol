@@ -72,8 +72,8 @@ contract StateConnector {
 // Events
 //====================================================================
 
-    event ChainAdded(uint32 chaindId, bool add);
-    event ChainUpdated(uint32 chaindId);
+    event ChainAdded(uint32 chainId, bool add);
+    event ChainUpdated(uint32 chainId);
     event ClaimPeriodFinalityProved(uint32 chainId, uint64 ledger, ClaimPeriodFinalityType finType, address sender);
     event PaymentFinalityProved(uint32 chainId, uint64 ledger, string txId, bytes32 paymentHash, address sender);
     event PaymentFinalityDisproved(uint32 chainId, uint64 ledger, string txId, bytes32 paymentHash, address sender);
