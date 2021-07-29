@@ -115,7 +115,7 @@ contract StateConnector {
         chains[3] = Chain(true, 62880000, 0, 30, 1, 0, 62880000, block.timestamp, 120, 0); //XRP
         chains[4] = Chain(true, 35863000, 0, 20, 1, 0, 35863000, block.timestamp, 120, 0); //XLM 
         numChains = 5;
-        rewardPeriodTimespan = 604800;
+        rewardPeriodTimespan = 7 days; //604800
         initialiseTime = block.timestamp;
         initialised = true;
         return true;
@@ -300,7 +300,7 @@ contract StateConnector {
     ) external chainExists(chainId) returns (
         uint32 _chainId,
         uint64 _ledger,
-        uint64 finalisedLedgerIndex,
+        uint64 _finalisedLedgerIndex,
         bytes32 _paymentHash,
         string memory _txId
     ) {
@@ -345,7 +345,7 @@ contract StateConnector {
     ) external chainExists(chainId) returns (
         uint32 _chainId,
         uint64 _ledger,
-        uint64 finalisedLedgerIndex,
+        uint64 _finalisedLedgerIndex,
         bytes32 _paymentHash,
         string memory _txId
     ) {
