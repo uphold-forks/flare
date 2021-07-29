@@ -1,12 +1,14 @@
 #!/bin/bash
 if [[ $(pwd) =~ " " ]]; then echo "Working directory path contains a folder with a space in its name, please remove all spaces" && exit; fi
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit; fi
+if [[ $(go version) != *"go1.15.5"* ]]; then echo "Go version is not go1.15.5" && exit; fi
 WORKING_DIR=$(pwd)
 
 sudo rm -rf $GOPATH/src/github.com/ava-labs
 sudo rm -rf $GOPATH/pkg/mod/github.com/ava-labs
 go get -v -d github.com/ava-labs/avalanchego/...
 cd $GOPATH/src/github.com/ava-labs/avalanchego
+# Hard-coded commit to tag v1.4.11-rc.0, at the time of this authoring
 git checkout ac32de45ffd6769007f250f123a5d5dae8230456
 
 echo "Applying Flare-specific changes to AvalancheGo..."
@@ -28,6 +30,8 @@ cp $WORKING_DIR/src/avalanchego/build_coreth.sh ./scripts/build_coreth.sh
 mkdir ./scripts/coreth_changes
 cp $WORKING_DIR/src/coreth/state_transition.go ./scripts/coreth_changes/state_transition.go
 cp $WORKING_DIR/src/stateco/state_connector.go ./scripts/coreth_changes/state_connector.go
+cp $WORKING_DIR/src/keeper/keeper.go ./scripts/coreth_changes/keeper.go
+cp $WORKING_DIR/src/keeper/keeper_test.go ./scripts/coreth_changes/keeper_test.go
 
 export ROCKSDBALLOWED=true
 ./scripts/build.sh

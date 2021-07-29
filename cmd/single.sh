@@ -1,7 +1,7 @@
 #!/bin/bash
 if [[ $(pwd) =~ " " ]]; then echo "Working directory path contains a folder with a space in its name, please remove all spaces" && exit; fi
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit; fi
-printf "\x1b[34mFlare Network 4-Node Local Deployment\x1b[0m\n\n"
+printf "\x1b[34mFlare Network 1-Node Local Deployment\x1b[0m\n\n"
 
 LAUNCH_DIR=$(pwd)
 
@@ -30,7 +30,7 @@ then
 fi
 
 # NODE 1
-printf "Launching Node 1 at 127.0.0.1:9650\n"
+printf "Launching Node 1 at 127.0.0.1:9660\n"
 ./build/avalanchego \
 --public-ip=127.0.0.1 \
 --snow-sample-size=1 \
