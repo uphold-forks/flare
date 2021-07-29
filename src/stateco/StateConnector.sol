@@ -3,6 +3,14 @@ pragma solidity 0.7.6;
 
 contract StateConnector {
 
+    
+    enum ClaimPeriodFinalityType {
+        PROPOSED,
+        LOW_FINALISED_CLAIM_PERIOD_INDEX,
+        REWARDED,
+        BANNED
+    }
+
 //====================================================================
 // Data Structures
 //====================================================================
@@ -59,6 +67,20 @@ contract StateConnector {
     // become accepted, if their submitted chainTipHash value is accepted then they will earn a reward
     mapping(address => uint256) public senderBannedUntil;
 
+    
+//====================================================================
+// Events
+//====================================================================
+
+    event ChainAdded(uint32 chaindId, bool add);
+    event ChainUpdated(uint32 chaindId);
+    event ClaimPeriodFinalityProved(uint32 chainId, uint64 ledger, ClaimPeriodFinalityType finType, address sender);
+    event PaymentFinalityProved(uint32 chainId, uint64 ledger, string txId, bytes32 paymentHash, address sender);
+    event PaymentFinalityDisproved(uint32 chainId, uint64 ledger, string txId, bytes32 paymentHash, address sender);
+
+//====================================================================
+// Modifiers
+//====================================================================
 
     modifier onlyGovernance() {
         require(msg.sender == governanceContract, "msg.sender != governanceContract");
@@ -122,18 +144,22 @@ contract StateConnector {
 
         chains[numChains] = Chain(true, genesisLedger, ledgerHistorySize, claimPeriodLength, numConfirmations, 
             0, genesisLedger, block.timestamp, timeDiffExpected, 0);
+        
+        emit ChainAdded(numChains, true);
         numChains += 1;
     }
 
     // Solution if an underlying chain loses liveness is to disable that chain temporarily
     function disableChain(uint32 chainId) external onlyGovernance chainExists(chainId) {
         chains[chainId].exists = false;
+        emit ChainAdded(chainId, false);
     }
 
     function enableChain(uint32 chainId) external onlyGovernance {
         require(chainId < numChains, "chainId >= numChains");
         require(chains[chainId].exists == false, "chains[chainId].exists == true");
         chains[chainId].exists = true;
+        emit ChainAdded(chainId, true);
     }
 
     function updateChainTiming(
@@ -143,6 +169,7 @@ contract StateConnector {
     ) external onlyGovernance chainExists(chainId) {
         chains[chainId].ledgerHistorySize = ledgerHistorySize;
         chains[chainId].timeDiffExpected = timeDiffExpected;
+        emit ChainUpdated(chainId);
         // If changes to numConfirmations need to be made, then a new chainId should be created.
         // For example, Litecoin-12 vs. Litecoin-15 to require either 12 or 15 confirmations.
         // Apps on Flare can then choose to leverage either Litecoin-12 or Litecoin-15 depending on their
@@ -167,10 +194,10 @@ contract StateConnector {
         require(block.timestamp > chains[chainId].finalisedTimestamp, 
             "block.timestamp <= chains[chainId].finalisedTimestamp");
         if (2 * chains[chainId].timeDiffAvg < chains[chainId].timeDiffExpected) {
-        	require(3 * (block.timestamp - chains[chainId].finalisedTimestamp) >= 2 * chains[chainId].timeDiffAvg, 
+            require(3 * (block.timestamp - chains[chainId].finalisedTimestamp) >= 2 * chains[chainId].timeDiffAvg, 
                 "not enough time elapsed since prior finality");
         } else {
-        	require(block.timestamp - chains[chainId].finalisedTimestamp + 15 >= chains[chainId].timeDiffAvg, 
+            require(block.timestamp - chains[chainId].finalisedTimestamp + 15 >= chains[chainId].timeDiffAvg, 
                 "not enough time elapsed since prior finality");
         }
 
@@ -208,6 +235,7 @@ contract StateConnector {
                     false,
                     address(0x0)
                 );
+                emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.PROPOSED, msg.sender);
             } else {
                 // Node checked claimPeriodHash, and it was valid
                 // Now determine whether to reward or ban the sender of the suggested chainTipHash
@@ -220,11 +248,17 @@ contract StateConnector {
                         uint256 currentRewardPeriod = getRewardPeriod();
                         claimPeriodsMined[finalisedClaimPeriods[prevLocationHash].provenBy][currentRewardPeriod] += 1; 
                         totalClaimPeriodsMined[currentRewardPeriod] += 1;
+                        emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.REWARDED, msg.sender);
                     } else {
                         // Temporarily ban
                         senderBannedUntil[finalisedClaimPeriods[prevLocationHash].provenBy] = 
                             block.timestamp + chains[chainId].numConfirmations * chains[chainId].timeDiffExpected;
+                        emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.BANNED, msg.sender);
                     }
+                } else {
+                    // this is only true for the first few method calls 
+                    emit ClaimPeriodFinalityProved(chainId, ledger, 
+                        ClaimPeriodFinalityType.LOW_FINALISED_CLAIM_PERIOD_INDEX, msg.sender);
                 }
 
                 finalisedClaimPeriods[locationHash] = HashExists(
@@ -285,7 +319,7 @@ contract StateConnector {
         require(block.coinbase == msg.sender || block.coinbase == genesisCoinbase, "invalid block.coinbase value");
 
         if (block.coinbase == msg.sender && block.coinbase != genesisCoinbase) {
-        	finalisedPayments[chainId][txIdHash] = HashExists(
+            finalisedPayments[chainId][txIdHash] = HashExists(
                 true, 
                 0x0, 
                 0x0,
@@ -297,6 +331,7 @@ contract StateConnector {
                 true,
                 msg.sender
             );
+            emit PaymentFinalityProved(chainId, ledger, txId, paymentHash, msg.sender);
         }
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
     }
@@ -331,7 +366,7 @@ contract StateConnector {
         require(block.coinbase == msg.sender || block.coinbase == genesisCoinbase, "invalid block.coinbase value");
 
         if (block.coinbase == msg.sender && block.coinbase != genesisCoinbase) {
-        	finalisedPayments[chainId][txIdHash] = HashExists(
+            finalisedPayments[chainId][txIdHash] = HashExists(
                 true, 
                 0x0, 
                 0x0,
@@ -343,6 +378,7 @@ contract StateConnector {
                 false,
                 msg.sender
             );
+            emit PaymentFinalityDisproved(chainId, ledger, txId, paymentHash, msg.sender);
         }
 
         return (chainId, ledger, chains[chainId].finalisedLedgerIndex, paymentHash, txId);
@@ -416,9 +452,9 @@ contract StateConnector {
             keccak256(abi.encode(destinationTag)),
             keccak256(abi.encode(amount)),
             currencyHash));
-    	require(finalisedPayments[chainId][txId].revealHash == paymentHash, "invalid paymentHash");
+        require(finalisedPayments[chainId][txId].revealHash == paymentHash, "invalid paymentHash");
 
-    	return (
+        return (
             finalisedPayments[chainId][txId].index,
             finalisedPayments[chainId][txId].indexSearchRegion,
             finalisedPayments[chainId][txId].proven
