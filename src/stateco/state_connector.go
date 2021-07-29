@@ -35,13 +35,6 @@ func GetStateConnectorGasDivisor(blockNumber *big.Int) uint64 {
 	}
 }
 
-func GetKeeperGasMultiplier(blockNumber *big.Int) uint64 {
-	switch {
-	default:
-		return 100
-	}
-}
-
 func GetMaxAllowedChains(blockNumber *big.Int) uint32 {
 	switch {
 	default:
@@ -63,20 +56,6 @@ func GetStateConnectorContractAddr(blockNumber *big.Int) string {
 	}
 }
 
-func GetSystemTriggerContractAddr(blockNumber *big.Int) string {
-	switch {
-	default:
-		return "0x1000000000000000000000000000000000000002"
-	}
-}
-
-func GetInflationContractAddr(blockNumber *big.Int) string {
-	switch {
-	default:
-		return GetSystemTriggerContractAddr(blockNumber)
-	}
-}
-
 func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) []byte {
 	switch {
 	default:
@@ -95,21 +74,6 @@ func GetDisprovePaymentFinalitySelector(blockNumber *big.Int) []byte {
 	switch {
 	default:
 		return []byte{0x7f, 0x58, 0x24, 0x32}
-	}
-}
-
-func GetSystemTriggerSelector(blockNumber *big.Int) []byte {
-	switch {
-	default:
-		return []byte{0x7f, 0xec, 0x8d, 0x38}
-	}
-}
-
-func GetMaximumInflationRequest(blockNumber *big.Int) *big.Int {
-	switch {
-	default:
-		maxRequest, _ := new(big.Int).SetString("50000000000000000000000000", 10)
-		return maxRequest
 	}
 }
 
