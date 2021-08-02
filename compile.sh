@@ -1,7 +1,9 @@
 #!/bin/bash
 if [[ $(pwd) =~ " " ]]; then echo "Working directory path contains a folder with a space in its name, please remove all spaces" && exit; fi
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit; fi
-if [[ $(go version) != *"go1.15.5"* ]]; then echo "Go version is not go1.15.5" && exit; fi
+if [[ $(go version) != *"go1.15"* ]]; then echo "Go version is not go1.15" && exit; fi
+if [ "$(dpkg --print-architecture)" != "amd64" ]; then echo "Machine architecture is not amd64" && exit; fi
+
 WORKING_DIR=$(pwd)
 
 sudo rm -rf $GOPATH/src/github.com/ava-labs
