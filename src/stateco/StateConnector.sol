@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 
 contract StateConnector {
 
-    
     enum ClaimPeriodFinalityType {
         PROPOSED,
         LOW_FINALISED_CLAIM_PERIOD_INDEX,
