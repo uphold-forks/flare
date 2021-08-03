@@ -161,7 +161,7 @@ async function web3Config() {
 		},
 		'petersburg');
 	// Read the compiled contract code
-	let source = fs.readFileSync("../bin/contracts/StateConnector.json");
+	let source = fs.readFileSync("../bin/src/stateco/StateConnector.json");
 	let contract = JSON.parse(source);
 	// Create Contract proxy class
 	stateConnector = new web3.eth.Contract(contract.abi);
