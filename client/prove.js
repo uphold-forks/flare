@@ -77,7 +77,7 @@ async function run(chainId) {
 									currency = tx.result.meta.delivered_amount.currency + tx.result.meta.delivered_amount.issuer;
 									amount = parseFloat(tx.result.meta.delivered_amount.value).toFixed(15)*Math.pow(10,15);
 								}
-								console.log('\nchainId: \t\t', '0', '\n',
+								console.log('\nchainId: \t\t', '3', '\n',
 									'ledger: \t\t', tx.result.inLedger, '\n',
 									'txId: \t\t\t', tx.result.hash, '\n',
 									'source: \t\t', tx.result.Account, '\n',
@@ -211,7 +211,7 @@ async function configure(chainId) {
 		},
 		'petersburg');
 	// Read the compiled contract code
-	let source = fs.readFileSync("../bin/contracts/StateConnector.json");
+	let source = fs.readFileSync("../bin/src/stateco/StateConnector.json");
 	let contract = JSON.parse(source);
 	// Create Contract proxy class
 	stateConnector = new web3.eth.Contract(contract.abi);
