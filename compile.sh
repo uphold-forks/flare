@@ -10,8 +10,9 @@ sudo rm -rf $GOPATH/src/github.com/ava-labs
 sudo rm -rf $GOPATH/pkg/mod/github.com/ava-labs
 go get -v -d github.com/ava-labs/avalanchego/...
 cd $GOPATH/src/github.com/ava-labs/avalanchego
-# Hard-coded commit to tag v1.4.11-rc.0, at the time of this authoring
-git checkout ac32de45ffd6769007f250f123a5d5dae8230456
+# Hard-coded commit to tag v1.4.12, at the time of this authoring
+# https://github.com/ava-labs/avalanchego/releases/tag/v1.4.12
+git checkout cae93d95c1bcdc02e1370d38ed1c9d87f1c8c814
 
 echo "Applying Flare-specific changes to AvalancheGo..."
 
