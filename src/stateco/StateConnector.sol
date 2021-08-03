@@ -43,7 +43,7 @@ contract StateConnector {
         address     provenBy;
     }
 
-    address constant GENESIS_COINBASE = address(0x0100000000000000000000000000000000000000);
+    address internal constant GENESIS_COINBASE = address(0x0100000000000000000000000000000000000000);
     address public governanceContract;
     bool public initialised;
     uint32 public numChains;
@@ -71,7 +71,6 @@ contract StateConnector {
 //====================================================================
 
     event ChainAdded(uint32 chainId, bool add);
-    event ChainUpdated(uint32 chainId);
     event ClaimPeriodFinalityProved(uint32 chainId, uint64 ledger, ClaimPeriodFinalityType finType, address sender);
     event PaymentFinalityProved(uint32 chainId, uint64 ledger, string txId, bytes32 paymentHash, address sender);
     event PaymentFinalityDisproved(uint32 chainId, uint64 ledger, string txId, bytes32 paymentHash, address sender);
@@ -230,12 +229,14 @@ contract StateConnector {
                         uint256 currentRewardPeriod = getRewardPeriod();
                         claimPeriodsMined[finalisedClaimPeriods[prevLocationHash].provenBy][currentRewardPeriod] += 1; 
                         totalClaimPeriodsMined[currentRewardPeriod] += 1;
-                        emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.REWARDED, finalisedClaimPeriods[prevLocationHash].provenBy);
+                        emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.REWARDED, 
+                            finalisedClaimPeriods[prevLocationHash].provenBy);
                     } else {
                         // Temporarily ban
                         senderBannedUntil[finalisedClaimPeriods[prevLocationHash].provenBy] = 
                             block.timestamp + chains[chainId].numConfirmations * chains[chainId].timeDiffExpected;
-                        emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.BANNED, finalisedClaimPeriods[prevLocationHash].provenBy);
+                        emit ClaimPeriodFinalityProved(chainId, ledger, ClaimPeriodFinalityType.BANNED, 
+                            finalisedClaimPeriods[prevLocationHash].provenBy);
                     }
                 } else {
                     // this is only true for the first few method calls 
