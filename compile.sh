@@ -35,6 +35,6 @@ cp $WORKING_DIR/src/stateco/state_connector.go ./scripts/coreth_changes/state_co
 cp $WORKING_DIR/src/keeper/keeper.go ./scripts/coreth_changes/keeper.go
 cp $WORKING_DIR/src/keeper/keeper_test.go ./scripts/coreth_changes/keeper_test.go
 
-export ROCKSDBALLOWED=true
+export ROCKSDBALLOWED=1
 ./scripts/build.sh
 rm -rf ./scripts/coreth_changes
