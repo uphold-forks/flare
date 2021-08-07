@@ -44,23 +44,20 @@ async function run(chainId) {
 				console.log('\nchainId: \t\t', chainId, '\n',
 					'ledger: \t\t', ledgerBoundary, '\n',
 					'txId: \t\t\t', txId, '\n',
-					'source: \t\t', sourceAddress, '\n',
 					'destination: \t\t', destinationAddress, '\n',
 					'destinationTag: \t', destinationTag, '\n',
 					'amount: \t\t', parseInt(amount), '\n',
 					'currency: \t\t', currency, '\n');
 				const txIdHash = web3.utils.soliditySha3(txId);
-				const sourceHash = web3.utils.soliditySha3(sourceAddress);
 				const destinationHash = web3.utils.soliditySha3(destinationAddress);
 				const destinationTagHash = web3.utils.soliditySha3(destinationTag);
 				const amountHash = web3.utils.soliditySha3(parseInt(amount));
 				const currencyHash = web3.utils.soliditySha3(currency);
-				const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+				const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash);
 				const leaf = {
 					"chainId": chainId,
 					"txId": txId,
 					"ledger": ledgerBoundary,
-					"source": sourceHash,
 					"destination": destinationHash,
 					"destinationTag": destinationTag,
 					"amount": parseInt(amount),
@@ -74,7 +71,6 @@ async function run(chainId) {
 					stateConnector.methods.getPaymentFinality(
 						leaf.chainId,
 						web3.utils.soliditySha3(leaf.txId),
-						leaf.source,
 						leaf.destination,
 						leaf.destinationTag,
 						leaf.amount,
@@ -185,12 +181,11 @@ async function sleep(ms) {
 
 const chainName = process.argv[2];
 const txId = process.argv[3];
-const sourceAddress = process.argv[4];
-const destinationAddress = process.argv[5];
-const destinationTag = process.argv[6];
-const amount = process.argv[7];
-const currency = process.argv[8];
-const ledgerBoundary = process.argv[9];
+const destinationAddress = process.argv[4];
+const destinationTag = process.argv[5];
+const amount = process.argv[6];
+const currency = process.argv[7];
+const ledgerBoundary = process.argv[8];
 if (chainName in chains) {
 	return configure(chains[chainName].chainId);
 } else {

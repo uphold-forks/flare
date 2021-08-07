@@ -313,7 +313,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.BlockNumber), st.value)
-		if checkVmerr == nil && (selectProvePaymentFinality || selectDisprovePaymentFinality || st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.BlockNumber)) >= 0) && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
+		if checkVmerr == nil && st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.BlockNumber)) >= 0 && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
 			if StateConnectorCall(msg.From(), st.evm.Context.BlockNumber, st.data[0:4], checkRet) {
 				originalCoinbase := st.evm.Context.Coinbase
 				defer func() {

@@ -28,16 +28,21 @@ const chains = {
 
 var config,
 	customCommon,
-	stateConnector;
+	stateConnector,
+	api,
+	username,
+	password;
 
-async function postData(url = '', data = {}) {
+async function postData(url = '', username = '', password = '', data = {}) {
 	const response = await fetch(url, {
 		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
+		headers: new fetch.Headers({
+			'Authorization': 'Basic ' + Buffer.from(username + ':' + password).toString('base64'),
+			'Content-Type': "application/json"
+		}),
+		credentials: 'include',
 		body: JSON.stringify(data)
-	});
+	}).catch(processFailure);
 	return response.json();
 }
 
@@ -52,13 +57,93 @@ async function run(chainId) {
 		gasPrice: config.flare.gasPrice
 	}).catch(processFailure)
 		.then(result => {
-			if (chainId == 3) {
+			if (chainId >= 0 && chainId < 3) {
+				const method = 'getrawtransaction';
+				const params = [txId, true];
+				postData(api, username, password, { method: method, params: params })
+					.then(tx => {
+						const method = 'getblockheader';
+						const params = [tx.result.blockhash];
+						postData(api, username, password, { method: method, params: params })
+							.then(block => {
+								const leafPromise = new Promise((resolve, reject) => {
+									var currency;
+									if (chainId == 0) {
+										currency = "btc";
+									} else if (chainId == 1) {
+										currency = "ltc";
+									} else if (chainId == 2) {
+										currency = "dog";
+									}
+									const amount = parseFloat(tx.result.vout[voutN].value).toFixed(8)*Math.pow(10,8);
+									console.log('\nchainId: \t\t', chainId, '\n',
+										'ledger: \t\t', block.result.height, '\n',
+										'txId: \t\t\t', tx.result.txid, '\n',
+										'destination: \t\t', tx.result.vout[voutN].scriptPubKey.addresses[0], '\n',
+										'destinationTag: \t', 0, '\n',
+										'amount: \t\t', amount, '\n',
+										'currency: \t\t', currency, '\n');
+									const txIdHash = web3.utils.soliditySha3(tx.result.txid);
+									const destinationHash = web3.utils.soliditySha3(tx.result.vout[voutN].scriptPubKey.addresses[0]);
+									const destinationTagHash = web3.utils.soliditySha3(0);
+									const amountHash = web3.utils.soliditySha3(parseFloat(tx.result.vout[voutN].value).toFixed(8)*Math.pow(10,8));
+									const currencyHash = web3.utils.soliditySha3(currency);
+									const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+									const leaf = {
+										"chainId": chainId,
+										"txId": tx.result.txid,
+										"ledger": parseInt(block.result.height),
+										"destination": destinationHash,
+										"destinationTag": 0,
+										"amount": amount,
+										"currency": currencyHash,
+										"paymentHash": paymentHash,
+									}
+									resolve(leaf);
+								})
+								leafPromise.then(leaf => {
+									if (leaf.ledger >= result[0] && leaf.ledger < result[3]) {
+										stateConnector.methods.getPaymentFinality(
+											leaf.chainId,
+											web3.utils.soliditySha3(leaf.txId),
+											leaf.destination,
+											leaf.destinationTag,
+											leaf.amount.toString(),
+											leaf.currency).call({
+												from: config.accounts[1].address,
+												gas: config.flare.gas,
+												gasPrice: config.flare.gasPrice
+											}).catch(() => {
+											})
+											.then(paymentResult => {
+												if (typeof paymentResult != "undefined") {
+													if ("finality" in paymentResult) {
+														if (paymentResult.finality == true) {
+															console.log('Payment already proven.');
+															setTimeout(() => { return process.exit() }, 2500);
+														} else {
+															return provePaymentFinality(leaf);
+														}
+													} else {
+														return processFailure('Bad response from underlying chain.')
+													}
+												} else {
+													return provePaymentFinality(leaf);
+												}
+											})
+									} else {
+										return processFailure('Transaction not yet finalised on Flare.')
+									}
+								})
+							})
+					})
+			} else if (chainId == 3) {
 				const method = 'tx';
 				const params = [{
 					'transaction': txId,
 					'binary': false
 				}];
-				postData(config.chains.xrp.api, { method: method, params: params })
+				postData(api, { method: method, params: params })
 					.then(tx => {
 						if (tx.result.TransactionType == 'Payment') {
 							const leafPromise = new Promise((resolve, reject) => {
@@ -69,34 +154,31 @@ async function run(chainId) {
 									destinationTag = parseInt(tx.result.DestinationTag);
 								}
 								var currency;
-								var amount
+								var amount;
 								if (typeof tx.result.meta.delivered_amount == "string") {
-									currency = 'XRP';
+									currency = "xrp";
 									amount = parseInt(tx.result.meta.delivered_amount);
 								} else {
 									currency = tx.result.meta.delivered_amount.currency + tx.result.meta.delivered_amount.issuer;
 									amount = parseFloat(tx.result.meta.delivered_amount.value).toFixed(15)*Math.pow(10,15);
 								}
-								console.log('\nchainId: \t\t', '3', '\n',
+								console.log('\nchainId: \t\t', chainId, '\n',
 									'ledger: \t\t', tx.result.inLedger, '\n',
 									'txId: \t\t\t', tx.result.hash, '\n',
-									'source: \t\t', tx.result.Account, '\n',
 									'destination: \t\t', tx.result.Destination, '\n',
 									'destinationTag: \t', destinationTag, '\n',
 									'amount: \t\t', amount, '\n',
 									'currency: \t\t', currency, '\n');
 								const txIdHash = web3.utils.soliditySha3(tx.result.hash);
-								const sourceHash = web3.utils.soliditySha3(tx.result.Account);
 								const destinationHash = web3.utils.soliditySha3(tx.result.Destination);
 								const destinationTagHash = web3.utils.soliditySha3(destinationTag);
 								const amountHash = web3.utils.soliditySha3(amount);
 								const currencyHash = web3.utils.soliditySha3(currency);
-								const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+								const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash);
 								const leaf = {
-									"chainId": '3',
+									"chainId": chainId,
 									"txId": tx.result.hash,
 									"ledger": parseInt(tx.result.inLedger),
-									"source": sourceHash,
 									"destination": destinationHash,
 									"destinationTag": destinationTag,
 									"amount": amount,
@@ -110,7 +192,6 @@ async function run(chainId) {
 									stateConnector.methods.getPaymentFinality(
 										leaf.chainId,
 										web3.utils.soliditySha3(leaf.txId),
-										leaf.source,
 										leaf.destination,
 										leaf.destinationTag,
 										leaf.amount.toString(),
@@ -130,7 +211,7 @@ async function run(chainId) {
 														return provePaymentFinality(leaf);
 													}
 												} else {
-													return processFailure('Bad response from XRPL.')
+													return processFailure('Bad response from underlying chain.')
 												}
 											} else {
 												return provePaymentFinality(leaf);
@@ -152,13 +233,18 @@ async function run(chainId) {
 }
 
 async function provePaymentFinality(leaf) {
+	var formattedTxId = leaf.txId
+	if (leaf.chainId < 3) {
+		const voutNstring = new Buffer.from([0, voutN]).toString();
+		formattedTxId = voutNstring + formattedTxId;
+	}
 	web3.eth.getTransactionCount(config.accounts[1].address)
 		.then(nonce => {
 			return [stateConnector.methods.provePaymentFinality(
 				leaf.chainId,
 				leaf.paymentHash,
 				leaf.ledger,
-				leaf.txId).encodeABI(), nonce];
+				formattedTxId).encodeABI(), nonce];
 		})
 		.then(txData => {
 			var rawTx = {
@@ -201,6 +287,27 @@ async function provePaymentFinality(leaf) {
 async function configure(chainId) {
 	let rawConfig = fs.readFileSync('config.json');
 	config = JSON.parse(rawConfig);
+	if (chainId == 0) {
+		api = config.chains.btc.api;
+		username = config.chains.btc.username;
+		password = config.chains.btc.password;
+	} else if (chainId == 1) {
+		api = config.chains.ltc.api;
+		username = config.chains.ltc.username;
+		password = config.chains.ltc.password;
+	} else if (chainId == 2) {
+		api = config.chains.doge.api;
+		username = config.chains.doge.username;
+		password = config.chains.doge.password;
+	} else if (chainId == 3) {
+		api = config.chains.xrp.api;
+		username = config.chains.xrp.username;
+		password = config.chains.xrp.password;
+	} else if (chainId == 4) {
+		api = config.chains.xlm.api;
+		username = config.chains.xlm.username;
+		password = config.chains.xlm.password;
+	}
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;
 	customCommon = Common.forCustomChain('ropsten',
@@ -229,6 +336,7 @@ async function processFailure(error) {
 
 const chainName = process.argv[2];
 const txId = process.argv[3];
+const voutN = process.argv[4];
 if (chainName in chains) {
 	return configure(chains[chainName].chainId);
 } else {

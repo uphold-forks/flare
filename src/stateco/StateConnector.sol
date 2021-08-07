@@ -417,7 +417,6 @@ contract StateConnector {
     function getPaymentFinality(
         uint32 chainId,
         bytes32 txId,
-        bytes32 sourceHash,
         bytes32 destinationHash,
         uint64 destinationTag,
         uint64 amount,
@@ -430,7 +429,6 @@ contract StateConnector {
         require(finalisedPayments[chainId][txId].exists, "txId does not exist");
         bytes32 paymentHash = keccak256(abi.encodePacked(
             txId,
-            sourceHash,
             destinationHash,
             keccak256(abi.encode(destinationTag)),
             keccak256(abi.encode(amount)),
