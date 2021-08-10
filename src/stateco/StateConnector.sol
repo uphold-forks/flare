@@ -418,7 +418,6 @@ contract StateConnector {
         uint32 chainId,
         bytes32 txId,
         bytes32 destinationHash,
-        uint64 destinationTag,
         uint64 amount,
         bytes32 currencyHash
     ) external view chainExists(chainId) returns (
@@ -430,7 +429,6 @@ contract StateConnector {
         bytes32 paymentHash = keccak256(abi.encodePacked(
             txId,
             destinationHash,
-            keccak256(abi.encode(destinationTag)),
             keccak256(abi.encode(amount)),
             currencyHash));
         require(finalisedPayments[chainId][txId].revealHash == paymentHash, "invalid paymentHash");

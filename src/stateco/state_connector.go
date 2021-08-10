@@ -302,9 +302,10 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 	txIdHash := crypto.Keccak256([]byte(jsonResp["result"].Hash))
 	destinationHash := crypto.Keccak256([]byte(jsonResp["result"].Destination))
 	destinationTagHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(jsonResp["result"].DestinationTag))), 32))
+	destinationHash = crypto.Keccak256(destinationHash, destinationTagHash)
 	amountHash := crypto.Keccak256(common.LeftPadBytes(common.FromHex(hexutil.EncodeUint64(uint64(amount))), 32))
 	currencyHash := crypto.Keccak256([]byte(currency))
-	return crypto.Keccak256(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash), inLedger, false
+	return crypto.Keccak256(txIdHash, destinationHash, amountHash, currencyHash), inLedger, false
 }
 
 func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
@@ -492,7 +493,7 @@ type GetPoWTxResp struct {
 	Error  interface{}    `json:"error"`
 }
 
-func GetPoWTx(txHash string, voutN uint16, latestAvailableBlock uint64, currencyCode string, chainURL string, username string, password string) ([]byte, uint64, bool) {
+func GetPoWTx(txHash string, voutN uint64, latestAvailableBlock uint64, currencyCode string, chainURL string, username string, password string) ([]byte, uint64, bool) {
 	data := GetPoWRequestPayload{
 		Method: "getrawtransaction",
 		Params: []string{
@@ -533,7 +534,7 @@ func GetPoWTx(txHash string, voutN uint16, latestAvailableBlock uint64, currency
 	if jsonResp.Error != nil {
 		return []byte{}, 0, true
 	}
-	if uint16(len(jsonResp.Result.Vout)) <= voutN {
+	if uint64(len(jsonResp.Result.Vout)) <= voutN {
 		return []byte{}, 0, false
 	}
 	if jsonResp.Result.Vout[voutN].ScriptPubKey.Type != "pubkeyhash" || len(jsonResp.Result.Vout[voutN].ScriptPubKey.Addresses) != 1 {
@@ -554,8 +555,12 @@ func GetPoWTx(txHash string, voutN uint16, latestAvailableBlock uint64, currency
 }
 
 func ProvePaymentFinalityPoW(checkRet []byte, currencyCode string, chainURL string, username string, password string) (bool, bool) {
-	paymentHash, inBlock, err := GetPoWTx(string(checkRet[194:]), binary.BigEndian.Uint16(checkRet[192:194]), binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
-	if !err {
+	voutN, err := strconv.ParseUint(string(checkRet[192:193]), 16, 64)
+	if err != nil {
+		return false, false
+	}
+	paymentHash, inBlock, getPoWTxErr := GetPoWTx(string(checkRet[193:]), voutN, binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
+	if !getPoWTxErr {
 		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock == binary.BigEndian.Uint64(checkRet[56:64]) {
 			return true, false
 		}
@@ -565,8 +570,12 @@ func ProvePaymentFinalityPoW(checkRet []byte, currencyCode string, chainURL stri
 }
 
 func DisprovePaymentFinalityPoW(checkRet []byte, currencyCode string, chainURL string, username string, password string) (bool, bool) {
-	paymentHash, inBlock, err := GetPoWTx(string(checkRet[194:]), binary.BigEndian.Uint16(checkRet[192:194]), binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
-	if !err {
+	voutN, err := strconv.ParseUint(string(checkRet[192:193]), 16, 64)
+	if err != nil {
+		return false, false
+	}
+	paymentHash, inBlock, getPoWTxErr := GetPoWTx(string(checkRet[194:]), voutN, binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
+	if !getPoWTxErr {
 		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock > binary.BigEndian.Uint64(checkRet[56:64]) {
 			return true, false
 		} else if len(paymentHash) == 0 {

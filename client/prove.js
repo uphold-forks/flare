@@ -67,34 +67,25 @@ async function run(chainId) {
 						postData(api, username, password, { method: method, params: params })
 							.then(block => {
 								const leafPromise = new Promise((resolve, reject) => {
-									var currency;
-									if (chainId == 0) {
-										currency = "btc";
-									} else if (chainId == 1) {
-										currency = "ltc";
-									} else if (chainId == 2) {
-										currency = "dog";
-									}
-									const amount = parseFloat(tx.result.vout[voutN].value).toFixed(8)*Math.pow(10,8);
+									const amount = Math.floor(parseFloat(tx.result.vout[voutN].value).toFixed(8)*Math.pow(10,8));
 									console.log('\nchainId: \t\t', chainId, '\n',
 										'ledger: \t\t', block.result.height, '\n',
 										'txId: \t\t\t', tx.result.txid, '\n',
 										'destination: \t\t', tx.result.vout[voutN].scriptPubKey.addresses[0], '\n',
-										'destinationTag: \t', 0, '\n',
 										'amount: \t\t', amount, '\n',
-										'currency: \t\t', currency, '\n');
-									const txIdHash = web3.utils.soliditySha3(tx.result.txid);
+										'currency: \t\t', chainName, '\n');
+									const voutNhex = web3.utils.toHex(parseInt(voutN));
+									const txIdFormatted = voutNhex.slice(-1) + tx.result.txid;
+									const txIdHash = web3.utils.soliditySha3(txIdFormatted);
 									const destinationHash = web3.utils.soliditySha3(tx.result.vout[voutN].scriptPubKey.addresses[0]);
-									const destinationTagHash = web3.utils.soliditySha3(0);
-									const amountHash = web3.utils.soliditySha3(parseFloat(tx.result.vout[voutN].value).toFixed(8)*Math.pow(10,8));
-									const currencyHash = web3.utils.soliditySha3(currency);
-									const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+									const amountHash = web3.utils.soliditySha3(amount);
+									const currencyHash = web3.utils.soliditySha3(chainName);
+									const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, amountHash, currencyHash);
 									const leaf = {
 										"chainId": chainId,
-										"txId": tx.result.txid,
+										"txId": txIdFormatted,
 										"ledger": parseInt(block.result.height),
 										"destination": destinationHash,
-										"destinationTag": 0,
 										"amount": amount,
 										"currency": currencyHash,
 										"paymentHash": paymentHash,
@@ -107,7 +98,6 @@ async function run(chainId) {
 											leaf.chainId,
 											web3.utils.soliditySha3(leaf.txId),
 											leaf.destination,
-											leaf.destinationTag,
 											leaf.amount.toString(),
 											leaf.currency).call({
 												from: config.accounts[1].address,
@@ -170,17 +160,15 @@ async function run(chainId) {
 									'amount: \t\t', amount, '\n',
 									'currency: \t\t', currency, '\n');
 								const txIdHash = web3.utils.soliditySha3(tx.result.hash);
-								const destinationHash = web3.utils.soliditySha3(tx.result.Destination);
-								const destinationTagHash = web3.utils.soliditySha3(destinationTag);
+								const destinationHash = web3.utils.soliditySha3(web3.utils.soliditySha3(tx.result.Destination), web3.utils.soliditySha3(destinationTag));
 								const amountHash = web3.utils.soliditySha3(amount);
 								const currencyHash = web3.utils.soliditySha3(currency);
-								const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+								const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, amountHash, currencyHash);
 								const leaf = {
 									"chainId": chainId,
 									"txId": tx.result.hash,
 									"ledger": parseInt(tx.result.inLedger),
 									"destination": destinationHash,
-									"destinationTag": destinationTag,
 									"amount": amount,
 									"currency": currencyHash,
 									"paymentHash": paymentHash,
@@ -193,7 +181,6 @@ async function run(chainId) {
 										leaf.chainId,
 										web3.utils.soliditySha3(leaf.txId),
 										leaf.destination,
-										leaf.destinationTag,
 										leaf.amount.toString(),
 										leaf.currency).call({
 											from: config.accounts[1].address,
@@ -233,18 +220,13 @@ async function run(chainId) {
 }
 
 async function provePaymentFinality(leaf) {
-	var formattedTxId = leaf.txId
-	if (leaf.chainId < 3) {
-		const voutNstring = new Buffer.from([0, voutN]).toString();
-		formattedTxId = voutNstring + formattedTxId;
-	}
 	web3.eth.getTransactionCount(config.accounts[1].address)
 		.then(nonce => {
 			return [stateConnector.methods.provePaymentFinality(
 				leaf.chainId,
 				leaf.paymentHash,
 				leaf.ledger,
-				formattedTxId).encodeABI(), nonce];
+				leaf.txId).encodeABI(), nonce];
 		})
 		.then(txData => {
 			var rawTx = {
@@ -337,6 +319,11 @@ async function processFailure(error) {
 const chainName = process.argv[2];
 const txId = process.argv[3];
 const voutN = process.argv[4];
+if (parseInt(voutN) >= 16) {
+	processFailure('Proof-of-work payment index too large, must be lower than 16.');
+} else if (parseInt(voutN) < 0) {
+	processFailure('Proof-of-work payment index must be positive.');
+}
 if (chainName in chains) {
 	return configure(chains[chainName].chainId);
 } else {
