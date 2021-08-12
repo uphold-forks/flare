@@ -85,13 +85,17 @@ Similarly, Litecoin block data availability can be proven using the command:
 
 ### Proving a Payment
 
-Once the first data availability proof has been finalised, you can then submit a payment proof regarding the XRP transaction below. Run the following command in a separate terminal window:
+Once the first data availability proof has been finalised, you can then submit a payment proof regarding this XRP transaction: https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272. Run the following command in a separate terminal window:
 
 ```
 node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
-Payment info: https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
+The following command proves a litecoin payment in the first-position of the UTXO output for this transaction: https://live.blockcypher.com/ltc/tx/0956165f77106ad62d42a3236db3e47178adfa7a80cc1fad43b894fa4ed0c581/
+
+```
+node prove ltc 0956165f77106ad62d42a3236db3e47178adfa7a80cc1fad43b894fa4ed0c581 0
+```
 
 ### Disproving a Payment
 
