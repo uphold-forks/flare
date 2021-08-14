@@ -81,7 +81,6 @@ async function run(chainId) {
 									const amountHash = web3.utils.soliditySha3(amount);
 									const currencyHash = web3.utils.soliditySha3(chainName);
 									const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, amountHash, currencyHash);
-									console.log(paymentHash);
 									const leaf = {
 										"chainId": chainId,
 										"txId": txIdFormatted,
