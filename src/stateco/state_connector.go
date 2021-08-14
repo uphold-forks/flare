@@ -308,24 +308,19 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 	return crypto.Keccak256(txIdHash, destinationHash, amountHash, currencyHash), inLedger, false
 }
 
-func ProvePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
+func ProvePaymentFinalityXRP(checkRet []byte, isDisprove bool, chainURL string) (bool, bool) {
 	paymentHash, inLedger, err := GetXRPTx(string(checkRet[192:]), binary.BigEndian.Uint64(checkRet[88:96]), chainURL)
 	if !err {
-		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger == binary.BigEndian.Uint64(checkRet[56:64]) {
-			return true, false
-		}
-		return false, false
-	}
-	return false, true
-}
-
-func DisprovePaymentFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
-	paymentHash, inLedger, err := GetXRPTx(string(checkRet[192:]), binary.BigEndian.Uint64(checkRet[88:96]), chainURL)
-	if !err {
-		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger > binary.BigEndian.Uint64(checkRet[56:64]) {
-			return true, false
-		} else if len(paymentHash) == 0 {
-			return true, false
+		if !isDisprove {
+			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger == binary.BigEndian.Uint64(checkRet[56:64]) {
+				return true, false
+			}
+		} else {
+			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger > binary.BigEndian.Uint64(checkRet[56:64]) {
+				return true, false
+			} else if len(paymentHash) == 0 {
+				return true, false
+			}
 		}
 		return false, false
 	}
@@ -336,9 +331,9 @@ func ProveXRP(sender common.Address, blockNumber *big.Int, functionSelector []by
 	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
 		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
-		return ProvePaymentFinalityXRP(checkRet, chainURL)
+		return ProvePaymentFinalityXRP(checkRet, false, chainURL)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockNumber)) {
-		return DisprovePaymentFinalityXRP(checkRet, chainURL)
+		return ProvePaymentFinalityXRP(checkRet, true, chainURL)
 	}
 	return false, false
 }
@@ -562,7 +557,7 @@ func GetPoWTx(txHash string, voutN uint64, latestAvailableBlock uint64, currency
 	return crypto.Keccak256(txIdHash, destinationHash, amountHash, currencyHash), inBlock, false
 }
 
-func ProvePaymentFinalityPoW(checkRet []byte, currencyCode string, chainURL string, username string, password string) (bool, bool) {
+func ProvePaymentFinalityPoW(checkRet []byte, isDisprove bool, currencyCode string, chainURL string, username string, password string) (bool, bool) {
 	if len(checkRet) < 257 {
 		return false, false
 	}
@@ -572,25 +567,16 @@ func ProvePaymentFinalityPoW(checkRet []byte, currencyCode string, chainURL stri
 	}
 	paymentHash, inBlock, getPoWTxErr := GetPoWTx(string(checkRet[192:257]), voutN, binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
 	if !getPoWTxErr {
-		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock == binary.BigEndian.Uint64(checkRet[56:64]) {
-			return true, false
-		}
-		return false, false
-	}
-	return false, true
-}
-
-func DisprovePaymentFinalityPoW(checkRet []byte, currencyCode string, chainURL string, username string, password string) (bool, bool) {
-	voutN, err := strconv.ParseUint(string(checkRet[192:193]), 16, 64)
-	if err != nil {
-		return false, false
-	}
-	paymentHash, inBlock, getPoWTxErr := GetPoWTx(string(checkRet[194:]), voutN, binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
-	if !getPoWTxErr {
-		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock > binary.BigEndian.Uint64(checkRet[56:64]) {
-			return true, false
-		} else if len(paymentHash) == 0 {
-			return true, false
+		if !isDisprove {
+			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock == binary.BigEndian.Uint64(checkRet[56:64]) {
+				return true, false
+			}
+		} else {
+			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock > binary.BigEndian.Uint64(checkRet[56:64]) {
+				return true, false
+			} else if len(paymentHash) == 0 {
+				return true, false
+			}
 		}
 		return false, false
 	}
@@ -615,9 +601,9 @@ func ProvePoW(sender common.Address, blockNumber *big.Int, functionSelector []by
 	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
 		return ProveClaimPeriodFinalityPoW(checkRet, chainURL, username, password)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
-		return ProvePaymentFinalityPoW(checkRet, currencyCode, chainURL, username, password)
+		return ProvePaymentFinalityPoW(checkRet, false, currencyCode, chainURL, username, password)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockNumber)) {
-		return DisprovePaymentFinalityPoW(checkRet, currencyCode, chainURL, username, password)
+		return ProvePaymentFinalityPoW(checkRet, true, currencyCode, chainURL, username, password)
 	}
 	return false, false
 }

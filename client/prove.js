@@ -81,6 +81,7 @@ async function run(chainId) {
 									const amountHash = web3.utils.soliditySha3(amount);
 									const currencyHash = web3.utils.soliditySha3(chainName);
 									const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, amountHash, currencyHash);
+									console.log(paymentHash);
 									const leaf = {
 										"chainId": chainId,
 										"txId": txIdFormatted,
@@ -133,7 +134,7 @@ async function run(chainId) {
 					'transaction': txId,
 					'binary': false
 				}];
-				postData(api, { method: method, params: params })
+				postData(api, config.chains.xrp.username, config.chains.xrp.password, { method: method, params: params })
 					.then(tx => {
 						if (tx.result.TransactionType == 'Payment') {
 							const leafPromise = new Promise((resolve, reject) => {

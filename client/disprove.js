@@ -48,18 +48,25 @@ async function run(chainId) {
 					'destinationTag: \t', destinationTag, '\n',
 					'amount: \t\t', parseInt(amount), '\n',
 					'currency: \t\t', currency, '\n');
-				const txIdHash = web3.utils.soliditySha3(txId);
-				const destinationHash = web3.utils.soliditySha3(destinationAddress);
-				const destinationTagHash = web3.utils.soliditySha3(destinationTag);
+				var destinationHash,
+					txIdFormatted;
+				if (chainId >= 0 && chainId < 3) {
+					txIdFormatted = destinationTag + txId;
+					destinationHash = web3.utils.soliditySha3(destinationAddress);
+				} else if (chainId == 3) {
+					txIdFormatted = txId;
+					destinationHash = web3.utils.soliditySha3(web3.utils.soliditySha3(destinationAddress), web3.utils.soliditySha3(destinationTag));
+				}
+				const txIdHash = web3.utils.soliditySha3(txIdFormatted);
 				const amountHash = web3.utils.soliditySha3(parseInt(amount));
 				const currencyHash = web3.utils.soliditySha3(currency);
-				const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+				const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, amountHash, currencyHash);
+				console.log(paymentHash);
 				const leaf = {
 					"chainId": chainId,
-					"txId": txId,
+					"txId": txIdFormatted,
 					"ledger": ledgerBoundary,
 					"destination": destinationHash,
-					"destinationTag": destinationTag,
 					"amount": parseInt(amount),
 					"currency": currencyHash,
 					"paymentHash": paymentHash,
@@ -72,14 +79,13 @@ async function run(chainId) {
 						leaf.chainId,
 						web3.utils.soliditySha3(leaf.txId),
 						leaf.destination,
-						leaf.destinationTag,
 						leaf.amount,
 						leaf.currency).call({
 							from: config.accounts[1].address,
 							gas: config.flare.gas,
 							gasPrice: config.flare.gasPrice
 						})
-						.catch(err => {
+						.catch(() => {
 						})
 						.then(result => {
 							if (typeof result != "undefined") {
@@ -181,11 +187,11 @@ async function sleep(ms) {
 
 const chainName = process.argv[2];
 const txId = process.argv[3];
-const destinationAddress = process.argv[4];
-const destinationTag = process.argv[5];
-const amount = process.argv[6];
-const currency = process.argv[7];
-const ledgerBoundary = process.argv[8];
+const amount = process.argv[4];
+const currency = process.argv[5];
+const ledgerBoundary = process.argv[6];
+const destinationAddress = process.argv[7];
+const destinationTag = process.argv[8];
 if (chainName in chains) {
 	return configure(chains[chainName].chainId);
 } else {
