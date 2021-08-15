@@ -31,7 +31,7 @@ func GetMinReserve(blockNumber *big.Int) *big.Int {
 func GetStateConnectorGasDivisor(blockNumber *big.Int) uint64 {
 	switch {
 	default:
-		return 1
+		return 3
 	}
 }
 
@@ -42,13 +42,6 @@ func GetMaxAllowedChains(blockNumber *big.Int) uint32 {
 	}
 }
 
-func GetGovernanceContractAddr(blockNumber *big.Int) string {
-	switch {
-	default:
-		return "0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7"
-	}
-}
-
 func GetStateConnectorContractAddr(blockNumber *big.Int) string {
 	switch {
 	default:
@@ -56,10 +49,10 @@ func GetStateConnectorContractAddr(blockNumber *big.Int) string {
 	}
 }
 
-func GetProveClaimPeriodFinalitySelector(blockNumber *big.Int) []byte {
+func GetProveDataAvailPeriodFinalitySelector(blockNumber *big.Int) []byte {
 	switch {
 	default:
-		return []byte{0x56, 0xec, 0x93, 0xe7}
+		return []byte{0x05, 0x25, 0xcb, 0x9c}
 	}
 }
 
@@ -169,7 +162,7 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 	return jsonResp["result"].LedgerHash, false
 }
 
-func ProveClaimPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
+func ProveDataAvailPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 	if binary.BigEndian.Uint64(checkRet[96:128]) == 0 {
 		return true, false
 	}
@@ -328,8 +321,8 @@ func ProvePaymentFinalityXRP(checkRet []byte, isDisprove bool, chainURL string) 
 }
 
 func ProveXRP(sender common.Address, blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
-		return ProveClaimPeriodFinalityXRP(checkRet, chainURL)
+	if bytes.Equal(functionSelector, GetProveDataAvailPeriodFinalitySelector(blockNumber)) {
+		return ProveDataAvailPeriodFinalityXRP(checkRet, chainURL)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
 		return ProvePaymentFinalityXRP(checkRet, false, chainURL)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockNumber)) {
@@ -447,7 +440,7 @@ func GetPoWBlockHeader(ledgerHash string, requiredConfirmations uint64, chainURL
 	return jsonResp.Result.Height, false
 }
 
-func ProveClaimPeriodFinalityPoW(checkRet []byte, chainURL string, username string, password string) (bool, bool) {
+func ProveDataAvailPeriodFinalityPoW(checkRet []byte, chainURL string, username string, password string) (bool, bool) {
 	if binary.BigEndian.Uint64(checkRet[96:128]) == 0 {
 		return true, false
 	}
@@ -598,8 +591,8 @@ func ProvePoW(sender common.Address, blockNumber *big.Int, functionSelector []by
 		username = os.Getenv("DOGE_U_" + chainURLchecksum)
 		password = os.Getenv("DOGE_P_" + chainURLchecksum)
 	}
-	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
-		return ProveClaimPeriodFinalityPoW(checkRet, chainURL, username, password)
+	if bytes.Equal(functionSelector, GetProveDataAvailPeriodFinalitySelector(blockNumber)) {
+		return ProveDataAvailPeriodFinalityPoW(checkRet, chainURL, username, password)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
 		return ProvePaymentFinalityPoW(checkRet, false, currencyCode, chainURL, username, password)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockNumber)) {
@@ -612,7 +605,7 @@ func ProvePoW(sender common.Address, blockNumber *big.Int, functionSelector []by
 // XLM
 // =======================================================
 
-func ProveClaimPeriodFinalityXLM(checkRet []byte, chainURL string) (bool, bool) {
+func ProveDataAvailPeriodFinalityXLM(checkRet []byte, chainURL string) (bool, bool) {
 	return false, false
 }
 
@@ -625,8 +618,8 @@ func DisprovePaymentFinalityXLM(checkRet []byte, chainURL string) (bool, bool) {
 }
 
 func ProveXLM(sender common.Address, blockNumber *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if bytes.Equal(functionSelector, GetProveClaimPeriodFinalitySelector(blockNumber)) {
-		return ProveClaimPeriodFinalityXLM(checkRet, chainURL)
+	if bytes.Equal(functionSelector, GetProveDataAvailPeriodFinalitySelector(blockNumber)) {
+		return ProveDataAvailPeriodFinalityXLM(checkRet, chainURL)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockNumber)) {
 		return ProvePaymentFinalityXLM(checkRet, chainURL)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockNumber)) {
@@ -682,7 +675,6 @@ func ReadChain(sender common.Address, blockNumber *big.Int, functionSelector []b
 				}
 			}
 		}
-		// Check for an update to URLs or authentication here via file
 		time.Sleep(1 * time.Second)
 	}
 	return false
