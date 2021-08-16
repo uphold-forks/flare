@@ -88,7 +88,7 @@ async function run(chainId) {
 						})
 						.then(result => {
 							if (typeof result != "undefined") {
-								console.log(result);
+								console.log("Disproven up to:\t", result.ledger);
 							}
 							return disprovePaymentFinality(leaf);
 						})

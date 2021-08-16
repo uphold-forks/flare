@@ -6,8 +6,12 @@ if [ "$(uname -m)" != "x86_64" ]; then echo "Machine architecture is not x86_64"
 
 WORKING_DIR=$(pwd)
 
-sudo rm -rf $GOPATH/src/github.com/ava-labs
-sudo rm -rf $GOPATH/pkg/mod/github.com/ava-labs
+if [ -d $GOPATH/src/github.com/ava-labs ]; then
+  echo "Removing old version..."
+  sudo rm -rf $GOPATH/src/github.com/ava-labs
+  sudo rm -rf $GOPATH/pkg/mod/github.com/ava-labs
+  echo "Complete."
+fi
 go get -v -d github.com/ava-labs/avalanchego/...
 cd $GOPATH/src/github.com/ava-labs/avalanchego
 # Hard-coded commit to tag v1.4.12, at the time of this authoring
