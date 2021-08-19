@@ -47,6 +47,7 @@ contract StateConnector {
     bool public initialised;
     uint32 public numChains;
     uint256 public initialiseTime;
+    uint64 public revealTimespan;
     uint64 public rewardPeriodTimespan;
 
     // Chain ID mapping to Chain struct
@@ -103,6 +104,7 @@ contract StateConnector {
         chains[3] = Chain(true, 62880000, 0, 30, 1, 0, 62880000, block.timestamp, 120, 0); //XRP
         chains[4] = Chain(true, 35863000, 0, 20, 1, 0, 35863000, block.timestamp, 120, 0); //XLM
         numChains = 5;
+        revealTimespan = 1 days;
         rewardPeriodTimespan = 7 days; //604800
         initialiseTime = block.timestamp;
         initialised = true;
@@ -121,7 +123,7 @@ contract StateConnector {
     ) external chainExists(chainId) senderNotBanned returns (
         uint32 _chainId,
         uint64 _ledger,
-        uint16 _numConfirmations,
+        uint16 numConfirmations,
         bytes32 _dataAvailPeriodHash
     ) {
         require(dataAvailPeriodHash > 0x0, "dataAvailPeriodHash == 0x0");
@@ -146,15 +148,17 @@ contract StateConnector {
                     chainId, chains[chainId].finalisedDataAvailPeriodIndex - 1));
             require(finalisedDataAvailPeriods[prevLocationHash].proven, "previous claim period not yet finalised");
         }
-
+        uint16 _numConfirmations;
         if (proposedProofs[msg.sender][locationHash].exists) {
             require(block.timestamp >= proposedProofs[msg.sender][locationHash].permittedRevealTime, 
                 "block.timestamp < proposedProofs[msg.sender][locationHash].permittedRevealTime");
             require(proposedProofs[msg.sender][locationHash].commitHash == 
                 keccak256(abi.encodePacked(msg.sender, chainTipHash)), 
                 "invalid chainTipHash");
+            require(proposedProofs[msg.sender][locationHash].commitTime + revealTimespan > block.timestamp,
+                "reveal is too late");
         } else if (block.coinbase != msg.sender && block.coinbase == GENESIS_COINBASE) {
-            dataAvailPeriodHash = 0x0;
+            _numConfirmations = chains[chainId].numConfirmations;
         }
 
         if (block.coinbase == msg.sender && block.coinbase != GENESIS_COINBASE) {
@@ -182,7 +186,8 @@ contract StateConnector {
                     if (finalisedDataAvailPeriods[prevLocationHash].revealHash == dataAvailPeriodHash) {
                         // Reward
                         uint256 currentRewardPeriod = getRewardPeriod();
-                        dataAvailPeriodsMined[finalisedDataAvailPeriods[prevLocationHash].provenBy][currentRewardPeriod] += 1; 
+                        dataAvailPeriodsMined[finalisedDataAvailPeriods[prevLocationHash].provenBy][currentRewardPeriod]
+                            += 1;
                         totalDataAvailPeriodsMined[currentRewardPeriod] += 1;
                         emit DataAvailPeriodFinalityProved(chainId, ledger, DataAvailPeriodFinalityType.REWARDED, 
                             finalisedDataAvailPeriods[prevLocationHash].provenBy);
@@ -226,7 +231,7 @@ contract StateConnector {
                 chains[chainId].finalisedTimestamp = proposedProofs[msg.sender][locationHash].commitTime;
             }
         }
-        return (chainId, ledger - 1, chains[chainId].numConfirmations, dataAvailPeriodHash);
+        return (chainId, ledger - 1, _numConfirmations, dataAvailPeriodHash);
     }
 
     // If ledger == payment's ledger -> return true
@@ -242,6 +247,8 @@ contract StateConnector {
         bytes32 _paymentHash,
         string memory _txId
     ) {
+        require(paymentHash > 0x0, "paymentHash == 0x0");
+        require(chains[chainId].finalisedLedgerIndex > 0, "chains[chainId].finalisedLedgerIndex == 0");
         bytes32 txIdHash = keccak256(abi.encodePacked(txId));
         require(!finalisedPayments[chainId][txIdHash].proven, "txId already proven");
         require(ledger < chains[chainId].finalisedLedgerIndex, "ledger >= chains[chainId].finalisedLedgerIndex");
@@ -287,6 +294,8 @@ contract StateConnector {
         bytes32 _paymentHash,
         string memory _txId
     ) {
+        require(paymentHash > 0x0, "paymentHash == 0x0");
+        require(chains[chainId].finalisedLedgerIndex > 0, "chains[chainId].finalisedLedgerIndex == 0");
         bytes32 txIdHash = keccak256(abi.encodePacked(txId));
         require(!finalisedPayments[chainId][txIdHash].proven, "txId already proven");
         require(finalisedPayments[chainId][txIdHash].index < ledger,

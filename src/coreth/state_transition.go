@@ -306,19 +306,24 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if st.evm.Context.Coinbase != common.HexToAddress("0x0100000000000000000000000000000000000000") {
 		return nil, fmt.Errorf("Invalid value for block.coinbase")
 	}
+	if st.msg.From() == common.HexToAddress("0x0100000000000000000000000000000000000000") ||
+		st.msg.From() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.Time)) ||
+		st.msg.From() == common.HexToAddress(GetSystemTriggerContractAddr(st.evm.Context.Time)) {
+		return nil, fmt.Errorf("Invalid sender")
+	}
 
-	if !contractCreation && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.BlockNumber)) {
-		selectProveDataAvailPeriodFinality = bytes.Equal(st.data[0:4], GetProveDataAvailPeriodFinalitySelector(st.evm.Context.BlockNumber))
-		selectProvePaymentFinality = bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.BlockNumber))
-		selectDisprovePaymentFinality = bytes.Equal(st.data[0:4], GetDisprovePaymentFinalitySelector(st.evm.Context.BlockNumber))
+	if !contractCreation && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.Time)) {
+		selectProveDataAvailPeriodFinality = bytes.Equal(st.data[0:4], GetProveDataAvailPeriodFinalitySelector(st.evm.Context.Time))
+		selectProvePaymentFinality = bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.Time))
+		selectDisprovePaymentFinality = bytes.Equal(st.data[0:4], GetDisprovePaymentFinalitySelector(st.evm.Context.Time))
 	}
 
 	if selectProveDataAvailPeriodFinality || selectProvePaymentFinality || selectDisprovePaymentFinality {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.BlockNumber), st.value)
-		if checkVmerr == nil && st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.BlockNumber)) >= 0 && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
-			if StateConnectorCall(msg.From(), st.evm.Context.BlockNumber, st.data[0:4], checkRet) {
+		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.Time), st.value)
+		if checkVmerr == nil && st.state.GetBalance(st.msg.From()).Cmp(GetMinReserve(st.evm.Context.Time)) >= 0 && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
+			if StateConnectorCall(msg.From(), st.evm.Context.Time, st.data[0:4], checkRet) {
 				originalCoinbase := st.evm.Context.Coinbase
 				defer func() {
 					st.evm.Context.Coinbase = originalCoinbase
@@ -326,7 +331,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				st.evm.Context.Coinbase = st.msg.From()
 			}
 		}
-		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.BlockNumber), st.value)
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.Time), st.value)
 	} else {
 		if contractCreation {
 			ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)

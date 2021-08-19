@@ -383,8 +383,8 @@ async function configure(chainId) {
 		'petersburg');
 	web3.eth.getBalance(config.accounts[0].address)
 		.then(balance => {
-			if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000000) {
-				console.log("Not enough FLR reserved in your account, need 1M FLR.");
+			if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000) {
+				console.log("Not enough FLR reserved in your account, need 1k FLR.");
 				sleep(5000);
 				process.exit();
 			} else {
