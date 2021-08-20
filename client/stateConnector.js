@@ -32,12 +32,6 @@ const chains = {
 		confirmations: 1,
 		dataAvailPeriodLength: 30,
 		timeDiffExpected: 120
-	},
-	'xlm': {
-		chainId: 4,
-		confirmations: 1,
-		dataAvailPeriodLength: 20,
-		timeDiffExpected: 120
 	}
 };
 
@@ -364,13 +358,6 @@ async function configure(chainId) {
 		confirmations = chains['xrp'].confirmations;
 		dataAvailPeriodLength = chains['xrp'].dataAvailPeriodLength;
 		timeDiffExpected = chains['xrp'].timeDiffExpected;
-	} else if (chainId == 4) {
-		api = config.chains.xlm.api;
-		username = config.chains.xlm.username;
-		password = config.chains.xlm.password;
-		confirmations = chains['xlm'].confirmations;
-		dataAvailPeriodLength = chains['xlm'].dataAvailPeriodLength;
-		timeDiffExpected = chains['xlm'].timeDiffExpected;
 	}
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;

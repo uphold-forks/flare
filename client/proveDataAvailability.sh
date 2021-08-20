@@ -8,8 +8,6 @@ elif [ $1 == 'doge' ]; then
   PORT=8002
 elif [ $1 == 'xrp' ]; then
   PORT=8003
-elif [ $1 == 'xlm' ]; then
-  PORT=8004
 fi;
 while true; do
 	nohup $(sleep 10; curl -s http://localhost:$PORT/?prove=$1) >& /dev/null &

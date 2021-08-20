@@ -127,6 +127,10 @@ This example proves a [BTC issued-currency payment](https://livenet.xrpl.org/tra
 node prove xrp 67B3F2CAF2905BC67FEB5417C1C3F9AA941DF8984F1F49EC48D4DCADFAC94418
 ```
 
+### Two-stage Payment Proof Mechanism
+
+The above commands must be run twice with a `30` second gap in between command runs in order to complete the proving/disproving of a payment. The purpose of this is that it removes the underlying-chain API-call delay from the synchronous EVM execution and instead puts the API-call delay burden on the user proving a payment. This same backgrounded API-call approach is used in the data availability proof setup, however its two-stage call is handled implicitly as part of the commit and reveal scheme so does not require extra user input.
+
 ## License: MIT
 
 Copyright 2021 Flare Foundation

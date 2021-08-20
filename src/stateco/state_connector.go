@@ -52,7 +52,7 @@ func GetStateConnectorGasDivisor(blockTime *big.Int) uint64 {
 func GetMaxAllowedChains(blockTime *big.Int) uint32 {
 	switch {
 	default:
-		return 5
+		return 4
 	}
 }
 
@@ -598,29 +598,6 @@ func ProveXRP(sender common.Address, blockTime *big.Int, functionSelector []byte
 }
 
 // =======================================================
-// XLM
-// =======================================================
-
-func ProveDataAvailPeriodFinalityXLM(checkRet []byte, chainURL string) (bool, bool) {
-	return false, false
-}
-
-func ProvePaymentFinalityXLM(checkRet []byte, isDisprove bool, chainURL string) (bool, bool) {
-	return false, false
-}
-
-func ProveXLM(sender common.Address, blockTime *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if bytes.Equal(functionSelector, GetProveDataAvailPeriodFinalitySelector(blockTime)) {
-		return ProveDataAvailPeriodFinalityXLM(checkRet, chainURL)
-	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockTime)) {
-		return ProvePaymentFinalityXLM(checkRet, false, chainURL)
-	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockTime)) {
-		return ProvePaymentFinalityXLM(checkRet, true, chainURL)
-	}
-	return false, false
-}
-
-// =======================================================
 // Common
 // =======================================================
 
@@ -634,8 +611,6 @@ func ProveChain(sender common.Address, blockTime *big.Int, functionSelector []by
 		return ProvePoW(sender, blockTime, functionSelector, checkRet, "dog", chainURL)
 	case 3:
 		return ProveXRP(sender, blockTime, functionSelector, checkRet, chainURL)
-	case 4:
-		return ProveXLM(sender, blockTime, functionSelector, checkRet, chainURL)
 	default:
 		return false, true
 	}
@@ -653,8 +628,6 @@ func ReadChain(sender common.Address, blockTime *big.Int, functionSelector []byt
 		chainURLs = os.Getenv("DOGE_APIs")
 	case 3:
 		chainURLs = os.Getenv("XRP_APIs")
-	case 4:
-		chainURLs = os.Getenv("XLM_APIs")
 	}
 	if chainURLs != "" {
 		for i := 0; i < apiRetries; i++ {

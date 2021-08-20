@@ -19,9 +19,6 @@ const chains = {
 	},
 	'xrp': {
 		chainId: 3
-	},
-	'xlm': {
-		chainId: 4
 	}
 };
 var config,
@@ -170,6 +167,14 @@ async function web3Config() {
 	stateConnector.options.data = '0x' + contract.deployedBytecode;
 	stateConnector.options.from = config.accounts[1].address;
 	stateConnector.options.address = stateConnectorContract;
+	web3.eth.getBalance(config.accounts[1].address)
+		.then(balance => {
+			if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000) {
+				console.log("Not enough FLR reserved in your account, need 1k FLR.");
+				sleep(1000);
+				process.exit();
+			}
+		})
 }
 
 

@@ -20,9 +20,6 @@ const chains = {
 	},
 	'xrp': {
 		chainId: 3
-	},
-	'xlm': {
-		chainId: 4
 	}
 };
 
@@ -285,10 +282,6 @@ async function configure(chainId) {
 		api = config.chains.xrp.api;
 		username = config.chains.xrp.username;
 		password = config.chains.xrp.password;
-	} else if (chainId == 4) {
-		api = config.chains.xlm.api;
-		username = config.chains.xlm.username;
-		password = config.chains.xlm.password;
 	}
 	web3.setProvider(new web3.providers.HttpProvider(config.flare.url));
 	web3.eth.handleRevert = true;
@@ -299,16 +292,25 @@ async function configure(chainId) {
 			chainId: config.flare.chainId,
 		},
 		'petersburg');
-	// Read the compiled contract code
-	let source = fs.readFileSync("../bin/src/stateco/StateConnector.json");
-	let contract = JSON.parse(source);
-	// Create Contract proxy class
-	stateConnector = new web3.eth.Contract(contract.abi);
-	// Smart contract EVM bytecode as hex
-	stateConnector.options.data = '0x' + contract.deployedBytecode;
-	stateConnector.options.from = config.accounts[1].address;
-	stateConnector.options.address = stateConnectorContract;
-	return run(chainId);
+	web3.eth.getBalance(config.accounts[1].address)
+		.then(balance => {
+			if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000) {
+				console.log("Not enough FLR reserved in your account, need 1k FLR.");
+				sleep(5000);
+				process.exit();
+			} else {
+				// Read the compiled contract code
+				let source = fs.readFileSync("../bin/src/stateco/StateConnector.json");
+				let contract = JSON.parse(source);
+				// Create Contract proxy class
+				stateConnector = new web3.eth.Contract(contract.abi);
+				// Smart contract EVM bytecode as hex
+				stateConnector.options.data = '0x' + contract.deployedBytecode;
+				stateConnector.options.from = config.accounts[1].address;
+				stateConnector.options.address = stateConnectorContract;
+				return run(chainId);
+			}
+		})
 }
 
 async function processFailure(error) {
