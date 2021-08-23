@@ -296,11 +296,11 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	var (
-		ret                                []byte
-		vmerr                              error // vm errors do not effect consensus and are therefore not assigned to err
-		selectProveDataAvailPeriodFinality bool
-		selectProvePaymentFinality         bool
-		selectDisprovePaymentFinality      bool
+		ret                                       []byte
+		vmerr                                     error // vm errors do not affect consensus and are therefore not assigned to err
+		selectProveDataAvailabilityPeriodFinality bool
+		selectProvePaymentFinality                bool
+		selectDisprovePaymentFinality             bool
 	)
 
 	if st.evm.Context.Coinbase != common.HexToAddress("0x0100000000000000000000000000000000000000") {
@@ -313,12 +313,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	if !contractCreation && *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.Time)) {
-		selectProveDataAvailPeriodFinality = bytes.Equal(st.data[0:4], GetProveDataAvailPeriodFinalitySelector(st.evm.Context.Time))
+		selectProveDataAvailabilityPeriodFinality = bytes.Equal(st.data[0:4], GetProveDataAvailabilityPeriodFinalitySelector(st.evm.Context.Time))
 		selectProvePaymentFinality = bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.Time))
 		selectDisprovePaymentFinality = bytes.Equal(st.data[0:4], GetDisprovePaymentFinalitySelector(st.evm.Context.Time))
 	}
 
-	if selectProveDataAvailPeriodFinality || selectProvePaymentFinality || selectDisprovePaymentFinality {
+	if selectProveDataAvailabilityPeriodFinality || selectProvePaymentFinality || selectDisprovePaymentFinality {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, st.gas/GetStateConnectorGasDivisor(st.evm.Context.Time), st.value)

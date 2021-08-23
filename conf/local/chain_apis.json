@@ -5,14 +5,17 @@
             "auth": "basic",
             "u": "jaUsKfktbKSwCKyFJjkuXFevdyq9ZLWnQYdCzMpSwGvVZpJPfuXZ4kFjNGwxMv74KDSG2Vc8E9emcGDPbhtXcT5eApvQBwUc4gXSEAmVRpGjFs5Qvnm8n3JWRUAeYwLSYpm2pRJFDFQPBFXbPEZFjUJEEPuy4Vue7RP4UPNWgpq5dvygmZZSd6Yv2m3eWxNDjnvUPCVxLECgma8htD3eCfZDWFMuS7jdB9u9MLq5atGpc7LGZv5VJpgSLCUGXSqBnD4aGShSjypjEaYGRPENLCfXEWJnJqbZaxrDnJ3aqVxKLA8kWBmg8gbNW9bZUNZ2xtnt7QzxGLhQeEHZZD8jq73rscvvtWLuEPUAsJLtYDbBQ5t546c5VbFgYpptvwDd4zMDSdAGpP3YGZ4aK42t2A3xaknQpMGvsbcraypKSTcMWySEUM3J5JbGSDmRAnX83wP4sNpL73QW7FwFS67sbdUA4ZeZQwXjDYjq96XVegFgtJswYJYTBZjDNNbTtfR9",
             "p": "DR6sMdbN2WJvjsQXGVrFAqQ7yPMsm3VzSF5Bf6V6xKZr5r3BUGpRV2wGYT9eNydMLZDP596efn8StTkzBz6zp2s5VbE9CAQsLcvMefRZj24kMEvbTsQQZh7quFJYFYDT5Pg6h8Q4p3p8j7ay47rJNpJjy23C3Kw4V36W4FAmtnw5XkRaURx2b8KdaRfLGWktUqrweJ6DryjrnZFEP8BvPG5bGtxLy2MLSrtxR7mL5bWLxHKFnJVtgNLUpaHFvNfD9efQqDMcpCnQp24GASNbJDWRfEDx4VuMQYXVtxbstyX2zmgNNXDtFLfqhW9W3KwvYnwM7Wzm4NagcQ9XEuM5zfVUwn7fHVkGPSQMugxTLVaCK5nc6ZDrqxV5YZL5ChFK3M63Ad9CqyMGj6ccSGn9zKcNzXBQpTeRNWqQ7wQy2mS9MKWKRMHt4sXeHZ5KZKUS92jrpLKRzakXuy7eRv7n2bM2S4ZTF5YjBMVkvYBEhKbQjr4Anw4XRn7S9YvCyGTU"
+        },
+        {
+            "api": "https://litecoin.flare.tech:443",
+            "auth": "basic",
+            "u": "public",
+            "p": "gA4Yv3cnuXrIvP_7VIZjW1yliZ9GAclj1Td6tRITc6s="
         }
     ],
     "XRP": [
         {
             "api": "https://xrpl.flare.network:443"
-        },
-        {
-            "api": "https://xrpl-1.flare.network:443"
         },
         {
             "api": "https://xrplcluster.com"

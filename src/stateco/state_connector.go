@@ -22,15 +22,17 @@ import (
 
 var (
 	tr = &http.Transport{
-		MaxIdleConns:       10,
-		IdleConnTimeout:    60 * time.Second,
-		DisableCompression: true,
+		MaxIdleConns:        100,
+		MaxConnsPerHost:     100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout:     60 * time.Second,
+		DisableCompression:  true,
 	}
 	client = &http.Client{
 		Transport: tr,
 		Timeout:   5 * time.Second,
 	}
-	apiRetries    = 10
+	apiRetries    = 3
 	apiRetryDelay = 1 * time.Second
 )
 
@@ -63,10 +65,10 @@ func GetStateConnectorContractAddr(blockTime *big.Int) string {
 	}
 }
 
-func GetProveDataAvailPeriodFinalitySelector(blockTime *big.Int) []byte {
+func GetProveDataAvailabilityPeriodFinalitySelector(blockTime *big.Int) []byte {
 	switch {
 	default:
-		return []byte{0x05, 0x25, 0xcb, 0x9c}
+		return []byte{0xc5, 0xd6, 0x4c, 0xd1}
 	}
 }
 
@@ -193,7 +195,7 @@ func GetPoWBlockHeader(ledgerHash string, requiredConfirmations uint64, chainURL
 	return jsonResp.Result.Height, false
 }
 
-func ProveDataAvailPeriodFinalityPoW(checkRet []byte, chainURL string, username string, password string) (bool, bool) {
+func ProveDataAvailabilityPeriodFinalityPoW(checkRet []byte, chainURL string, username string, password string) (bool, bool) {
 	blockCount, err := GetPoWBlockCount(chainURL, username, password)
 	if err {
 		return false, true
@@ -309,21 +311,21 @@ func ProvePaymentFinalityPoW(checkRet []byte, isDisprove bool, currencyCode stri
 		return false, false
 	}
 	paymentHash, inBlock, getPoWTxErr := GetPoWTx(string(checkRet[192:257]), voutN, binary.BigEndian.Uint64(checkRet[88:96]), currencyCode, chainURL, username, password)
-	if !getPoWTxErr {
-		if !isDisprove {
-			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock == binary.BigEndian.Uint64(checkRet[56:64]) {
-				return true, false
-			}
-		} else {
-			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock > binary.BigEndian.Uint64(checkRet[56:64]) {
-				return true, false
-			} else if len(paymentHash) == 0 {
-				return true, false
-			}
-		}
-		return false, false
+	if getPoWTxErr {
+		return false, true
 	}
-	return false, true
+	if !isDisprove {
+		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock == binary.BigEndian.Uint64(checkRet[56:64]) {
+			return true, false
+		}
+	} else {
+		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inBlock > binary.BigEndian.Uint64(checkRet[56:64]) {
+			return true, false
+		} else if len(paymentHash) == 0 {
+			return true, false
+		}
+	}
+	return false, false
 }
 
 func ProvePoW(sender common.Address, blockTime *big.Int, functionSelector []byte, checkRet []byte, currencyCode string, chainURL string) (bool, bool) {
@@ -341,8 +343,8 @@ func ProvePoW(sender common.Address, blockTime *big.Int, functionSelector []byte
 		username = os.Getenv("DOGE_U_" + chainURLchecksum)
 		password = os.Getenv("DOGE_P_" + chainURLchecksum)
 	}
-	if bytes.Equal(functionSelector, GetProveDataAvailPeriodFinalitySelector(blockTime)) {
-		return ProveDataAvailPeriodFinalityPoW(checkRet, chainURL, username, password)
+	if bytes.Equal(functionSelector, GetProveDataAvailabilityPeriodFinalitySelector(blockTime)) {
+		return ProveDataAvailabilityPeriodFinalityPoW(checkRet, chainURL, username, password)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockTime)) {
 		return ProvePaymentFinalityPoW(checkRet, false, currencyCode, chainURL, username, password)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockTime)) {
@@ -431,7 +433,7 @@ func GetXRPBlock(ledger uint64, chainURL string) (string, bool) {
 	return jsonResp["result"].LedgerHash, false
 }
 
-func ProveDataAvailPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
+func ProveDataAvailabilityPeriodFinalityXRP(checkRet []byte, chainURL string) (bool, bool) {
 	ledger := binary.BigEndian.Uint64(checkRet[56:64])
 	ledgerHashString, err := GetXRPBlock(ledger, chainURL)
 	if err {
@@ -569,26 +571,26 @@ func GetXRPTx(txHash string, latestAvailableLedger uint64, chainURL string) ([]b
 
 func ProvePaymentFinalityXRP(checkRet []byte, isDisprove bool, chainURL string) (bool, bool) {
 	paymentHash, inLedger, err := GetXRPTx(string(checkRet[192:]), binary.BigEndian.Uint64(checkRet[88:96]), chainURL)
-	if !err {
-		if !isDisprove {
-			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger == binary.BigEndian.Uint64(checkRet[56:64]) {
-				return true, false
-			}
-		} else {
-			if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger > binary.BigEndian.Uint64(checkRet[56:64]) {
-				return true, false
-			} else if len(paymentHash) == 0 {
-				return true, false
-			}
-		}
-		return false, false
+	if err {
+		return false, true
 	}
-	return false, true
+	if !isDisprove {
+		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger == binary.BigEndian.Uint64(checkRet[56:64]) {
+			return true, false
+		}
+	} else {
+		if len(paymentHash) > 0 && bytes.Equal(paymentHash, checkRet[96:128]) && inLedger > binary.BigEndian.Uint64(checkRet[56:64]) {
+			return true, false
+		} else if len(paymentHash) == 0 {
+			return true, false
+		}
+	}
+	return false, false
 }
 
 func ProveXRP(sender common.Address, blockTime *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
-	if bytes.Equal(functionSelector, GetProveDataAvailPeriodFinalitySelector(blockTime)) {
-		return ProveDataAvailPeriodFinalityXRP(checkRet, chainURL)
+	if bytes.Equal(functionSelector, GetProveDataAvailabilityPeriodFinalitySelector(blockTime)) {
+		return ProveDataAvailabilityPeriodFinalityXRP(checkRet, chainURL)
 	} else if bytes.Equal(functionSelector, GetProvePaymentFinalitySelector(blockTime)) {
 		return ProvePaymentFinalityXRP(checkRet, false, chainURL)
 	} else if bytes.Equal(functionSelector, GetDisprovePaymentFinalitySelector(blockTime)) {
@@ -629,56 +631,69 @@ func ReadChain(sender common.Address, blockTime *big.Int, functionSelector []byt
 	case 3:
 		chainURLs = os.Getenv("XRP_APIs")
 	}
-	if chainURLs != "" {
-		for i := 0; i < apiRetries; i++ {
-			for _, chainURL := range strings.Split(chainURLs, ",") {
-				if chainURL != "" {
-					verified, err := ProveChain(sender, blockTime, functionSelector, checkRet, chainId, chainURL)
-					if !verified && err {
-						continue
-					} else {
-						return verified
-					}
-				}
+	if chainURLs == "" {
+		return false
+	}
+	for i := 0; i < apiRetries; i++ {
+		for _, chainURL := range strings.Split(chainURLs, ",") {
+			if chainURL == "" {
+				continue
 			}
-			time.Sleep(apiRetryDelay)
+			verified, err := ProveChain(sender, blockTime, functionSelector, checkRet, chainId, chainURL)
+			if !verified && err {
+				continue
+			}
+			return verified
 		}
+		time.Sleep(apiRetryDelay)
 	}
 	return false
+}
+
+func GetVerificationPaths(functionSelector []byte, checkRet []byte) (string, string) {
+	prefix := "cache/"
+	acceptedPrefix := "ACCEPTED"
+	rejectedPrefix := "REJECTED"
+	functionHash := hex.EncodeToString(functionSelector[:])
+	verificationHash := hex.EncodeToString(crypto.Keccak256(checkRet[0:64], checkRet[96:128]))
+	suffix := "_" + functionHash + "_" + verificationHash
+	return prefix + acceptedPrefix + suffix, prefix + rejectedPrefix + suffix
 }
 
 // Verify proof against underlying chain
 func StateConnectorCall(sender common.Address, blockTime *big.Int, functionSelector []byte, checkRet []byte) bool {
 	if binary.BigEndian.Uint64(checkRet[88:96]) > 0 {
 		go func() {
-			verificationHash := hex.EncodeToString(crypto.Keccak256(checkRet[0:64], checkRet[96:128]))
-			_, errACCEPTED := os.Stat("cache/ACCEPTED" + verificationHash)
-			_, errREJECTED := os.Stat("cache/REJECTED" + verificationHash)
+			acceptedPath, rejectedPath := GetVerificationPaths(functionSelector, checkRet)
+			_, errACCEPTED := os.Stat(acceptedPath)
+			_, errREJECTED := os.Stat(rejectedPath)
 			if errACCEPTED != nil && errREJECTED != nil {
 				if ReadChain(sender, blockTime, functionSelector, checkRet) {
-					verificationHashStore, err := os.Create("cache/ACCEPTED" + verificationHash)
+					verificationHashStore, err := os.Create(acceptedPath)
 					verificationHashStore.Close()
 					if err != nil {
 						// Permissions problem
+						panic(err)
 					}
 				} else {
-					verificationHashStore, err := os.Create("cache/REJECTED" + verificationHash)
+					verificationHashStore, err := os.Create(rejectedPath)
 					verificationHashStore.Close()
 					if err != nil {
 						// Permissions problem
+						panic(err)
 					}
 				}
 			}
 		}()
 		return true
 	} else {
-		verificationHash := hex.EncodeToString(crypto.Keccak256(checkRet[0:64], checkRet[96:128]))
-		_, errACCEPTED := os.Stat("cache/ACCEPTED" + verificationHash)
-		_, errREJECTED := os.Stat("cache/REJECTED" + verificationHash)
+		acceptedPath, rejectedPath := GetVerificationPaths(functionSelector, checkRet)
+		_, errACCEPTED := os.Stat(acceptedPath)
+		_, errREJECTED := os.Stat(rejectedPath)
 		if errACCEPTED != nil && errREJECTED != nil {
 			for i := 0; i < 2*apiRetries; i++ {
-				_, errACCEPTED = os.Stat("cache/ACCEPTED" + verificationHash)
-				_, errREJECTED = os.Stat("cache/REJECTED" + verificationHash)
+				_, errACCEPTED = os.Stat(acceptedPath)
+				_, errREJECTED = os.Stat(rejectedPath)
 				if errACCEPTED == nil || errREJECTED == nil {
 					break
 				}
@@ -688,10 +703,12 @@ func StateConnectorCall(sender common.Address, blockTime *big.Int, functionSelec
 		go func() {
 			removeFulfilledAPIRequests := os.Getenv("REMOVE_FULFILLED_API_REQUESTS")
 			if removeFulfilledAPIRequests == "1" {
-				errDeleteACCEPTED := os.Remove("cache/ACCEPTED" + verificationHash)
-				errDeleteREJECTED := os.Remove("cache/REJECTED" + verificationHash)
+				errDeleteACCEPTED := os.Remove(acceptedPath)
+				errDeleteREJECTED := os.Remove(rejectedPath)
 				if errDeleteACCEPTED != nil && errDeleteREJECTED != nil {
 					// Permissions problem
+					panic(errDeleteACCEPTED)
+					panic(errDeleteREJECTED)
 				}
 			}
 		}()
