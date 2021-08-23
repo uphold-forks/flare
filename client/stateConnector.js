@@ -224,7 +224,7 @@ async function proveDataAvailabilityPeriodFinality(chainId, ledger, dataAvailabi
 	stateConnector.methods.getDataAvailabilityPeriodIndexFinality(
 		parseInt(chainId),
 		dataAvailabilityPeriodIndex).call({
-			from: config.accounts[0].address,
+			from: config.accounts[chainId].address,
 			gas: config.flare.gas,
 			gasPrice: config.flare.gasPrice
 		}).catch(processFailure)
@@ -234,14 +234,14 @@ async function proveDataAvailabilityPeriodFinality(chainId, ledger, dataAvailabi
 				console.log('This claim period already registered.');
 				setTimeout(() => { return process.exit() }, 5000);
 			} else {
-				web3.eth.getTransactionCount(config.accounts[0].address)
+				web3.eth.getTransactionCount(config.accounts[chainId].address)
 					.then(nonce => {
 						if (isCommit) {
 							return [stateConnector.methods.proveDataAvailabilityPeriodFinality(
 								chainId,
 								ledger,
 								dataAvailabilityPeriodHash,
-								web3.utils.soliditySha3(config.accounts[0].address, chainTipHash)).encodeABI(), nonce];
+								web3.utils.soliditySha3(config.accounts[chainId].address, chainTipHash)).encodeABI(), nonce];
 						} else {
 							return [stateConnector.methods.proveDataAvailabilityPeriodFinality(
 								chainId,
@@ -256,11 +256,11 @@ async function proveDataAvailabilityPeriodFinality(chainId, ledger, dataAvailabi
 							gasPrice: web3.utils.toHex(parseInt(config.flare.gasPrice)),
 							gas: web3.utils.toHex(config.flare.gas),
 							to: stateConnector.options.address,
-							from: config.accounts[0].address,
+							from: config.accounts[chainId].address,
 							data: txData[0]
 						};
 						var tx = new Tx(rawTx, { common: customCommon });
-						var key = Buffer.from(config.accounts[0].privateKey, 'hex');
+						var key = Buffer.from(config.accounts[chainId].privateKey, 'hex');
 						tx.sign(key);
 						var serializedTx = tx.serialize();
 						const txHash = web3.utils.sha3(serializedTx);
@@ -368,7 +368,7 @@ async function configure(chainId) {
 			chainId: config.flare.chainId,
 		},
 		'petersburg');
-	web3.eth.getBalance(config.accounts[0].address)
+	web3.eth.getBalance(config.accounts[chainId].address)
 		.then(balance => {
 			if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000) {
 				console.log("Not enough FLR reserved in your account, need 1k FLR.");
@@ -382,7 +382,7 @@ async function configure(chainId) {
 				stateConnector = new web3.eth.Contract(contract.abi);
 				// Smart contract EVM bytecode as hex
 				stateConnector.options.data = '0x' + contract.deployedBytecode;
-				stateConnector.options.from = config.accounts[0].address;
+				stateConnector.options.from = config.accounts[chainId].address;
 				stateConnector.options.address = stateConnectorContract;
 				return run(chainId, 0);
 			}

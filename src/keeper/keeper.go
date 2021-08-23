@@ -61,6 +61,13 @@ func GetSystemTriggerSelector(blockNumber *big.Int) []byte {
 	}
 }
 
+func GetPrioritisedFTSOContract(blockTime *big.Int) string {
+	switch {
+	default:
+		return "0x1000000000000000000000000000000000000003"
+	}
+}
+
 func GetMaximumMintRequest(blockNumber *big.Int) *big.Int {
 	switch {
 	default:

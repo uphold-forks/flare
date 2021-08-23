@@ -27,7 +27,7 @@ else
 fi
 
 echo "Applying Flare-specific changes to Coreth..."
-sudo chmod -R 775 $coreth_path
+chmod -R 775 $coreth_path
 cp $AVALANCHE_PATH/scripts/coreth_changes/state_transition.go $coreth_path/core/state_transition.go
 cp $AVALANCHE_PATH/scripts/coreth_changes/state_connector.go $coreth_path/core/state_connector.go
 cp $AVALANCHE_PATH/scripts/coreth_changes/keeper.go $coreth_path/core/keeper.go

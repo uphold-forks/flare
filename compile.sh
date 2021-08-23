@@ -8,12 +8,14 @@ WORKING_DIR=$(pwd)
 
 if [ -d $GOPATH/src/github.com/ava-labs ]; then
   echo "Removing old version..."
-  sudo rm -rf $GOPATH/src/github.com/ava-labs
-  sudo rm -rf $GOPATH/pkg/mod/github.com/ava-labs
-  echo "Complete."
+  chmod -R 775 $GOPATH/src/github.com/ava-labs && rm -rf $GOPATH/src/github.com/ava-labs
+  chmod -R 775 $GOPATH/pkg/mod/github.com/ava-labs && rm -rf $GOPATH/pkg/mod/github.com/ava-labs
 fi
-go get -v -d github.com/ava-labs/avalanchego/...
+
+echo "Downloading AvalancheGo..."
+go get -v -d github.com/ava-labs/avalanchego/... &> /dev/null
 cd $GOPATH/src/github.com/ava-labs/avalanchego
+git config --global advice.detachedHead false
 # Hard-coded commit to tag v1.4.12, at the time of this authoring
 # https://github.com/ava-labs/avalanchego/releases/tag/v1.4.12
 git checkout cae93d95c1bcdc02e1370d38ed1c9d87f1c8c814
@@ -43,3 +45,5 @@ cp $WORKING_DIR/src/keeper/keeper_test.go ./scripts/coreth_changes/keeper_test.g
 export ROCKSDBALLOWED=1
 ./scripts/build.sh
 rm -rf ./scripts/coreth_changes
+chmod -R 775 $GOPATH/src/github.com/ava-labs
+chmod -R 775 $GOPATH/pkg/mod/github.com/ava-labs

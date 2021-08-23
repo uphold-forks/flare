@@ -47,8 +47,8 @@ contract StateConnector {
     bool public initialised;
     uint32 public numChains;
     uint256 public initialiseTime;
-    uint64 public paymentCommitDelay;
-    uint64 public revealTimespan;
+    uint256 public commitRevealLowerBound;
+    uint256 public commitRevealUpperBound;
     uint64 public rewardPeriodTimespan;
 
     // Chain ID mapping to Chain struct
@@ -108,13 +108,13 @@ contract StateConnector {
 
     function initialiseChains() external returns (bool success) {
         require(!initialised, "initialised != false");
-        chains[0] = Chain(true, 689300, 0, 1, 4, 0, 689300, block.timestamp, 900, 0); //BTC
-        chains[1] = Chain(true, 2086110, 0, 1, 12, 0, 2086110, block.timestamp, 150, 0); //LTC
-        chains[2] = Chain(true, 3768500, 0, 2, 40, 0, 3768500, block.timestamp, 120, 0); //DOGE
-        chains[3] = Chain(true, 62880000, 0, 30, 1, 0, 62880000, block.timestamp, 120, 0); //XRP
+        chains[0] = Chain(true, 689300, 0, 1, 4, 0, 689300, block.timestamp, 900, 30); //BTC
+        chains[1] = Chain(true, 2086110, 0, 1, 12, 0, 2086110, block.timestamp, 150, 30); //LTC
+        chains[2] = Chain(true, 3768500, 0, 2, 40, 0, 3768500, block.timestamp, 120, 30); //DOGE
+        chains[3] = Chain(true, 62880000, 0, 30, 1, 0, 62880000, block.timestamp, 120, 30); //XRP
         numChains = 4;
-        paymentCommitDelay = 30;
-        revealTimespan = 1 days;
+        commitRevealLowerBound = 30;
+        commitRevealUpperBound = 1 days;
         rewardPeriodTimespan = 7 days; //604800
         initialiseTime = block.timestamp;
         initialised = true;
@@ -166,7 +166,7 @@ contract StateConnector {
             require(proposedDataAvailabilityProofs[msg.sender][locationHash].commitHash == 
                 keccak256(abi.encodePacked(msg.sender, chainTipHash)), 
                 "invalid chainTipHash");
-            require(proposedDataAvailabilityProofs[msg.sender][locationHash].commitTime + revealTimespan > block.timestamp,
+            require(proposedDataAvailabilityProofs[msg.sender][locationHash].commitTime + commitRevealUpperBound > block.timestamp,
                 "reveal is too late");
         } else if (block.coinbase != msg.sender && block.coinbase == GENESIS_COINBASE) {
             numConfirmations = chains[chainId].numConfirmations;
@@ -174,12 +174,16 @@ contract StateConnector {
 
         if (block.coinbase == msg.sender && block.coinbase != GENESIS_COINBASE) {
             if (!proposedDataAvailabilityProofs[msg.sender][locationHash].exists) {
+                uint256 permittedRevealTime = chains[chainId].timeDiffAvg / 2;
+                if (permittedRevealTime < commitRevealLowerBound) {
+                    permittedRevealTime = commitRevealLowerBound;
+                }
                 proposedDataAvailabilityProofs[msg.sender][locationHash] = HashExists(
                     true,
                     dataAvailabilityPeriodHash,
                     chainTipHash,
                     block.timestamp,
-                    block.timestamp + chains[chainId].timeDiffAvg / 2,
+                    block.timestamp + permittedRevealTime,
                     0x0,
                     ledger,
                     0,
@@ -280,7 +284,7 @@ contract StateConnector {
                 "block.timestamp < proposedPaymentProofs[locationHash].permittedRevealTime");
             require(proposedPaymentProofs[locationHash][ledger].revealHash == paymentHash, 
                 "invalid paymentHash");
-            require(proposedPaymentProofs[locationHash][ledger].commitTime + revealTimespan > block.timestamp,
+            require(proposedPaymentProofs[locationHash][ledger].commitTime + commitRevealUpperBound > block.timestamp,
                 "reveal is too late");
         } else if (block.coinbase != msg.sender && block.coinbase == GENESIS_COINBASE) {
             finalisedLedgerIndex = chains[chainId].finalisedLedgerIndex;
@@ -293,7 +297,7 @@ contract StateConnector {
                     0x0, 
                     0x0,
                     block.timestamp, 
-                    block.timestamp + paymentCommitDelay, 
+                    block.timestamp + commitRevealLowerBound, 
                     paymentHash, 
                     ledger, 
                     indexSearchRegion, 
@@ -356,7 +360,7 @@ contract StateConnector {
                 "block.timestamp < proposedNonPaymentProofs[locationHash][ledger].permittedRevealTime");
             require(proposedNonPaymentProofs[locationHash][ledger].revealHash == paymentHash, 
                 "invalid paymentHash");
-            require(proposedNonPaymentProofs[locationHash][ledger].commitTime + revealTimespan > block.timestamp,
+            require(proposedNonPaymentProofs[locationHash][ledger].commitTime + commitRevealUpperBound > block.timestamp,
                 "reveal is too late");
         } else if (block.coinbase != msg.sender && block.coinbase == GENESIS_COINBASE) {
             finalisedLedgerIndex = chains[chainId].finalisedLedgerIndex;
@@ -369,7 +373,7 @@ contract StateConnector {
                     0x0, 
                     0x0,
                     block.timestamp, 
-                    block.timestamp + paymentCommitDelay, 
+                    block.timestamp + commitRevealLowerBound, 
                     paymentHash, 
                     ledger, 
                     indexSearchRegion, 

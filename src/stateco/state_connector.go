@@ -36,14 +36,6 @@ var (
 	apiRetryDelay = 1 * time.Second
 )
 
-func GetMinReserve(blockTime *big.Int) *big.Int {
-	switch {
-	default:
-		minReserve, _ := new(big.Int).SetString("1000000000000000000000", 10)
-		return minReserve
-	}
-}
-
 func GetStateConnectorGasDivisor(blockTime *big.Int) uint64 {
 	switch {
 	default:
