@@ -85,42 +85,51 @@ Similarly, Litecoin block data availability can be proven using the command:
 
 ### Proving a Payment
 
-Once the first data availability proof has been finalised, you can then submit a payment proof regarding the XRP transaction below. Run the following command in a separate terminal window:
+Once the first data availability proof has been finalised, you can then submit a payment proof regarding the XRP transaction: [FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272](https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272). Run the following command in a separate terminal window:
 
 ```
 node prove xrp FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
 ```
 
-Payment info: https://livenet.xrpl.org/transactions/FFB44382D074CB37B63AC9D3EB2D829C1D1FE4D54DC1A0BCC1D23BAE18D53272
+The following command proves a Litecoin payment in the first-position of the UTXO output for this transaction: [0956165f77106ad62d42a3236db3e47178adfa7a80cc1fad43b894fa4ed0c581](https://live.blockcypher.com/ltc/tx/0956165f77106ad62d42a3236db3e47178adfa7a80cc1fad43b894fa4ed0c581/)
+
+```
+node prove ltc 0956165f77106ad62d42a3236db3e47178adfa7a80cc1fad43b894fa4ed0c581 0
+```
 
 ### Disproving a Payment
 
-One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example, the following command proves to the state connector contract that payment F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A has not occurred by ledger 62880001 on the XRPL:
+One can also prove that a payment has not occurred by a certain ledger index on the underlying chain. For example, the following command proves to the state connector contract that payment [F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A](https://livenet.xrpl.org/transactions/F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A) has not occurred by ledger 62880001 on the XRPL:
 
 ```
 node disprove xrp F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A \
-rKfXPjgLZvQ7ZLSkVDS88RwZM7MhUhzoUQ rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196 20000000000 XRP 62880001
+20000000000 xrp 62880001 rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq 129053196
 ```
 
-Payment info: https://livenet.xrpl.org/transactions/F4D1EDBFB578A8C96CF12D90E9ADEDF22F556420276A1D0F13245E433020416A
+The following command proves that payment [6cdd66d490cd8a2963e2e906f7b1d04477229330359e12968d50300ddc0e9c92](https://live.blockcypher.com/ltc/tx/6cdd66d490cd8a2963e2e906f7b1d04477229330359e12968d50300ddc0e9c92/) has not occurred by ledger 2086110 on the Litecoin network. 
+
+```
+node disprove ltc 6cdd66d490cd8a2963e2e906f7b1d04477229330359e12968d50300ddc0e9c92 \
+14491399 ltc 2086110 LLhDcn7bepacf55ZoDsa7e6NWgJEPz1ZqJ 0
+```
 
 ### Custom-currency Proofs (e.g. Issued Currencies, ERC20s, etc.)
 
-The proving/disproving of a custom-currency payment is also supported. The state connector supports any issued currency and differentiates them by appending their currency code to its issuer's address, e.g. USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje. For example, this command proves that a payment of USD issued on the XRPL occurred:
+The proving/disproving of a custom-currency payment is also supported. The state connector supports any issued currency and differentiates them by appending their currency code to its issuer's address, e.g. USDrL7jDKUNmxBG24QsqA6fDUwFwjndgMojje. For example, the following command proves that a [payment of USD](https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59) issued on the XRPL occurred:
 
 ```
 node prove xrp 8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
 ```
 
-Payment info: https://livenet.xrpl.org/transactions/8B3FB7F0B5BDAB705FDB152EBA20BF47159898D76812DA80BD367D99206B5C59
-
-This example proves a BTC issued-currency payment on the XRPL:
+This example proves a [BTC issued-currency payment](https://livenet.xrpl.org/transactions/67B3F2CAF2905BC67FEB5417C1C3F9AA941DF8984F1F49EC48D4DCADFAC94418) on the XRPL:
 
 ```
 node prove xrp 67B3F2CAF2905BC67FEB5417C1C3F9AA941DF8984F1F49EC48D4DCADFAC94418
 ```
 
-Payment info: https://livenet.xrpl.org/transactions/67B3F2CAF2905BC67FEB5417C1C3F9AA941DF8984F1F49EC48D4DCADFAC94418
+### Two-stage Payment Proof Mechanism
+
+The above commands must be run twice with a `30` second gap in between command runs in order to complete the proving/disproving of a payment. The purpose of this is that it removes the underlying-chain API-call delay from the synchronous EVM execution and instead puts the API-call delay burden on the user proving a payment. This same backgrounded API-call approach is used in the data availability proof setup, however its two-stage call is handled implicitly as part of the commit and reveal scheme so does not require extra user input.
 
 ## License: MIT
 

@@ -19,9 +19,6 @@ const chains = {
 	},
 	'xrp': {
 		chainId: 3
-	},
-	'xlm': {
-		chainId: 4
 	}
 };
 var config,
@@ -44,25 +41,28 @@ async function run(chainId) {
 				console.log('\nchainId: \t\t', chainId, '\n',
 					'ledger: \t\t', ledgerBoundary, '\n',
 					'txId: \t\t\t', txId, '\n',
-					'source: \t\t', sourceAddress, '\n',
 					'destination: \t\t', destinationAddress, '\n',
 					'destinationTag: \t', destinationTag, '\n',
 					'amount: \t\t', parseInt(amount), '\n',
 					'currency: \t\t', currency, '\n');
-				const txIdHash = web3.utils.soliditySha3(txId);
-				const sourceHash = web3.utils.soliditySha3(sourceAddress);
-				const destinationHash = web3.utils.soliditySha3(destinationAddress);
-				const destinationTagHash = web3.utils.soliditySha3(destinationTag);
+				var destinationHash,
+					txIdFormatted;
+				if (chainId >= 0 && chainId < 3) {
+					txIdFormatted = destinationTag + txId;
+					destinationHash = web3.utils.soliditySha3(destinationAddress);
+				} else if (chainId == 3) {
+					txIdFormatted = txId;
+					destinationHash = web3.utils.soliditySha3(web3.utils.soliditySha3(destinationAddress), web3.utils.soliditySha3(destinationTag));
+				}
+				const txIdHash = web3.utils.soliditySha3(txIdFormatted);
 				const amountHash = web3.utils.soliditySha3(parseInt(amount));
 				const currencyHash = web3.utils.soliditySha3(currency);
-				const paymentHash = web3.utils.soliditySha3(txIdHash, sourceHash, destinationHash, destinationTagHash, amountHash, currencyHash);
+				const paymentHash = web3.utils.soliditySha3(txIdHash, destinationHash, amountHash, currencyHash);
 				const leaf = {
 					"chainId": chainId,
-					"txId": txId,
+					"txId": txIdFormatted,
 					"ledger": ledgerBoundary,
-					"source": sourceHash,
 					"destination": destinationHash,
-					"destinationTag": destinationTag,
 					"amount": parseInt(amount),
 					"currency": currencyHash,
 					"paymentHash": paymentHash,
@@ -74,20 +74,18 @@ async function run(chainId) {
 					stateConnector.methods.getPaymentFinality(
 						leaf.chainId,
 						web3.utils.soliditySha3(leaf.txId),
-						leaf.source,
 						leaf.destination,
-						leaf.destinationTag,
 						leaf.amount,
 						leaf.currency).call({
 							from: config.accounts[1].address,
 							gas: config.flare.gas,
 							gasPrice: config.flare.gasPrice
 						})
-						.catch(err => {
+						.catch(() => {
 						})
 						.then(result => {
 							if (typeof result != "undefined") {
-								console.log(result);
+								console.log("Disproven up to:\t", result.ledger);
 							}
 							return disprovePaymentFinality(leaf);
 						})
@@ -169,6 +167,14 @@ async function web3Config() {
 	stateConnector.options.data = '0x' + contract.deployedBytecode;
 	stateConnector.options.from = config.accounts[1].address;
 	stateConnector.options.address = stateConnectorContract;
+	web3.eth.getBalance(config.accounts[1].address)
+		.then(balance => {
+			if (parseInt(web3.utils.fromWei(balance, "ether")) < 1000) {
+				console.log("Not enough FLR reserved in your account, need 1k FLR.");
+				sleep(1000);
+				process.exit();
+			}
+		})
 }
 
 
@@ -185,12 +191,11 @@ async function sleep(ms) {
 
 const chainName = process.argv[2];
 const txId = process.argv[3];
-const sourceAddress = process.argv[4];
-const destinationAddress = process.argv[5];
-const destinationTag = process.argv[6];
-const amount = process.argv[7];
-const currency = process.argv[8];
-const ledgerBoundary = process.argv[9];
+const amount = process.argv[4];
+const currency = process.argv[5];
+const ledgerBoundary = process.argv[6];
+const destinationAddress = process.argv[7];
+const destinationTag = process.argv[8];
 if (chainName in chains) {
 	return configure(chains[chainName].chainId);
 } else {

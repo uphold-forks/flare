@@ -3,7 +3,7 @@ declare -a SUPPORTED_CHAINS=(LTC XRP)
 
 test_api () {
     if [[ $1 == LTC ]]; then
-        if [[ $(curl -sd '{"jsonrpc": "1.0", "id": "curltest", "method": "getnetworkinfo", "params": []}' -u $3:$4 -H 'content-type: text/plain;' $2 | jq .result.subversion) == "" ]]; then
+        if [[ $(curl -sd '{"jsonrpc": "1.0", "id": "curltest", "method": "getblockcount", "params": []}' -u $3:$4 $2 | jq .result) == "" ]]; then
             echo "Invalid LTC API"
             exit;
         fi
