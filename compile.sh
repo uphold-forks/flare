@@ -16,9 +16,9 @@ echo "Downloading AvalancheGo..."
 go get -v -d github.com/ava-labs/avalanchego/... &> /dev/null
 cd $GOPATH/src/github.com/ava-labs/avalanchego
 git config --global advice.detachedHead false
-# Hard-coded commit to tag v1.4.12, at the time of this authoring
-# https://github.com/ava-labs/avalanchego/releases/tag/v1.4.12
-git checkout cae93d95c1bcdc02e1370d38ed1c9d87f1c8c814
+# Hard-coded commit to tag v1.5.2, at the time of this authoring
+# https://github.com/ava-labs/avalanchego/releases/tag/v1.5.2
+git checkout f2e51d790430a171e6d39f72911d98f134942a55
 
 echo "Applying Flare-specific changes to AvalancheGo..."
 
