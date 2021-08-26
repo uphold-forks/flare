@@ -1,4 +1,84 @@
 {
-    "replaceAllExisting": false,
-    "validators": []
+    "validators": [
+        {
+            "nodeID": "NodeID-F2qXdeHH7ikN2isCU59JjQkDp2rsVz56N",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-CkGefuKuxWw3v1vzGkjPfkrLPdP5GMPWQ",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-yHDJnnZANij1wQYnZ7e8zvG47zvRz74R",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-KcMcpTRa9iqa1TaeZ66TFGWQSQgwGT5Yg",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-3ukjHcvtrXUvNXj556DyfGYCEtWNbhq34",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-EGEVMoGBBPnDo1PSTEJ8D2U7riFr596NF",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-Q3BmUmUUBVayRN4TNVvoqa1p2oUbs4LWZ",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-DyCqArfcYYomNYk1A72yqJnu5K6GokE8a",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-Lk58WoYrrAakt7wR9WbHsa9teqiLWTW35",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-Mg5GYBvRYXPJ8eebBAbnAoL7psUirtTRQ",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-PBv8vzEcFrfapbbnKVJvWLq5HsSKUgEev",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-NWPEfFujWBfihfF8uA6tAeG3rWQRqisCS",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-CvB1avUcDiCfdgVDnMcLuiR2nCp4M8dKY",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-DqyFn4gGgMM6MTBNyoqWGu6UDgyu9bJNg",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-MpYXNZWGEoR3Jgv95FAiATXdFhNKfkpid",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-F1rLi9bU5oyLMNCb39BwuvHRdFUrag5F3",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-Li3wCFFJc4WjtDfgiV8d9D8tHcrXGkYTW",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-HPErAiAi3scehK6hFN7S2mU2u8fyJaQ4v",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-6CrNPDrF4MURmxnCNX7vAgKoTL1q5mUPx",
+            "weight": 50000
+        },
+        {
+            "nodeID": "NodeID-Gx8AV9cWSyQ3mArMspSLJBTW31nuoUUmw",
+            "weight": 50000
+        }
+    ]
 }

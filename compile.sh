@@ -31,12 +31,18 @@ fi
 # Apply changes to avalanchego
 cp $WORKING_DIR/src/genesis/$GENESIS_FILE ./genesis/genesis_coston.go
 cp $WORKING_DIR/src/avalanchego/flags.go ./config/flags.go
+cp $WORKING_DIR/src/avalanchego/genesis.go ./genesis/genesis.go
 cp $WORKING_DIR/src/avalanchego/beacons.go ./genesis/beacons.go
 cp $WORKING_DIR/src/avalanchego/genesis_fuji.go ./genesis/genesis_fuji.go
 cp $WORKING_DIR/src/avalanchego/unparsed_config.go ./genesis/unparsed_config.go
+cp $WORKING_DIR/src/avalanchego/node.go ./node/node.go
+cp $WORKING_DIR/src/avalanchego/vm.go ./vms/platformvm/vm.go
 cp $WORKING_DIR/src/avalanchego/set.go ./snow/validators/set.go
 cp $WORKING_DIR/src/avalanchego/build_coreth.sh ./scripts/build_coreth.sh
 mkdir ./scripts/coreth_changes
+cp $WORKING_DIR/src/coreth/vm.go ./scripts/coreth_changes/vm.go
+cp $WORKING_DIR/src/coreth/import_tx.go ./scripts/coreth_changes/import_tx.go
+cp $WORKING_DIR/src/coreth/export_tx.go ./scripts/coreth_changes/export_tx.go
 cp $WORKING_DIR/src/coreth/state_transition.go ./scripts/coreth_changes/state_transition.go
 cp $WORKING_DIR/src/stateco/state_connector.go ./scripts/coreth_changes/state_connector.go
 cp $WORKING_DIR/src/keeper/keeper.go ./scripts/coreth_changes/keeper.go
