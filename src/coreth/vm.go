@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -279,6 +280,24 @@ func (vm *VM) Initialize(
 			return fmt.Errorf("failed to unmarshal config %s: %w", string(configBytes), err)
 		}
 	}
+	vm.config.EthAPIEnabled = false
+	vm.config.NetAPIEnabled = false
+	vm.config.Web3APIEnabled = false
+	vm.config.DebugAPIEnabled = false
+	vm.config.MaxBlocksPerRequest = 1
+	web3API := os.Getenv("WEB3_API")
+	if web3API == "enabled" {
+		vm.config.EthAPIEnabled = true
+		vm.config.NetAPIEnabled = true
+		vm.config.Web3APIEnabled = true
+	} else if web3API == "debug" {
+		vm.config.EthAPIEnabled = true
+		vm.config.NetAPIEnabled = true
+		vm.config.Web3APIEnabled = true
+		vm.config.DebugAPIEnabled = true
+		vm.config.MaxBlocksPerRequest = 100
+	}
+
 	if b, err := json.Marshal(vm.config); err == nil {
 		log.Info("Initializing Coreth VM", "Version", Version, "Config", string(b))
 	} else {

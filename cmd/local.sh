@@ -35,6 +35,7 @@ fi
 
 # NODE 1
 printf "Launching Node 1 at 127.0.0.1:9650\n"
+export WEB3_API=debug
 nohup ./build/avalanchego \
 --public-ip=127.0.0.1 \
 --http-port=9650 \
@@ -52,6 +53,7 @@ sleep 3
 
 # NODE 2
 printf "Launching Node 2 at 127.0.0.2:9652\n"
+export WEB3_API=disabled
 nohup ./build/avalanchego \
 --public-ip=127.0.0.1 \
 --http-port=9652 \
