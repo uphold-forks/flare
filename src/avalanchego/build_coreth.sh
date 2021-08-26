@@ -28,6 +28,11 @@ fi
 
 echo "Applying Flare-specific changes to Coreth..."
 chmod -R 775 $coreth_path
+cp $AVALANCHE_PATH/scripts/coreth_changes/vm.go $coreth_path/plugin/evm/vm.go
+cp $AVALANCHE_PATH/scripts/coreth_changes/import_tx.go $coreth_path/plugin/evm/import_tx.go
+rm $coreth_path/plugin/evm/import_tx_test.go
+cp $AVALANCHE_PATH/scripts/coreth_changes/export_tx.go $coreth_path/plugin/evm/export_tx.go
+rm $coreth_path/plugin/evm/export_tx_test.go
 cp $AVALANCHE_PATH/scripts/coreth_changes/state_transition.go $coreth_path/core/state_transition.go
 cp $AVALANCHE_PATH/scripts/coreth_changes/state_connector.go $coreth_path/core/state_connector.go
 cp $AVALANCHE_PATH/scripts/coreth_changes/keeper.go $coreth_path/core/keeper.go

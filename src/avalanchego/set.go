@@ -115,8 +115,7 @@ func (s *set) Set(vdrs []Validator) error {
 }
 
 type FBAValidatorList struct {
-	ReplaceAllExisting bool           `json:"replaceAllExisting"`
-	Validators         []FBAValidator `json:"validators"`
+	Validators []FBAValidator `json:"validators"`
 }
 
 type FBAValidator struct {
@@ -138,9 +137,6 @@ func (s *set) set(vdrs []Validator) error {
 		}
 	}
 	lenVdrs := len(FBAValidators.Validators)
-	if !FBAValidators.ReplaceAllExisting {
-		lenVdrs = lenVdrs + len(vdrs)
-	}
 	// If the underlying arrays are much larger than necessary, resize them to
 	// allow garbage collection of unused memory
 	if cap(s.vdrSlice) > len(s.vdrSlice)*maxExcessCapacityFactor {
@@ -189,38 +185,6 @@ func (s *set) set(vdrs []Validator) error {
 			return err
 		}
 		s.totalWeight = newTotalWeight
-	}
-	if !FBAValidators.ReplaceAllExisting {
-		for _, vdr := range vdrs {
-			vdrID := vdr.ID()
-			if s.contains(vdrID) {
-				continue
-			}
-			w := vdr.Weight()
-			if w == 0 {
-				continue // This validator would never be sampled anyway
-			}
-
-			i := len(s.vdrSlice)
-			s.vdrMap[vdrID] = i
-			s.vdrSlice = append(s.vdrSlice, &validator{
-				nodeID: vdr.ID(),
-				weight: vdr.Weight(),
-			})
-			s.vdrWeights = append(s.vdrWeights, w)
-			s.vdrMaskedWeights = append(s.vdrMaskedWeights, 0)
-
-			if s.maskedVdrs.Contains(vdrID) {
-				continue
-			}
-			s.vdrMaskedWeights[len(s.vdrMaskedWeights)-1] = w
-
-			newTotalWeight, err := safemath.Add64(s.totalWeight, w)
-			if err != nil {
-				return err
-			}
-			s.totalWeight = newTotalWeight
-		}
 	}
 	return nil
 }

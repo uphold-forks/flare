@@ -46,7 +46,7 @@ nohup ./build/avalanchego \
 --staking-tls-cert-file=$LAUNCH_DIR/conf/local/node1/node.crt \
 --staking-tls-key-file=$LAUNCH_DIR/conf/local/node1/node.key \
 --db-type=$DB_TYPE \
---log-level=info > /dev/null 2>&1 &
+--log-level=debug > $LAUNCH_DIR/logs/local/node1/launch.log 2>&1 &
 NODE_1_PID=`echo $!`
 sleep 3
 
@@ -63,7 +63,7 @@ nohup ./build/avalanchego \
 --staking-tls-cert-file=$LAUNCH_DIR/conf/local/node2/node.crt \
 --staking-tls-key-file=$LAUNCH_DIR/conf/local/node2/node.key \
 --db-type=$DB_TYPE \
---log-level=info > /dev/null 2>&1 &
+--log-level=debug > $LAUNCH_DIR/logs/local/node2/launch.log 2>&1 &
 NODE_2_PID=`echo $!`
 sleep 3
 
@@ -80,7 +80,7 @@ nohup ./build/avalanchego \
 --staking-tls-cert-file=$LAUNCH_DIR/conf/local/node3/node.crt \
 --staking-tls-key-file=$LAUNCH_DIR/conf/local/node3/node.key \
 --db-type=$DB_TYPE \
---log-level=info > /dev/null 2>&1 &
+--log-level=debug > $LAUNCH_DIR/logs/local/node3/launch.log 2>&1 &
 NODE_3_PID=`echo $!`
 sleep 3
 
@@ -97,7 +97,7 @@ nohup ./build/avalanchego \
 --staking-tls-cert-file=$LAUNCH_DIR/conf/local/node4/node.crt \
 --staking-tls-key-file=$LAUNCH_DIR/conf/local/node4/node.key \
 --db-type=$DB_TYPE \
---log-level=info > /dev/null 2>&1 &
+--log-level=debug > $LAUNCH_DIR/logs/local/node4/launch.log 2>&1 &
 NODE_4_PID=`echo $!`
 sleep 3
 
@@ -114,7 +114,7 @@ nohup ./build/avalanchego \
 --staking-tls-cert-file=$LAUNCH_DIR/conf/local/node5/node.crt \
 --staking-tls-key-file=$LAUNCH_DIR/conf/local/node5/node.key \
 --db-type=$DB_TYPE \
---log-level=info > /dev/null 2>&1 &
+--log-level=debug > $LAUNCH_DIR/logs/local/node5/launch.log 2>&1 &
 NODE_5_PID=`echo $!`
 sleep 3
 
