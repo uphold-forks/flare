@@ -21,7 +21,9 @@ import (
 )
 
 var (
-	tr = &http.Transport{
+	testingChainID               = new(big.Int).SetUint64(16)
+	stateConnectorActivationTime = new(big.Int).SetUint64(1636070400)
+	tr                           = &http.Transport{
 		MaxIdleConns:        100,
 		MaxConnsPerHost:     100,
 		MaxIdleConnsPerHost: 100,
@@ -35,6 +37,11 @@ var (
 	apiRetries    = 3
 	apiRetryDelay = 1 * time.Second
 )
+
+func GetStateConnectorActivated(chainID *big.Int, blockTime *big.Int) bool {
+	// Return true if chainID is 16 or if block.timestamp is greater than the state connector activation time on any chain
+	return chainID.Cmp(testingChainID) == 0 || blockTime.Cmp(stateConnectorActivationTime) > 0
+}
 
 func GetStateConnectorGasDivisor(blockTime *big.Int) uint64 {
 	switch {

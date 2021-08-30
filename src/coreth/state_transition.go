@@ -375,13 +375,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		stateConnectorGas := st.gas / GetStateConnectorGasDivisor(st.evm.Context.Time)
 		checkRet, _, checkVmerr := st.evm.Call(sender, st.to(), st.data, stateConnectorGas, st.value)
-		if checkVmerr == nil && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.BlockNumber) {
-			if StateConnectorCall(msg.From(), st.evm.Context.Time, st.data[0:4], checkRet) {
-				originalCoinbase := st.evm.Context.Coinbase
-				defer func() {
-					st.evm.Context.Coinbase = originalCoinbase
-				}()
-				st.evm.Context.Coinbase = st.msg.From()
+		if checkVmerr == nil {
+			chainConfig := st.evm.ChainConfig()
+			if GetStateConnectorActivated(chainConfig.ChainID, st.evm.Context.Time) && binary.BigEndian.Uint32(checkRet[28:32]) < GetMaxAllowedChains(st.evm.Context.Time) {
+				if StateConnectorCall(msg.From(), st.evm.Context.Time, st.data[0:4], checkRet) {
+					originalCoinbase := st.evm.Context.Coinbase
+					defer func() {
+						st.evm.Context.Coinbase = originalCoinbase
+					}()
+					st.evm.Context.Coinbase = st.msg.From()
+				}
 			}
 		}
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, stateConnectorGas, st.value)
