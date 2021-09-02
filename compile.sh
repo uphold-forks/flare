@@ -28,7 +28,7 @@ if [ $# -ne 0 ]
     GENESIS_FILE=$1
 fi
 
-echo "Using ${$GENESIS_FILE}"
+echo "Using ${GENESIS_FILE}"
 
 # Apply changes to avalanchego
 cp $WORKING_DIR/src/genesis/$GENESIS_FILE ./genesis/genesis_coston.go
