@@ -417,9 +417,14 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	// Call the keeper contract trigger method if there is no vm error
-	log := log.Root()
 	if vmerr == nil {
+		// Temporarily disable EVM debugging
+		oldDebug := st.evm.Config.Debug
+		st.evm.Config.Debug = false
+		// Call the keeper contract trigger
+		log := log.Root()
 		triggerKeeperAndMint(st, log)
+		st.evm.Config.Debug = oldDebug
 	}
 
 	return &ExecutionResult{
