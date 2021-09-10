@@ -34,13 +34,13 @@ then
 fi
 
 # NODE 1
-printf "Launching Node 1 at 127.0.0.1:9660\n"
+printf "Launching Node 1 at 127.0.0.1:9650\n"
 ./build/avalanchego \
 --public-ip=127.0.0.1 \
 --snow-sample-size=1 \
 --snow-quorum-size=1 \
---http-port=9660 \
---staking-port=9661 \
+--http-port=9650 \
+--staking-port=9651 \
 --log-dir=$LAUNCH_DIR/logs/local/node1 \
 --db-dir=$LAUNCH_DIR/db/local/node1 \
 --bootstrap-ips= \

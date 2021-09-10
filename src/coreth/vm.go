@@ -295,7 +295,8 @@ func (vm *VM) Initialize(
 		vm.config.NetAPIEnabled = true
 		vm.config.Web3APIEnabled = true
 		vm.config.DebugAPIEnabled = true
-		vm.config.MaxBlocksPerRequest = 100
+		vm.config.TxPoolAPIEnabled = true
+		vm.config.MaxBlocksPerRequest = 0
 	}
 
 	if b, err := json.Marshal(vm.config); err == nil {
