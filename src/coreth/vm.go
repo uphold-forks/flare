@@ -296,6 +296,7 @@ func (vm *VM) Initialize(
 		vm.config.Web3APIEnabled = true
 		vm.config.DebugAPIEnabled = true
 		vm.config.TxPoolAPIEnabled = true
+		vm.config.Pruning = false
 		vm.config.MaxBlocksPerRequest = 0
 	}
 
