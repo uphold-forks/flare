@@ -53,7 +53,7 @@ func GetStateConnectorGasDivisor(blockTime *big.Int) uint64 {
 func GetMaxAllowedChains(blockTime *big.Int) uint32 {
 	switch {
 	default:
-		return 4
+		return 5
 	}
 }
 
@@ -599,6 +599,14 @@ func ProveXRP(sender common.Address, blockTime *big.Int, functionSelector []byte
 }
 
 // =======================================================
+// ALGO
+// =======================================================
+
+func ProveALGO(sender common.Address, blockTime *big.Int, functionSelector []byte, checkRet []byte, chainURL string) (bool, bool) {
+	return false, false
+}
+
+// =======================================================
 // Common
 // =======================================================
 
@@ -612,6 +620,8 @@ func ProveChain(sender common.Address, blockTime *big.Int, functionSelector []by
 		return ProvePoW(sender, blockTime, functionSelector, checkRet, "dog", chainURL)
 	case 3:
 		return ProveXRP(sender, blockTime, functionSelector, checkRet, chainURL)
+	case 4:
+		return ProveALGO(sender, blockTime, functionSelector, checkRet, chainURL)
 	default:
 		return false, true
 	}
@@ -629,6 +639,8 @@ func ReadChain(sender common.Address, blockTime *big.Int, functionSelector []byt
 		chainURLs = os.Getenv("DOGE_APIs")
 	case 3:
 		chainURLs = os.Getenv("XRP_APIs")
+	case 4:
+		chainURLs = os.Getenv("ALGO_APIs")
 	}
 	if chainURLs == "" {
 		return false
