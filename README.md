@@ -55,7 +55,7 @@ Run the compile command with the `songbird` flag:
 ./compile.sh songbird
 ```
 
-Launch a songbird then node using the following command:
+Launch a songbird node using the following command:
 
 ```
 ./cmd/songbird.sh
