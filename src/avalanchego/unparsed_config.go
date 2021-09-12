@@ -102,7 +102,7 @@ func (uc UnparsedConfig) Parse() (Config, error) {
 	var CChainGenesis string
 	switch NetworkID := uc.NetworkID; NetworkID {
 	case 5:
-		CChainGenesis = costonCChainGenesis
+		CChainGenesis = testnetCChainGenesis
 	default:
 		CChainGenesis = uc.CChainGenesis
 	}

@@ -1,9 +1,11 @@
 package genesis
 
+// REMOVE BEFORE FLIGHT: Change chainId from 190 to 19 as per https://github.com/ethereum-lists/chains/blob/master/_data/chains/eip155-19.json
+
 var (
-	costonCChainGenesis = `{
+	testnetCChainGenesis = `{
 		"config": {
-			"chainId": 16,
+			"chainId": 190,
 			"homesteadBlock": 0,
 			"daoForkBlock": 0,
 			"daoForkSupport": true,

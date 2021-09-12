@@ -376,7 +376,7 @@ async function configure(chainId) {
 				process.exit();
 			} else {
 				// Read the compiled contract code
-				let source = fs.readFileSync("../bin/src/stateco/StateConnector.json");
+				let source = fs.readFileSync("../../../bin/src/stateco/StateConnector.json");
 				let contract = JSON.parse(source);
 				// Create Contract proxy class
 				stateConnector = new web3.eth.Contract(contract.abi);
