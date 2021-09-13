@@ -10,7 +10,7 @@ DB_TYPE=rocksdb
 if [ "$(uname)" == "Darwin" ]; then DB_TYPE=leveldb; fi
 
 # Test and export underlying chain APIs you chose to use for the state connector
-source ./cmd/export_chain_apis.sh $LAUNCH_DIR/conf/local/chain_apis.json
+source ./conf/export_chain_apis.sh $LAUNCH_DIR/conf/local/chain_apis.json
 
 export FBA_VALs=$LAUNCH_DIR/conf/local/fba_validators.json
 AVALANCHE_DIR=$GOPATH/src/github.com/ava-labs/avalanchego

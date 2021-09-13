@@ -1,7 +1,7 @@
 package genesis
 
 var (
-	costonCChainGenesis = `{
+	testnetCChainGenesis = `{
 		"config": {
 			"chainId": 20210406,
 			"homesteadBlock": 0,

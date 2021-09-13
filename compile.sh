@@ -22,16 +22,16 @@ git checkout f2e51d790430a171e6d39f72911d98f134942a55
 
 echo "Applying Flare-specific changes to AvalancheGo..."
 
-GENESIS_FILE=genesis_coston.go
+GENESIS_FILE=genesis_local.go
 if [ $# -ne 0 ]
   then
-    GENESIS_FILE=$1
+    GENESIS_FILE=genesis_$1.go
 fi
 
 echo "Using ${GENESIS_FILE}"
 
 # Apply changes to avalanchego
-cp $WORKING_DIR/src/genesis/$GENESIS_FILE ./genesis/genesis_coston.go
+cp $WORKING_DIR/src/genesis/$GENESIS_FILE ./genesis/genesis_testnet.go
 cp $WORKING_DIR/src/avalanchego/flags.go ./config/flags.go
 cp $WORKING_DIR/src/avalanchego/genesis.go ./genesis/genesis.go
 cp $WORKING_DIR/src/avalanchego/beacons.go ./genesis/beacons.go
