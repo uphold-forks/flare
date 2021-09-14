@@ -1,3 +1,6 @@
+// (c) 2021, Flare Networks Limited. All rights reserved.
+// Please see the file LICENSE for licensing terms.
+
 const Web3 = require('web3');
 const web3 = new Web3();
 const Tx = require('ethereumjs-tx').Transaction;

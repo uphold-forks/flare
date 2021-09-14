@@ -1,3 +1,6 @@
+// (c) 2021, Flare Networks Limited. All rights reserved.
+// Please see the file LICENSE for licensing terms.
+
 package genesis
 
 var (
