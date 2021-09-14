@@ -38,6 +38,7 @@ fi
 
 # NODE 1
 printf "Launching Node 1 at 127.0.0.1:9650\n"
+export WEB3_API=debug
 ./build/avalanchego \
 --public-ip=127.0.0.1 \
 --snow-sample-size=1 \
