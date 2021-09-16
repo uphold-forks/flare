@@ -29,6 +29,7 @@ fi
 
 # NODE 1
 printf "Launching Songbird Node at 127.0.0.1:9650\n"
+export WEB3_API=debug
 nohup ./build/avalanchego \
 --http-host= \
 --public-ip=127.0.0.1 \
