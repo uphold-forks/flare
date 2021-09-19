@@ -1,7 +1,8 @@
+#!/bin/bash
+
 # (c) 2021, Flare Networks Limited. All rights reserved.
 # Please see the file LICENSE for licensing terms.
 
-#!/bin/bash
 if [[ $(pwd) =~ " " ]]; then echo "Working directory path contains a folder with a space in its name, please remove all spaces" && exit; fi
 if [ -z ${GOPATH+x} ]; then echo "GOPATH is not set, visit https://github.com/golang/go/wiki/SettingGOPATH" && exit; fi
 printf "\x1b[34mSongbird Canary Network Deployment\x1b[0m\n\n"
