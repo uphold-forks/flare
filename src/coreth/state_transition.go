@@ -369,7 +369,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 	burnAddress := st.evm.Context.Coinbase
 	if !contractCreation {
-		if *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.Time)) {
+		if *msg.To() == common.HexToAddress(GetStateConnectorContractAddr(st.evm.Context.Time)) && len(st.data) >= 4 {
 			selectProveDataAvailabilityPeriodFinality = bytes.Equal(st.data[0:4], GetProveDataAvailabilityPeriodFinalitySelector(st.evm.Context.Time))
 			selectProvePaymentFinality = bytes.Equal(st.data[0:4], GetProvePaymentFinalitySelector(st.evm.Context.Time))
 			selectDisprovePaymentFinality = bytes.Equal(st.data[0:4], GetDisprovePaymentFinalitySelector(st.evm.Context.Time))
