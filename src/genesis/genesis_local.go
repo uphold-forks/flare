@@ -65,6 +65,15 @@ var (
 			},
 			"ffC11262622D5069aBad729efe84a95C169d9c06": {
 				"balance": "0x314dc6448d9338c15B0a00000000"
+			},
+			"0x162a997471B8AbF3B9aBaE9E19412019A1d8c54f": {
+				"balance": "0x314dc6448d9338c15B0a00000000"
+			},
+			"0xF0b8e986C15000dDdCc5A3519A7Cc6fe2e2c9928": {
+				"balance": "0x314dc6448d9338c15B0a00000000"
+			},
+			"0x1f6C5294Ea9FF3B6B63e63452B4b56Df4Ab14798": {
+				"balance": "0x314dc6448d9338c15B0a00000000"
 			}
 		},
 		"number": "0x0",
