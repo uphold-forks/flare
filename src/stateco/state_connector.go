@@ -43,7 +43,7 @@ var (
 
 func GetStateConnectorActivated(chainID *big.Int, blockTime *big.Int) bool {
 	// Return true if chainID is 16 or if block.timestamp is greater than the state connector activation time on any chain
-	return chainID.Cmp(testingChainID) == 0 || blockTime.Cmp(stateConnectorActivationTime) > 0
+	return chainID.Cmp(testingChainID) == 0
 }
 
 func GetStateConnectorGasDivisor(blockTime *big.Int) uint64 {
