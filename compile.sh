@@ -34,7 +34,7 @@ fi
 echo "Using ${GENESIS_FILE}"
 
 # Apply changes to avalanchego
-cp $WORKING_DIR/src/genesis/$GENESIS_FILE ./genesis/genesis_testnet.go
+cp $WORKING_DIR/src/genesis/$GENESIS_FILE ./genesis/$GENESIS_FILE.go
 cp $WORKING_DIR/src/avalanchego/flags.go ./config/flags.go
 cp $WORKING_DIR/src/avalanchego/genesis.go ./genesis/genesis.go
 cp $WORKING_DIR/src/avalanchego/beacons.go ./genesis/beacons.go
